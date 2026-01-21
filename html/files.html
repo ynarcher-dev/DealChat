@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Files - DealChat</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- AG Grid -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Reuse Sidebar logic -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="material-symbols-outlined logo-icon">auto_awesome</span>
+                    <span class="logo-text">DealChat</span>
+                </div>
+                <button class="btn-new-source" onclick="location.href='dealbook.html'">
+                    <span class="material-symbols-outlined">chat</span>
+                    채팅으로 돌아가기
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <ul class="source-list">
+                        <li class="source-item" onclick="location.href='files.html'">
+                            <span class="material-symbols-outlined">description</span>
+                            <span class="source-name">내 파일</span>
+                        </li>
+                        <li class="source-item" onclick="location.href='companies.html'">
+                            <span class="material-symbols-outlined">business</span>
+                            <span class="source-name">기업 목록</span>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="breadcrumb">
+                    <span class="folder">DealChat</span>
+                    <span class="separator">/</span>
+                    <span class="notebook-title">파일 저장소</span>
+                </div>
+            </header>
+
+            <section class="grid-container" style="padding: 24px; flex: 1;">
+                <div id="fileGrid" class="ag-theme-alpine" style="height: 100%; width: 100%;"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        const columnDefs = [
+            { field: "name", headerName: "파일명", sortable: true, filter: true, flex: 2 },
+            { field: "type", headerName: "유형", sortable: true, filter: true, flex: 1 },
+            { field: "size", headerName: "크기", sortable: true, flex: 1 },
+            { field: "date", headerName: "수정일", sortable: true, flex: 1 }
+        ];
+
+        const rowData = [
+            { name: "프로젝트 개요.pdf", type: "PDF", size: "1.2 MB", date: "2024-01-20" },
+            { name: "시장 조사 보고서.docx", type: "Docx", size: "850 KB", date: "2024-01-18" },
+            { name: "경쟁사 분석.xlsx", type: "Excel", size: "2.5 MB", date: "2024-01-21" },
+            { name: "투자 계약서_초안.pdf", type: "PDF", size: "3.1 MB", date: "2024-01-15" }
+        ];
+
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: rowData,
+            defaultColDef: {
+                resizable: true,
+            },
+            pagination: true,
+            paginationPageSize: 10
+        };
+
+        $(document).ready(function () {
+            const gridDiv = document.querySelector('#fileGrid');
+            new agGrid.Grid(gridDiv, gridOptions);
+        });
+    </script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css');
+        @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css');
+
+        .ag-theme-alpine {
+            --ag-border-color: var(--border-color);
+            --ag-header-background-color: #f1f3f4;
+            --ag-odd-row-background-color: #fafafa;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+    </style>
+</body>
+
+</html>
