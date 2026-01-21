@@ -15,6 +15,7 @@ const rowData = [
 const gridOptions = {
     columnDefs: columnDefs,
     rowData: rowData,
+    theme: 'legacy',
     defaultColDef: {
         resizable: true,
     },
@@ -24,5 +25,12 @@ const gridOptions = {
 
 $(document).ready(function () {
     const gridDiv = document.querySelector('#fileGrid');
-    new agGrid.Grid(gridDiv, gridOptions);
+    agGrid.createGrid(gridDiv, gridOptions);
+
+    // Sidebar Toggle
+    $('#toggle-sidebar').on('click', function () {
+        $('.sidebar').toggleClass('collapsed');
+        const isCollapsed = $('.sidebar').hasClass('collapsed');
+        $(this).find('.material-symbols-outlined').text(isCollapsed ? 'menu' : 'menu_open');
+    });
 });

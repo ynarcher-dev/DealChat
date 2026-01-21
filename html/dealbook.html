@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NotebookLM Clone - AI Research Assistant</title>
+    <title>DealBook</title>
     <meta name="description" content="AI 기반 리서치 어시스턴트 NotebookLM 스타일의 웹 페이지 인터페이스입니다.">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -21,13 +21,27 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-symbols-outlined logo-icon">auto_awesome</span>
-                    <span class="logo-text">DealChat</span>
+                <div class="sidebar-header-top">
+                    <div class="logo">
+                        <span class="material-symbols-outlined logo-icon">auto_awesome</span>
+                        <span class="logo-text"><a href='../index.html'
+                                style="color: inherit; text-decoration: none;">DealChat</a></span>
+                    </div>
+                    <button class="btn-toggle-sidebar" id="toggle-sidebar">
+                        <span class="material-symbols-outlined">menu_open</span>
+                    </button>
                 </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <p style="margin: 0; font-weight: 600;">회사소개</p>
+                    <button id="save-summary" class="btn-secondary"
+                        style="padding: 4px 12px; font-size: 12px;">Save</button>
+                </div>
+                <textarea id="summary" placeholder="업로드된 소스에 대해 질문해보세요..." rows="10"></textarea>
+                <br />
                 <button class="btn-new-source" id="add-source">
                     <span class="material-symbols-outlined">add</span>
-                    소스 추가
+                    <span>소스 추가</span>
                 </button>
                 <input type="file" id="file-upload" multiple style="display: none;" accept=".pdf,.doc,.docx,.txt">
             </div>
@@ -35,7 +49,7 @@
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <ul class="source-list" id="source-list">
-
+                        <!-- Uploaded files will appear here -->
                     </ul>
                 </div>
             </nav>
@@ -43,7 +57,7 @@
             <div class="sidebar-footer">
                 <div class="user-profile">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User Avatar" class="avatar">
-                    <span class="user-name">사용자님</span>
+                    <span class="user-name">홍길동</span>
                 </div>
                 <button class="btn-icon-only">
                     <span class="material-symbols-outlined">settings</span>
@@ -113,7 +127,8 @@
             <div class="panel-content">
                 <div class="guide-section">
                     <h3>요약</h3>
-                    <p>이 노트북은 2024년 신규 사업 전략 수립을 위한 자료들을 포함하고 있습니다. 주요 내용은 AI 기반 서비스 확장과 동남아 시장 진출 전략입니다.</p>
+                    <textarea id="summary-text" readonly
+                        style="width: 100%; min-height: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: vertical;"></textarea>
                 </div>
                 <div class="guide-section">
                     <h3>추천 질문</h3>
@@ -127,7 +142,7 @@
         </aside>
     </div>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="script.js"></script>
+    <script src="../js/dealbook.js"></script>
 </body>
 
 </html>

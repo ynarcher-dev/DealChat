@@ -4,6 +4,95 @@ $(document).ready(function () {
     const $welcomeScreen = $('.welcome-screen');
     const $guidePanel = $('#guide-panel');
 
+    // URL에서 id 파라미터 추출
+    const urlParams = new URLSearchParams(window.location.search);
+    const companyId = urlParams.get('id');
+
+    // 현재 불러온 회사 데이터를 저장할 변수
+    let currentCompanyData = null;
+    const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
+
+    // 회사 ID가 있으면 Lambda에서 데이터 가져오기
+    if (companyId) {
+        fetch(LAMBDA_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                table: 'companies',
+                id: companyId
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('데이터를 불러오는 중 오류가 발생했습니다:', data.error);
+                } else {
+                    currentCompanyData = data;
+                    console.log('회사 정보:', data);
+
+                    if (data.companyName) {
+                        $('.notebook-title').text(data.companyName);
+                    }
+
+                    if (data.summary) {
+                        $('#summary').val(data.summary);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('데이터 로드 실패:', error);
+            });
+    }
+
+    // Save 버튼 클릭 이벤트
+    $('#save-summary').on('click', function () {
+        if (!currentCompanyData) {
+            alert('수정할 데이터가 로드되지 않았습니다.');
+            return;
+        }
+
+        const updatedSummary = $('#summary').val();
+
+        // 기존 데이터에 수정된 요약본 반영
+        const updatePayload = {
+            ...currentCompanyData,
+            summary: updatedSummary,
+            table: 'companies',
+            action: 'update' // Lambda에서 저장 로직을 타게 하기 위한 식별자
+        };
+
+        const $btn = $(this);
+        $btn.prop('disabled', true).text('Saving...');
+
+        // PUT 대신 POST를 사용하여 405 Method Not Allowed 에러 방지
+        fetch(LAMBDA_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatePayload)
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert('저장 중 오류가 발생했습니다: ' + result.error);
+                } else {
+                    alert('성공적으로 저장되었습니다.');
+                    // 로컬 데이터도 업데이트
+                    currentCompanyData.summary = updatedSummary;
+                }
+            })
+            .catch(error => {
+                console.error('저장 실패:', error);
+                alert('저장 요청에 실패했습니다.');
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).text('Save');
+            });
+    });
+
     // Auto-resize textarea
     $chatInput.on('input', function () {
         $(this).css('height', 'auto');
@@ -70,6 +159,13 @@ $(document).ready(function () {
             e.preventDefault();
             sendMessage();
         }
+    });
+
+    // Sidebar Toggle
+    $('#toggle-sidebar').on('click', function () {
+        $('.sidebar').toggleClass('collapsed');
+        const isCollapsed = $('.sidebar').hasClass('collapsed');
+        $(this).find('.material-symbols-outlined').text(isCollapsed ? 'menu' : 'menu_open');
     });
 
     // Guide Panel Toggle

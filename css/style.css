@@ -10,6 +10,7 @@
     --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.30), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --sidebar-width: 280px;
+    --sidebar-collapsed-width: 72px;
     --right-panel-width: 320px;
 }
 
@@ -49,28 +50,68 @@ h3,
     display: flex;
     flex-direction: column;
     z-index: 10;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
 }
 
 .sidebar-header {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
 }
 
 .logo {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 24px;
     color: var(--primary-color);
+    white-space: nowrap;
 }
 
 .logo-icon {
     font-size: 28px;
+    min-width: 28px;
 }
 
 .logo-text {
     font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.5px;
+    transition: opacity 0.2s, visibility 0.2s;
+}
+
+.sidebar.collapsed .logo-text {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+}
+
+.btn-toggle-sidebar {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.btn-toggle-sidebar:hover {
+    background-color: #f1f3f4;
 }
 
 .btn-new-source {
@@ -87,6 +128,21 @@ h3,
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.btn-new-source span:not(.material-symbols-outlined) {
+    transition: opacity 0.2s;
+}
+
+.sidebar.collapsed .btn-new-source {
+    padding: 12px 0;
+    border-radius: 12px;
+}
+
+.sidebar.collapsed .btn-new-source span:not(.material-symbols-outlined) {
+    display: none;
 }
 
 .btn-new-source:hover {
@@ -125,9 +181,23 @@ h3,
     padding: 10px 12px;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, padding 0.2s;
     font-size: 14px;
     color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.source-item .source-name {
+    transition: opacity 0.2s, visibility 0.2s;
+}
+
+.sidebar.collapsed .source-item {
+    padding: 10px;
+    justify-content: center;
+}
+
+.sidebar.collapsed .source-item .source-name {
+    display: none;
 }
 
 .source-item:hover {
@@ -177,6 +247,60 @@ h3,
     flex-direction: column;
     position: relative;
     background-color: var(--bg-color);
+}
+
+/* Tab Styling */
+.tab-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 24px;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.tab-btn {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-btn:hover {
+    background-color: #f1f3f4;
+    color: var(--text-main);
+}
+
+.tab-btn.active {
+    background-color: #e8f0fe;
+    color: var(--primary-color);
+}
+
+.tab-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.tab-content {
+    flex: 1;
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
 }
 
 .top-bar {
