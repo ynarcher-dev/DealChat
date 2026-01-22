@@ -2,11 +2,9 @@ const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-north
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
-    { field: "file_name", headerName: "파일명", sortable: true, filter: true, flex: 1 },
-    { field: "summary", headerName: "요약", sortable: true, flex: 2 },
-    { field: "companyCode", headerName: "관련 기업", sortable: true, filter: true, flex: 1 },
-    { field: "createdAt", headerName: "업로드일", sortable: true, flex: 1, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : "" }
-
+    { field: "companyName", headerName: "기업명", sortable: true, filter: true, flex: 1 },
+    { field: "industry", headerName: "산업", sortable: true, filter: true, flex: 1 },
+    { field: "summary", headerName: "요약", sortable: true, filter: true, flex: 2.5 }
 ];
 
 const gridOptions = {
@@ -15,7 +13,7 @@ const gridOptions = {
     cacheBlockSize: 100,
     maxConcurrentDatasourceRequests: 1,
     infiniteInitialRowCount: 1,
-    theme: 'legacy',
+    theme: 'legacy', // 최신 AG Grid 라이브러리에서 레거시 CSS 테마를 사용하기 위한 필수 설정
     defaultColDef: {
         resizable: true,
         sortable: true,
@@ -24,28 +22,33 @@ const gridOptions = {
     pagination: true,
     paginationPageSize: 20,
     onRowClicked: (params) => {
-        // 파일 클릭 시의 동작 (예: 다운로드 또는 상세 보기)을 여기에 정의할 수 있습니다.
-        console.log("File clicked:", params.data);
+        const id = params.data.id;
+        if (id) {
+            window.location.href = `./dealbook.html?id=${encodeURIComponent(id)}`;
+        }
     }
 };
 
 let gridApi;
 
 $(document).ready(function () {
-    const gridDiv = document.querySelector('#fileGrid');
+    const gridDiv = document.querySelector('#companyGrid');
+    // AG Grid v30+ 초기화 방식
     gridApi = agGrid.createGrid(gridDiv, gridOptions);
 
     const datasource = {
         getRows: (params) => {
             const keyword = ($('#search-input').val() || "").trim();
 
+            // 람다 함수가 POST를 지원하고, keyword가 없어도 전체 조회를 지원하도록 수정되었으므로
+            // 명확하게 JSON 바디를 담아 POST 요청을 보냅니다.
             fetch(LAMBDA_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    table: 'dealchat_files',
+                    table: 'companies',
                     keyword: keyword
                 })
             })
@@ -57,9 +60,10 @@ $(document).ready(function () {
                         return;
                     }
 
-                    // Lambda가 { Items: [], Count: 0 } 형태 또는 [] 형태 중 무엇을 반환하든 대응
-                    const rows = Array.isArray(data) ? data : (data.Items || []);
-                    params.successCallback(rows, rows.length || (data.Count || 0));
+                    const rows = Array.isArray(data) ? data : [];
+                    // Infinite Row Model은 전체 데이터 개수를 알 수 없을 때 -1을 넘길 수 있지만,
+                    // 람다가 전체 리스트를 반환하므로 rows.length를 정확히 넘겨줍니다.
+                    params.successCallback(rows, rows.length);
                 })
                 .catch(error => {
                     console.error('Fetch Error:', error);
@@ -68,7 +72,7 @@ $(document).ready(function () {
         }
     };
 
-    // 초기 데이터 로드
+    // 초기 데이터 로드 (데이터소스 설정)
     gridApi.setGridOption('datasource', datasource);
 
     // 검색 버튼 이벤트
@@ -81,5 +85,11 @@ $(document).ready(function () {
         if (e.which === 13) {
             gridApi.setGridOption('datasource', datasource);
         }
+    });
+
+    // 로고 클릭 시 새로고침 효과
+    $('.logo').on('click', () => {
+        $('#search-input').val('');
+        gridApi.setGridOption('datasource', datasource);
     });
 });

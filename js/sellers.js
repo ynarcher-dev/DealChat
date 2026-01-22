@@ -2,11 +2,9 @@ const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-north
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
-    { field: "file_name", headerName: "파일명", sortable: true, filter: true, flex: 1 },
-    { field: "summary", headerName: "요약", sortable: true, flex: 2 },
-    { field: "companyCode", headerName: "관련 기업", sortable: true, filter: true, flex: 1 },
-    { field: "createdAt", headerName: "업로드일", sortable: true, flex: 1, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : "" }
-
+    { field: "companyName", headerName: "매도자명", sortable: true, filter: true, flex: 1 },
+    { field: "industry", headerName: "산업", sortable: true, filter: true, flex: 1 },
+    { field: "summary", headerName: "요약", sortable: true, filter: true, flex: 2.5 }
 ];
 
 const gridOptions = {
@@ -24,15 +22,17 @@ const gridOptions = {
     pagination: true,
     paginationPageSize: 20,
     onRowClicked: (params) => {
-        // 파일 클릭 시의 동작 (예: 다운로드 또는 상세 보기)을 여기에 정의할 수 있습니다.
-        console.log("File clicked:", params.data);
+        const id = params.data.id;
+        if (id) {
+            window.location.href = `./dealbook.html?id=${encodeURIComponent(id)}`;
+        }
     }
 };
 
 let gridApi;
 
 $(document).ready(function () {
-    const gridDiv = document.querySelector('#fileGrid');
+    const gridDiv = document.querySelector('#sellerGrid');
     gridApi = agGrid.createGrid(gridDiv, gridOptions);
 
     const datasource = {
@@ -45,7 +45,7 @@ $(document).ready(function () {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    table: 'dealchat_files',
+                    table: 'sellers', // Adjusted for sellers
                     keyword: keyword
                 })
             })
@@ -57,9 +57,8 @@ $(document).ready(function () {
                         return;
                     }
 
-                    // Lambda가 { Items: [], Count: 0 } 형태 또는 [] 형태 중 무엇을 반환하든 대응
-                    const rows = Array.isArray(data) ? data : (data.Items || []);
-                    params.successCallback(rows, rows.length || (data.Count || 0));
+                    const rows = Array.isArray(data) ? data : [];
+                    params.successCallback(rows, rows.length);
                 })
                 .catch(error => {
                     console.error('Fetch Error:', error);
@@ -68,18 +67,20 @@ $(document).ready(function () {
         }
     };
 
-    // 초기 데이터 로드
     gridApi.setGridOption('datasource', datasource);
 
-    // 검색 버튼 이벤트
     $('#search-btn').on('click', () => {
         gridApi.setGridOption('datasource', datasource);
     });
 
-    // 엔터키 검색 이벤트
     $('#search-input').on('keypress', (e) => {
         if (e.which === 13) {
             gridApi.setGridOption('datasource', datasource);
         }
+    });
+
+    $('.logo').on('click', () => {
+        $('#search-input').val('');
+        gridApi.setGridOption('datasource', datasource);
     });
 });

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Files - DealChat</title>
+    <title>Sellers - DealChat</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,22 +29,22 @@
                     style="display: flex; gap: 10px; flex: 1; max-width: 600px; margin: 0 40px;">
                     <div class="input-wrapper"
                         style="flex: 1; padding: 5px 15px; border-radius: 20px; box-shadow: none;">
-                        <input type="text" id="search-input" placeholder="파일명 검색..."
+                        <input type="text" id="search-input" placeholder="매도자명 또는 ID 검색..."
                             style="width: 100%; border: none; outline: none; background: transparent;">
                     </div>
                     <button id="search-btn" class="btn-primary" style="padding: 8px 20px;">검색</button>
-                    <button id="upload-btn" class="btn-secondary" style="padding: 8px 20px;">Upload</button>
+                    <button id="new-btn" class="btn-secondary" style="padding: 8px 20px;">New</button>
                 </div>
             </header>
 
             <section class="grid-container" style="padding: 24px; flex: 1;">
-                <div id="fileGrid" class="ag-theme-alpine" style="height: 100%; width: 100%;"></div>
+                <div id="sellerGrid" class="ag-theme-alpine" style="height: 100%; width: 100%;"></div>
             </section>
         </main>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="../js/files.js"></script>
+    <script src="../js/sellers.js"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css');
         @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css');

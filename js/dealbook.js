@@ -53,8 +53,8 @@ $(document).ready(function () {
             return;
         }
 
-        const updatedSummary = $('#summary').val();
-
+        const updatedSummary = $('#modal-summary-text').val();
+        
         // 기존 데이터에 수정된 요약본 반영
         const updatePayload = {
             ...currentCompanyData,
@@ -64,6 +64,7 @@ $(document).ready(function () {
         };
 
         const $btn = $(this);
+        const originalText = $btn.text();
         $btn.prop('disabled', true).text('Saving...');
 
         // PUT 대신 POST를 사용하여 405 Method Not Allowed 에러 방지
@@ -79,9 +80,10 @@ $(document).ready(function () {
                 if (result.error) {
                     alert('저장 중 오류가 발생했습니다: ' + result.error);
                 } else {
-                    alert('성공적으로 저장되었습니다.');
-                    // 로컬 데이터도 업데이트
+                    // 로컬 데이터 및 UI 업데이트
                     currentCompanyData.summary = updatedSummary;
+                    $('#summary').val(updatedSummary);
+                    $summaryModal.hide();
                 }
             })
             .catch(error => {
@@ -89,7 +91,7 @@ $(document).ready(function () {
                 alert('저장 요청에 실패했습니다.');
             })
             .finally(() => {
-                $btn.prop('disabled', false).text('Save');
+                $btn.prop('disabled', false).text(originalText);
             });
     });
 
@@ -182,6 +184,44 @@ $(document).ready(function () {
         const promptText = $(this).text();
         $chatInput.val(promptText);
         sendMessage();
+    });
+
+    // Summary Expand Modal Logic
+    const $summaryModal = $('#summary-modal');
+    const $summaryText = $('#summary');
+    const $modalSummaryText = $('#modal-summary-text');
+
+    $('#expand-summary').on('click', function () {
+        $modalSummaryText.val($summaryText.val());
+        $summaryModal.css('display', 'flex');
+    });
+
+    $('#close-summary-modal').on('click', function () {
+        $summaryModal.hide();
+    });
+
+
+
+    // AI Generate Logic (in Modal)
+    $('#ai-generate').on('click', function () {
+        const $btn = $(this);
+        const originalText = $btn.html();
+        
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 18px;">sync</span> 생성 중...');
+        
+        // Simulate AI generation delay
+        setTimeout(() => {
+            const aiGeneratedSummary = "이 회사는 2010년에 설립된 AI 기반 리서치 전문 기업입니다.\n\n주요 성과:\n1. 독자적인 NLP 모델 개발\n2. 글로벌 500대 기업 중 50개사와 파트너십 체결\n3. 2023년 시리즈 B 투자 유치 성공\n\n현재 DealChat 프로젝트를 통해 혁신적인 투자 검토 프로세스를 구축하고 있습니다.";
+            $modalSummaryText.val(aiGeneratedSummary);
+            $btn.prop('disabled', false).html(originalText);
+        }, 1500);
+    });
+
+    // Close modal on click outside
+    $summaryModal.on('click', function (e) {
+        if ($(e.target).hasClass('modal-overlay')) {
+            $summaryModal.hide();
+        }
     });
 
     // Add Source logic
