@@ -69,9 +69,9 @@
                     <span class="notebook-title" contenteditable="true">와이앤아처</span>
                 </div>
                 <div class="top-actions">
-                    <button class="btn-secondary">
+                    <button class="btn-secondary" id="btn-register-deal">
                         <span class="material-symbols-outlined">share</span>
-                        매물등록
+                        매물등록상태
                     </button>
                     <button class="btn-primary">
                         Data Sources
@@ -162,6 +162,139 @@
             </div>
         </div>
     </div>
+
+    <!-- Register Deal Modal -->
+    <div id="register-deal-modal" class="modal-overlay">
+        <div class="modal-content-large" style="height: auto; max-width: 600px;">
+            <div class="modal-header">
+                <h3>매물 등록 상태</h3>
+                <button class="btn-close" id="close-register-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 30px;">
+                <form id="register-deal-form" style="width: 100%;">
+                    <div class="form-group-row">
+                        <label>회사이름</label>
+                        <input type="text" name="company_name" placeholder="회사이름을 입력하세요">
+                    </div>
+                    <div class="form-group-row">
+                        <label>Summary</label>
+                        <textarea name="summary" rows="3" placeholder="회사 요약 내용을 입력하세요"></textarea>
+                    </div>
+                    <div class="form-group-row">
+                        <label>산업</label>
+                        <input type="text" name="industry" placeholder="산업 분야를 입력하세요">
+                    </div>
+                    <div class="form-group-row">
+                        <label>매각방법</label>
+                        <select name="sale_method" style="flex: 1; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background-color: white;">
+                            <option value="">매각 방법을 선택하세요</option>
+                            <option value="지분매각(경영권포함)">지분매각(경영권포함)</option>
+                            <option value="단순구주매각">단순구주매각</option>
+                            <option value="영업양수도">영업양수도</option>
+                            <option value="자산양수도">자산양수도</option>
+                        </select>
+                    </div>
+                    <div class="form-group-row">
+                        <label>매각금액</label>
+                        <input type="text" name="sale_price" placeholder="매각 희망 금액을 입력하세요">
+                    </div>
+                    <div class="form-group-row">
+                        <label>등록자</label>
+                        <input type="text" name="registrant" placeholder="등록자 성함을 입력하세요">
+                    </div>
+                    <div class="form-group-row">
+                        <label>기타</label>
+                        <textarea name="others" rows="2" placeholder="기타 참고사항을 입력하세요"></textarea>
+                    </div>
+                    <div class="form-group-row">
+                        <label>공유</label>
+                        <div style="display: flex; gap: 20px; align-items: center; flex: 1;">
+                            <label style="display: flex; align-items: center; gap: 5px; width: auto; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                                <input type="radio" name="share_type" value="all" checked style="width: auto; flex: none;"> 전체공유
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; width: auto; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                                <input type="radio" name="share_type" value="select" style="width: auto; flex: none;"> 선택공유
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; width: auto; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                                <input type="radio" name="share_type" value="noselect" style="width: auto; flex: none;"> 공유안함
+                            </label>
+                        </div>
+                    </div>
+                    <div id="share-target-wrapper" class="form-group-row" style="display: none; flex-direction: column; align-items: flex-start; gap: 10px;">
+                        <div style="display: flex; width: 100%; align-items: center; gap: 20px;">
+                            <label></label>
+                            <input type="text" id="share-with-input" placeholder="공유 대상 이름을 입력하고 엔터를 누르세요" style="flex: 1;">
+                        </div>
+                        <div id="share-tags-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-left: 120px;">
+                            <!-- Tags will be added here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end; padding: 20px 30px; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn-secondary" id="cancel-register">취소</button>
+                <button type="button" class="btn-primary" id="save-deal">등록하기</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .form-group-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .form-group-row label {
+            width: 100px;
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+        .form-group-row input, 
+        .form-group-row textarea {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group-row input:focus, 
+        .form-group-row textarea:focus {
+            border-color: var(--primary-color);
+        }
+        .form-group-row textarea {
+            resize: vertical;
+        }
+
+        /* Tag Styles */
+        .share-tag {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background-color: #f0f2f5;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 13px;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+        .share-tag .remove-tag {
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            color: #888;
+        }
+        .share-tag .remove-tag:hover {
+            color: #ff4d4f;
+        }
+    </style>
 </body>
 
 </html>

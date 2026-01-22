@@ -223,6 +223,98 @@ $(document).ready(function () {
             $summaryModal.hide();
         }
     });
+    
+    // Register Deal Modal Logic
+    const $registerModal = $('#register-deal-modal');
+    
+    $('#btn-register-deal').on('click', function() {
+        // 프리필 작업 (현재 데이터가 있으면 기본값으로 채워줌)
+        if (currentCompanyData) {
+            $('input[name="company_name"]').val(currentCompanyData.companyName || '');
+            $('textarea[name="summary"]').val($('#summary').val() || '');
+        }
+        $registerModal.css('display', 'flex');
+    });
+
+    $('#close-register-modal, #cancel-register').on('click', function() {
+        $registerModal.hide();
+    });
+
+    // 공유 타입 변경 감지
+    $('input[name="share_type"]').on('change', function() {
+        if ($(this).val() === 'select') {
+            $('#share-target-wrapper').css('display', 'flex');
+        } else {
+            $('#share-target-wrapper').hide();
+        }
+    });
+
+    // 공유 대상 태그 시스템
+    let selectedShareTargets = [];
+
+    $('#share-with-input').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const name = $(this).val().trim();
+            if (name && !selectedShareTargets.includes(name)) {
+                selectedShareTargets.push(name);
+                renderShareTags();
+                $(this).val('');
+            }
+        }
+    });
+
+    function renderShareTags() {
+        const $container = $('#share-tags-container');
+        $container.empty();
+        selectedShareTargets.forEach((name, index) => {
+            const $tag = $(`
+                <div class="share-tag">
+                    <span>${name}</span>
+                    <span class="material-symbols-outlined remove-tag" data-index="${index}">close</span>
+                </div>
+            `);
+            $container.append($tag);
+        });
+    }
+
+    $(document).on('click', '.remove-tag', function() {
+        const index = $(this).data('index');
+        selectedShareTargets.splice(index, 1);
+        renderShareTags();
+    });
+
+    // 등록하기 버튼 클릭
+    $('#save-deal').on('click', function() {
+        const formData = {
+            company_name: $('input[name="company_name"]').val(),
+            summary: $('textarea[name="summary"]').val(),
+            industry: $('input[name="industry"]').val(),
+            sale_method: $('input[name="sale_method"]').val(),
+            sale_price: $('input[name="sale_price"]').val(),
+            registrant: $('input[name="registrant"]').val(),
+            others: $('textarea[name="others"]').val(),
+            share_type: $('input[name="share_type"]:checked').val(),
+            share_with: selectedShareTargets // 태그 리스트 전달
+        };
+
+        console.log('등록할 매물 데이터:', formData);
+        
+        // TODO: 실제 서버 저장 로직 추가 가능
+        alert('매물이 등록되였습니다.');
+        $registerModal.hide();
+        // 폼 초기화
+        $('#register-deal-form')[0].reset();
+        selectedShareTargets = [];
+        renderShareTags();
+        $('#share-target-wrapper').hide();
+    });
+
+    $registerModal.on('click', function (e) {
+        if ($(e.target).hasClass('modal-overlay')) {
+            $registerModal.hide();
+        }
+    });
 
     // Add Source logic
     const $fileUpload = $('#file-upload');
