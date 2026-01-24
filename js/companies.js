@@ -1,3 +1,5 @@
+import { APIcall } from './APIcallFunction.js';
+
 const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
 
 const columnDefs = [
@@ -6,6 +8,8 @@ const columnDefs = [
     { field: "industry", headerName: "산업", sortable: true, filter: true, flex: 1 },
     { field: "summary", headerName: "요약", sortable: true, filter: true, flex: 2.5 }
 ];
+
+const userId = "67b320626fc0e9133183cb8b";
 
 const gridOptions = {
     columnDefs: columnDefs,
@@ -42,18 +46,16 @@ $(document).ready(function () {
 
             // 람다 함수가 POST를 지원하고, keyword가 없어도 전체 조회를 지원하도록 수정되었으므로
             // 명확하게 JSON 바디를 담아 POST 요청을 보냅니다.
-            fetch(LAMBDA_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    table: 'companies',
-                    keyword: keyword
-                })
-            })
+            const payload = {
+                table: 'companies',
+                userId: userId,
+                keyword: keyword
+            };
+
+            APIcall(payload, LAMBDA_URL, { 'Content-Type': 'application/json' })
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Lambda Response Data:', data);
                     if (data.error) {
                         console.error('Lambda Error:', data.error);
                         params.failCallback();

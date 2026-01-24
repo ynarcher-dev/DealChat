@@ -1,13 +1,28 @@
+import { APIcall } from './APIcallFunction.js';
+import { addAiResponse, getRAGdata } from './AI_Functions.js';
+import {
+    extractTextFromPDF,
+    extractTextFromDocx,
+    extractTextFromPptx,
+    extractTextFromTxt,
+    filetypecheck,
+    fileUpload
+} from './File_Functions.js';
+
 const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
+const S3_BASE_URL = 'https://dealchat.co.kr.s3.ap-northeast-2.amazonaws.com/';
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
     { field: "file_name", headerName: "파일명", sortable: true, filter: true, flex: 1 },
     { field: "summary", headerName: "요약", sortable: true, flex: 2 },
-    { field: "companyCode", headerName: "관련 기업", sortable: true, filter: true, flex: 1 },
-    { field: "createdAt", headerName: "업로드일", sortable: true, flex: 1, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : "" }
+    { field: "updatedAt", headerName: "업데이트일", sortable: true, flex: 0.5, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : "" }
 
 ];
+
+const userId = "67b320626fc0e9133183cb8b";
+
+let currentFile = null;
 
 const gridOptions = {
     columnDefs: columnDefs,
@@ -24,8 +39,24 @@ const gridOptions = {
     pagination: true,
     paginationPageSize: 20,
     onRowClicked: (params) => {
-        // 파일 클릭 시의 동작 (예: 다운로드 또는 상세 보기)을 여기에 정의할 수 있습니다.
-        console.log("File clicked:", params.data);
+        currentFile = params.data;
+        if (currentFile) {
+            $('#modal-id').val(currentFile.id || '');
+            $('#modal-file-name-input').val(currentFile.file_name || '');
+            $('#modal-comments').val(currentFile.comments || '');
+            $('#modal-summary').val(currentFile.summary || '');
+
+            const fileUrl = currentFile.location ? (currentFile.location.startsWith('http') ? currentFile.location : (S3_BASE_URL + currentFile.location)) : '#';
+            $('#modal-location-icon').attr('href', fileUrl);
+            $('#modal-location-btn').attr('href', fileUrl);
+            $('#modal-tags').val(currentFile.tags || '');
+            $('#modal-createdAt').val(currentFile.createdAt || '');
+            $('#modal-updatedAt').val(currentFile.updatedAt || '');
+
+            const modalEl = document.getElementById('file-modal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     }
 };
 
@@ -39,15 +70,12 @@ $(document).ready(function () {
         getRows: (params) => {
             const keyword = ($('#search-input').val() || "").trim();
 
-            fetch(LAMBDA_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    table: 'dealchat_files',
-                    keyword: keyword
-                })
+            APIcall({
+                table: 'files',
+                userId: userId,
+                keyword: keyword
+            }, LAMBDA_URL, {
+                'Content-Type': 'application/json'
             })
                 .then(response => response.json())
                 .then(data => {
@@ -82,4 +110,260 @@ $(document).ready(function () {
             gridApi.setGridOption('datasource', datasource);
         }
     });
+
+    // AI 요약 생성 이벤트
+    $('#AI-generate-summary').on('click', async function () {
+        const ragData = getRAGdata();
+        const sourceText = currentFile?.parsedText || $('#modal-summary').val();
+        if (!sourceText || sourceText.length < 10) {
+            alert('요약할 내용이 없습니다.');
+            return;
+        }
+
+        const totalText = ragData + sourceText;
+        console.log('Generating AI summary for text length:', totalText.length);
+        const $btn = $(this);
+        const originalIcon = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 20px;">sync</span>');
+
+        try {
+            const prompt = "위 문서를 바탕으로 핵심 내용을 500자 이내의 한글 마크다운 형식으로 요약해줘. 다른 설명은 하지 마.";
+
+            addAiResponse(prompt, totalText)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("AI 응답 성공:", data.answer);
+                    $('#modal-summary').val(data.answer);
+                })
+                .catch(error => {
+                    console.error("AI 요약 실패:", error);
+                    alert('요약 생성 중 오류가 발생했습니다: ' + error.message);
+                });
+        } catch (error) {
+            console.error('AI Summary Error:', error);
+            alert('요약 생성 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).html(originalIcon);
+        }
+    });
+
+    // AI 태그 생성 이벤트 (상세 모달)
+    $('#AI-generate-tags').on('click', async function () {
+        const ragData = getRAGdata();
+        const sourceText = currentFile?.parsedText || $('#modal-summary').val();
+        if (!sourceText || sourceText.length < 10) {
+            alert('태그를 추출할 내용이 없습니다.');
+            return;
+        }
+
+        const totalText = ragData + sourceText;
+        const $btn = $(this);
+        const originalIcon = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 20px;">sync</span>');
+
+        try {
+            const prompt = "위 문서와 가장 연관된 핵심 키워드 5개를 뽑아서 쉼표(,)로 구분된 문자열로만 답변해줘. 예: 태그1, 태그2, 태그3";
+            addAiResponse(prompt, totalText)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("AI 응답 성공:", data.answer);
+                    // "태그:" 같은 불필요한 접두사 제거 시도
+                    const cleanTags = data.answer.replace(/태그:\s*/i, '').trim();
+                    $('#modal-tags').val(cleanTags);
+                })
+                .catch(error => {
+                    console.error("AI 태그 생성 실패:", error);
+                    alert('태그 생성 중 오류가 발생했습니다: ' + error.message);
+                });
+        } catch (error) {
+            console.error('AI Tags Error:', error);
+            alert('태그 생성 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).html(originalIcon);
+        }
+    });
+
+    // AI 요약 생성 이벤트 (업로드 모달)
+    $('#AI-upload-summary').on('click', async function () {
+        const sourceText = $('#extract-file').val();
+        if (!sourceText || sourceText.length < 10) {
+            alert('요약할 파일 내용이 없습니다. 파일을 먼저 선택해주세요.');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalIcon = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 20px;">sync</span>');
+
+        try {
+            const prompt = "위 문서를 바탕으로 핵심 내용을 500자 이내의 한글 마크다운 형식으로 요약해줘. 다른 설명은 하지 마.";
+            const response = await addAiResponse(prompt, sourceText);
+            const data = await response.json();
+            $('#upload-summary').val(data.answer.trim());
+        } catch (error) {
+            console.error('AI Upload Summary Error:', error);
+            alert('요약 생성 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).html(originalIcon);
+        }
+    });
+
+    // AI 태그 생성 이벤트 (업로드 모달)
+    $('#AI-upload-tags').on('click', async function () {
+        const sourceText = $('#extract-file').val();
+        if (!sourceText || sourceText.length < 10) {
+            alert('태그를 추출할 파일 내용이 없습니다. 파일을 먼저 선택해주세요.');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalIcon = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 20px;">sync</span>');
+
+        try {
+            const prompt = "위 문서와 가장 연관된 핵심 키워드 5개를 뽑아서 쉼표(,)로 구분된 문자열로만 답변해줘. 예: 태그1, 태그2, 태그3";
+            const response = await addAiResponse(prompt, sourceText);
+            const data = await response.json();
+            const cleanTags = data.answer.replace(/태그:\s*/i, '').trim();
+            $('#upload-tags').val(cleanTags);
+        } catch (error) {
+            console.error('AI Upload Tags Error:', error);
+            alert('태그 생성 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).html(originalIcon);
+        }
+    });
+
+    // 저장 버튼 이벤트
+    $('#save-file-btn').on('click', function () {
+        if (!currentFile) return;
+
+        const payload = {
+            ...currentFile,
+            id: $('#modal-id').val(),
+            file_name: $('#modal-file-name-input').val(),
+            comments: $('#modal-comments').val(),
+            summary: $('#modal-summary').val(),
+            location: $('#modal-location').val(),
+            tags: $('#modal-tags').val(),
+            table: 'files',
+            action: 'update',
+            userId: userId
+        };
+
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.prop('disabled', true).text('저장 중...');
+
+        APIcall(payload, LAMBDA_URL, {
+            'Content-Type': 'application/json'
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert('저장 중 오류가 발생했습니다: ' + result.error);
+                } else {
+                    alert('저장되었습니다.');
+                    const modalEl = document.getElementById('file-modal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                    // 그리드 새로고침
+                    gridApi.setGridOption('datasource', datasource);
+                }
+            })
+            .catch(error => {
+                console.error('Save Error:', error);
+                alert('저장 요청에 실패했습니다.');
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).text(originalText);
+            });
+    });
+
+    $('#upload-btn').on('click', function () {
+        $('#upload-file-input').click();
+    });
+
+    // 파일 선택 시 이름 자동 입력 및 텍스트 추출
+    $('#upload-file-input').on('change', async function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!filetypecheck(file)) {
+            $('#upload-file-input').val('');
+            return;
+        }
+
+        $('#upload-file-name').val(file.name);
+        $('#extract-file').val('');
+
+        try {
+            let extractedText = "";
+
+            if (file.type === "application/pdf") {
+                extractedText = await extractTextFromPDF(file);
+            } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+                extractedText = await extractTextFromDocx(file);
+            } else if (file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+                extractedText = await extractTextFromPptx(file);
+            } else if (file.type === "text/plain") {
+                extractedText = await extractTextFromTxt(file);
+            }
+
+            if (extractedText && extractedText.trim().length > 0) {
+                $('#extract-file').val(extractedText.trim());
+                console.log('Text extraction successful. Length:', extractedText.length);
+
+                // 1. 파일 바이너리 업로드 (n8n Webhook)
+                const uploadResponse = await fileUpload(file, '', userId);
+                if (uploadResponse.ok) {
+                    const uploadResult = await uploadResponse.json();
+                    // n8n 응답에서 파일 경로(Key 또는 Url) 추출 (서버 응답 규격에 맞춰 수정 필요할 수 있음)
+                    const fileLocation = uploadResult.fileUrl || uploadResult.key || file.name;
+
+                    // 2. 파일 메타데이터 저장 (Lambda)
+                    const payload = {
+                        file_name: file.name,
+                        summary: extractedText.trim(),
+                        location: fileLocation,
+                        table: 'files',
+                        action: 'create',
+                        updatedAt: new Date().toISOString(),
+                        createdAt: new Date().toISOString(),
+                        userId: userId
+                    };
+
+                    try {
+                        const saveResponse = await APIcall(payload, LAMBDA_URL, {
+                            'Content-Type': 'application/json'
+                        });
+                        const saveResult = await saveResponse.json();
+
+                        if (saveResult.error) {
+                            alert('DB 저장 중 오류가 발생했습니다: ' + saveResult.error);
+                        } else {
+                            alert('업로드 및 DB 저장이 완료되었습니다.');
+                            // 그리드 새로고침
+                            gridApi.setGridOption('datasource', datasource);
+                        }
+                    } catch (saveErr) {
+                        console.error('Save Error:', saveErr);
+                        alert('DB 저장 요청에 실패했습니다: ' + saveErr.message);
+                    }
+                } else {
+                    alert('파일 업로드에 실패했습니다.');
+                    $('#upload-file-name').val(file.name);
+                    $('#extract-file').val('');
+                }
+            } else {
+                alert("파일에서 텍스트를 추출할 수 없습니다. (이미지 기반이거나 보안 설정이 있을 수 있습니다.)");
+                $('#upload-file-name').val('');
+                $('#extract-file').val('');
+            }
+        } catch (err) {
+            console.error('Text extraction failed:', err);
+            alert("텍스트 추출 중 오류가 발생했습니다.");
+        }
+    });
+
 });

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - DealChat</title>
-    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="../css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -20,7 +20,7 @@
         <main class="main-content dashboard-bg">
             <header class="top-bar">
                 <div class="logo" style="cursor: pointer;" onclick="location.href='index.html'">
-                    <img src="img/logo.png" style="height: 24px;">
+                    <img src="../img/logo.png" style="height: 24px;">
                 </div>
                 <div class="user-profile">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User Avatar" class="avatar">
@@ -35,7 +35,7 @@
                 </div>
 
                 <div class="card-grid">
-                    <div class="menu-card" onclick="location.href='./html/companies.html'">
+                    <div class="menu-card" onclick="location.href='./companies.html'">
                         <div class="card-icon-wrapper company">
                             <span class="material-symbols-outlined">business</span>
                         </div>
@@ -46,7 +46,7 @@
                         </div>
                     </div>
 
-                    <div class="menu-card" onclick="location.href='./html/files.html'">
+                    <div class="menu-card" onclick="location.href='./files.html'">
                         <div class="card-icon-wrapper file">
                             <span class="material-symbols-outlined">description</span>
                         </div>
@@ -57,22 +57,22 @@
                         </div>
                     </div>
 
-                    <div class="menu-card" onclick="location.href='./html/sellers.html'">
+                    <div class="menu-card" onclick="location.href='./sellers.html'">
                         <div class="card-icon-wrapper seller">
                             <span class="material-symbols-outlined">sell</span>
                         </div>
-                        <h3>Seller</h3>
+                        <h3>Sellers</h3>
                         <p>매도자 정보 및 딜 파이프라인</p>
                         <div class="card-arrow">
                             <span class="material-symbols-outlined">arrow_forward</span>
                         </div>
                     </div>
 
-                    <div class="menu-card" onclick="location.href='./html/buyers.html'">
+                    <div class="menu-card" onclick="location.href='./buyers.html'">
                         <div class="card-icon-wrapper buyer">
                             <span class="material-symbols-outlined">shopping_cart</span>
                         </div>
-                        <h3>Buyer</h3>
+                        <h3>Buyers</h3>
                         <p>매수자 정보 및 투자자 매칭</p>
                         <div class="card-arrow">
                             <span class="material-symbols-outlined">arrow_forward</span>
@@ -86,7 +86,7 @@
     <style>
         .dashboard-bg {
             background: radial-gradient(circle at top right, rgba(66, 133, 244, 0.05), transparent),
-                        radial-gradient(circle at bottom left, rgba(147, 51, 234, 0.05), transparent);
+                radial-gradient(circle at bottom left, rgba(147, 51, 234, 0.05), transparent);
         }
 
         .dashboard-content {
@@ -175,10 +175,21 @@
             color: white;
         }
 
-        .card-icon-wrapper.company { background: linear-gradient(135deg, #4285f4, #2b65c2); }
-        .card-icon-wrapper.file { background: linear-gradient(135deg, #34a853, #25813d); }
-        .card-icon-wrapper.seller { background: linear-gradient(135deg, #fbbc05, #d6a004); }
-        .card-icon-wrapper.buyer { background: linear-gradient(135deg, #ea4335, #c52216); }
+        .card-icon-wrapper.company {
+            background: linear-gradient(135deg, #4285f4, #2b65c2);
+        }
+
+        .card-icon-wrapper.file {
+            background: linear-gradient(135deg, #34a853, #25813d);
+        }
+
+        .card-icon-wrapper.seller {
+            background: linear-gradient(135deg, #fbbc05, #d6a004);
+        }
+
+        .card-icon-wrapper.buyer {
+            background: linear-gradient(135deg, #ea4335, #c52216);
+        }
 
         .menu-card h3 {
             font-size: 24px;
@@ -207,13 +218,27 @@
         }
 
         @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </body>

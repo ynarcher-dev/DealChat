@@ -1,9 +1,12 @@
+import { APIcall } from './APIcallFunction.js';
+
 const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
     { field: "companyName", headerName: "매도자명", sortable: true, filter: true, flex: 1 },
     { field: "industry", headerName: "산업", sortable: true, filter: true, flex: 1 },
+    { field: "sale_price", headerName: "가격(억원)", sortable: true, filter: true, flex: 1 },
     { field: "summary", headerName: "요약", sortable: true, filter: true, flex: 2.5 }
 ];
 
@@ -24,7 +27,7 @@ const gridOptions = {
     onRowClicked: (params) => {
         const id = params.data.id;
         if (id) {
-            window.location.href = `./dealbook.html?id=${encodeURIComponent(id)}`;
+            window.location.href = `./seller.html?id=${encodeURIComponent(id)}`;
         }
     }
 };
@@ -39,15 +42,11 @@ $(document).ready(function () {
         getRows: (params) => {
             const keyword = ($('#search-input').val() || "").trim();
 
-            fetch(LAMBDA_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    table: 'sellers', // Adjusted for sellers
-                    keyword: keyword
-                })
+            APIcall({
+                table: 'sellers',
+                keyword: keyword
+            }, LAMBDA_URL, {
+                'Content-Type': 'application/json'
             })
                 .then(response => response.json())
                 .then(data => {

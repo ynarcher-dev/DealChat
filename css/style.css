@@ -55,7 +55,8 @@ h3,
 }
 
 .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+    width: 0;
+    border-right: none;
 }
 
 .sidebar-header {
@@ -189,6 +190,10 @@ h3,
 
 .source-item .source-name {
     transition: opacity 0.2s, visibility 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
 }
 
 .sidebar.collapsed .source-item {
@@ -212,6 +217,32 @@ h3,
 
 .source-item .material-symbols-outlined {
     font-size: 20px;
+}
+
+.btn-delete-source {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.source-item:hover .btn-delete-source {
+    display: flex;
+}
+
+.btn-delete-source:hover {
+    background-color: #ffeded;
+    color: #ff4d4f;
+}
+
+.btn-delete-source .material-symbols-outlined {
+    font-size: 16px !important;
 }
 
 .sidebar-footer {
@@ -691,13 +722,25 @@ h3,
 }
 
 @keyframes modalFadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .spin {
@@ -747,4 +790,249 @@ h3,
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: flex-end;
+}
+
+/* Report Selection Modal Styles */
+.modal-content-report {
+    background-color: var(--sidebar-bg);
+    width: 90%;
+    max-width: 800px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    animation: modalFadeIn 0.3s ease-out;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}
+
+.report-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.report-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+}
+
+.btn-close-dark {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-close-dark:hover {
+    background-color: #f1f3f4;
+    color: var(--text-main);
+}
+
+.report-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    background-color: #fcfcfc;
+}
+
+.report-section {
+    margin-bottom: 30px;
+}
+
+.section-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.section-label-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.section-label-with-icon .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.section-label-with-icon .section-label {
+    margin-bottom: 0;
+    color: var(--text-main);
+}
+
+.report-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.report-card {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 140px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.report-card:hover {
+    background-color: #fff;
+    transform: translateY(-4px);
+    border-color: var(--primary-color);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+.report-card.primary {
+    background-color: #f8faff;
+    border-color: #e8f0fe;
+}
+
+.report-card.primary:hover {
+    border-color: var(--primary-color);
+}
+
+.report-card h5 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-main);
+}
+
+.report-card p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.edit-icon {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 18px;
+    color: #dadce0;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.report-card:hover .edit-icon {
+    color: var(--primary-color);
+    background: #f1f3f4;
+}
+
+/* Report Generation Detail Styles */
+.btn-back {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background-color: #f1f3f4;
+    color: var(--text-main);
+}
+
+.gen-selected-preview {
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 30px;
+}
+
+.gen-selected-preview h5 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-main);
+}
+
+.gen-selected-preview p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.gen-form-section {
+    margin-bottom: 24px;
+}
+
+.gen-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 12px;
+}
+
+.gen-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.gen-select:focus {
+    border-color: var(--primary-color);
+}
+
+.gen-textarea {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    background-color: white;
+    resize: vertical;
+    line-height: 1.6;
+    transition: border-color 0.2s;
+}
+
+.gen-textarea:focus {
+    border-color: var(--primary-color);
+}
+
+.report-modal-footer {
+    border-top: 1px solid var(--border-color);
+    background-color: #fff;
 }

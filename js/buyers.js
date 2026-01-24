@@ -1,3 +1,5 @@
+import { APIcall } from './APIcallFunction.js';
+
 const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
 
 const columnDefs = [
@@ -39,15 +41,11 @@ $(document).ready(function () {
         getRows: (params) => {
             const keyword = ($('#search-input').val() || "").trim();
 
-            fetch(LAMBDA_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    table: 'buyers', // Adjusted for buyers
-                    keyword: keyword
-                })
+            APIcall({
+                table: 'buyers',
+                keyword: keyword
+            }, LAMBDA_URL, {
+                'Content-Type': 'application/json'
             })
                 .then(response => response.json())
                 .then(data => {

@@ -1,3 +1,7 @@
+import { addAiResponse, getRAGdata } from './AI_Functions.js';
+import { APIcall } from './APIcallFunction.js';
+import { filetypecheck, fileUpload } from './File_Functions.js';
+
 $(document).ready(function () {
     const $chatInput = $('#chat-input');
     const $chatMessages = $('#chat-messages');
@@ -7,22 +11,31 @@ $(document).ready(function () {
     // URL에서 id 파라미터 추출
     const urlParams = new URLSearchParams(window.location.search);
     const companyId = urlParams.get('id');
+    const userId = "67b320626fc0e9133183cb8b";
+    //const userId = urlParams.get('userId');
 
     // 현재 불러온 회사 데이터를 저장할 변수
     let currentCompanyData = null;
     const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
+    const READ_WEBHOOK_URL = 'http://ai.yleminvest.com:5678/webhook/dealchat-read';
+    const DELETE_WEBHOOK_URL = 'http://ai.yleminvest.com:5678/webhook/dealchat-delete';
+    const S3_BASE_URL = 'https://dealchat.co.kr.s3.ap-northeast-2.amazonaws.com/';
+    const AI_LAMBDA_URL = 'https://iocc4lp5btcyfcrgmyux4s3mea0lnbko.lambda-url.ap-northeast-2.on.aws/';
 
-    // 회사 ID가 있으면 Lambda에서 데이터 가져오기
+    // 파싱된 소스 텍스트를 저장할 객체
+    let sourceTexts = {};
+
+    // 회사 ID가 있으면 데이터 가져오기
     if (companyId) {
-        fetch(LAMBDA_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                table: 'companies',
-                id: companyId
-            })
+        // 1. 회사 기본 정보 가져오기 (Lambda)
+        const payload1 = {
+            table: 'companies',
+            id: companyId,
+            userId: userId
+        };
+
+        APIcall(payload1, LAMBDA_URL, {
+            'Content-Type': 'application/json'
         })
             .then(response => response.json())
             .then(data => {
@@ -39,10 +52,44 @@ $(document).ready(function () {
                     if (data.summary) {
                         $('#summary').val(data.summary);
                     }
+                    if (data.industry) {
+                        $('#industry').val(data.industry);
+                    }
+                    if (data.userId) {
+                        $('#userId').val(data.userId);
+                    }
                 }
             })
             .catch(error => {
                 console.error('데이터 로드 실패:', error);
+            });
+
+        // 2. 파일 리스트 가져오기 (n8n Webhook)
+        APIcall({ companyId: companyId }, READ_WEBHOOK_URL, {
+            'Content-Type': 'application/json'
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.text().then(text => text ? JSON.parse(text) : []);
+            })
+            .then(files => {
+                console.log('불러온 파일 리스트:', files);
+                if (Array.isArray(files)) {
+                    $sourceList.empty();
+                    files.forEach(fileObj => {
+                        // 서버 응답이 객체 형태이고 Key 프로퍼티에 파일 경로가 있는 경우
+                        if (fileObj && fileObj.Key) {
+                            const fileName = fileObj.Key.split('/').pop();
+                            addFileToSidebar(fileName, fileObj.Key);
+                        } else if (typeof fileObj === 'string') {
+                            // 만약 문자열로 온다면 그대로 사용
+                            addFileToSidebar(fileObj, fileObj);
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('파일 리스트 로드 실패:', error);
             });
     }
 
@@ -54,12 +101,15 @@ $(document).ready(function () {
         }
 
         const updatedSummary = $('#modal-summary-text').val();
-        
-        // 기존 데이터에 수정된 요약본 반영
-        const updatePayload = {
+        const updatedIndustry = $('#industry').val();
+
+        // 기존 데이터에 수정된 요약본 및 산업 반영
+        const payload2 = {
             ...currentCompanyData,
             summary: updatedSummary,
+            industry: updatedIndustry,
             table: 'companies',
+            userId: userId,
             action: 'update' // Lambda에서 저장 로직을 타게 하기 위한 식별자
         };
 
@@ -68,12 +118,8 @@ $(document).ready(function () {
         $btn.prop('disabled', true).text('Saving...');
 
         // PUT 대신 POST를 사용하여 405 Method Not Allowed 에러 방지
-        fetch(LAMBDA_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updatePayload)
+        APIcall(payload2, LAMBDA_URL, {
+            'Content-Type': 'application/json'
         })
             .then(response => response.json())
             .then(result => {
@@ -82,6 +128,7 @@ $(document).ready(function () {
                 } else {
                     // 로컬 데이터 및 UI 업데이트
                     currentCompanyData.summary = updatedSummary;
+                    currentCompanyData.industry = updatedIndustry;
                     $('#summary').val(updatedSummary);
                     $summaryModal.hide();
                 }
@@ -102,22 +149,49 @@ $(document).ready(function () {
     });
 
     // Send message function
-    function sendMessage() {
-        const text = $chatInput.val().trim();
-        if (text) {
+    async function sendMessage() {
+        const userInput = $chatInput.val().trim();
+        const ragData = getRAGdata();
+
+        if (userInput) {
             if ($welcomeScreen.length) {
                 $welcomeScreen.hide();
             }
 
             // User Message
-            addMessage(text, 'user');
+            addMessage(userInput, 'user');
             $chatInput.val('').css('height', 'auto');
 
-            // Simulate AI response
-            setTimeout(() => {
-                addAiResponse(text);
-            }, 800);
+            // AI Response (대기 중 표시를 위해 빈 메시지 등을 먼저 띄울 수도 있지만 우선 직접 받아서 처리)
+            try {
+                const response = await addAiResponse(userInput, ragData);
+                const data = await response.json();
+                addMessage(data.answer, 'ai');
+            } catch (error) {
+                console.error('AI Response Error:', error);
+                addMessage('죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.', 'ai');
+            }
         }
+    }
+
+    function parseMarkdown(text) {
+        if (!text) return "";
+        let html = text
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^\* (.*$)/gim, '<li>$1</li>')
+            .replace(/^- (.*$)/gim, '<li>$1</li>')
+            .replace(/\*\*(.*)\*\*/gim, '<b>$1</b>')
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, '<br>');
+
+        // Wrap <li> tags with <ul>
+        if (html.includes('<li>')) {
+            // This is a very basic wrapper, might need improvement for complex nested lists
+            // html = html.replace(/(<li>.*<\/li>)/gms, '<ul>$1</ul>');
+        }
+        return html;
     }
 
     function addMessage(text, sender) {
@@ -125,10 +199,13 @@ $(document).ready(function () {
             ? '<div class="avatar material-symbols-outlined">auto_awesome</div>'
             : '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" class="avatar">';
 
+        // AI 메시지의 경우 마크다운 파싱 적용
+        const displayContent = sender === 'ai' ? parseMarkdown(text) : text;
+
         const messageHtml = `
             <div class="message ${sender}">
                 ${sender === 'ai' ? avatar : ''}
-                <div class="message-content">${text}</div>
+                <div class="message-content">${displayContent}</div>
                 ${sender === 'user' ? avatar : ''}
             </div>
         `;
@@ -138,19 +215,6 @@ $(document).ready(function () {
 
         // Scroll to bottom
         $chatMessages.animate({ scrollTop: $chatMessages[0].scrollHeight }, 300);
-    }
-
-    function addAiResponse(userInput) {
-        let response = "";
-        if (userInput.includes("요약")) {
-            response = "업로드된 소스들을 바탕으로 한 요약입니다:<br>1. 2024 신규 사업 전략은 AI 기술 도입을 최우선 과제로 선정했습니다.<br>2. 주요 타겟 시장은 동남아시아 3개국입니다.<br>3. 예산은 전년 대비 15% 증액되었습니다.";
-        } else if (userInput.includes("시장")) {
-            response = "시장 분석 결과, 현재 생성형 AI 솔루션에 대한 수요가 급증하고 있습니다. 특히 리서치 보조 도구 분야에서 연평균 30% 성장이 기대됩니다.";
-        } else {
-            response = `'${userInput}'에 대해 소스를 분석한 결과, 관련 내용은 프로젝트 개요 PDF의 4페이지와 시장 조사 보고서의 12페이지에서 언급되고 있습니다. 추가로 구체적인 내용이 필요하신가요?`;
-        }
-
-        addMessage(response, 'ai');
     }
 
     // Event Listeners
@@ -163,15 +227,20 @@ $(document).ready(function () {
         }
     });
 
-    // Sidebar Toggle
+    // Sidebar Toggle (Close)
     $('#toggle-sidebar').on('click', function () {
-        $('.sidebar').toggleClass('collapsed');
-        const isCollapsed = $('.sidebar').hasClass('collapsed');
-        $(this).find('.material-symbols-outlined').text(isCollapsed ? 'menu' : 'menu_open');
+        $('.sidebar').addClass('collapsed');
+        $('#show-sidebar').show();
     });
 
-    // Guide Panel Toggle
-    $('.btn-primary').on('click', function () {
+    // Sidebar Show (Open)
+    $('#show-sidebar').on('click', function () {
+        $('.sidebar').removeClass('collapsed');
+        $(this).hide();
+    });
+
+    // Guide Panel Toggle (Only from the top actions button)
+    $('.top-actions .btn-primary').on('click', function () {
         $guidePanel.toggleClass('hidden');
     });
 
@@ -200,21 +269,83 @@ $(document).ready(function () {
         $summaryModal.hide();
     });
 
-
-
     // AI Generate Logic (in Modal)
     $('#ai-generate').on('click', function () {
         const $btn = $(this);
         const originalText = $btn.html();
-        
+        const contentsToSummarize = $modalSummaryText.val() || "요약할 내용이 없습니다.";
+
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 18px;">sync</span> 생성 중...');
-        
-        // Simulate AI generation delay
-        setTimeout(() => {
-            const aiGeneratedSummary = "이 회사는 2010년에 설립된 AI 기반 리서치 전문 기업입니다.\n\n주요 성과:\n1. 독자적인 NLP 모델 개발\n2. 글로벌 500대 기업 중 50개사와 파트너십 체결\n3. 2023년 시리즈 B 투자 유치 성공\n\n현재 DealChat 프로젝트를 통해 혁신적인 투자 검토 프로세스를 구축하고 있습니다.";
-            $modalSummaryText.val(aiGeneratedSummary);
+
+        APIcall({ contents: contentsToSummarize }, AI_LAMBDA_URL, {
+            'Content-Type': 'application/json'
+        })
+            .then(response => response.json())
+            .then(data => {
+                $modalSummaryText.val(data.answer.trim());
+            })
+            .catch(error => {
+                console.error('AI Summary Error:', error);
+                alert('요약 생성 중 오류가 발생했습니다.');
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).html(originalText);
+            });
+    });
+
+    // Industry Auto Generate Logic
+    $('#generate-industry').on('click', async function () {
+        const $btn = $(this);
+        const originalText = $btn.html();
+        const context = $('#summary').val();
+        const ragData = getRAGdata();
+        const fcontext = context + "\n\n" + ragData;
+
+        if (!fcontext) {
+            alert('회사소개 내용을 먼저 입력해주세요.');
+            return;
+        }
+
+        // 로딩 상태 표시
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
+
+        try {
+            const industryPrompt = "이 회사가 속한 산업 분야를 1~2단어로만 답변해줘. 다른 설명은 하지 마.";
+            const response = await addAiResponse(industryPrompt, fcontext);
+            const data = await response.json();
+            $('#industry').val(data.answer.trim());
+        } catch (error) {
+            console.error('Industry generation failed:', error);
+            alert('산업 정보 생성 중 오류가 발생했습니다.');
+        } finally {
             $btn.prop('disabled', false).html(originalText);
-        }, 1500);
+        }
+    });
+
+    $('#generate-summary').on('click', async function () {
+        const text1 = $('#summary').val();
+        const text2 = getRAGdata();
+        const context = text1 + "\n\n" + text2;
+
+        if (!text1) {
+            alert('회사소개 내용을 먼저 입력해주세요.');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
+
+        try {
+            const summaryPrompt = "자료를 바탕으로 이 회사소개를 500자 이내로 요약해줘.";
+            const response = await addAiResponse(summaryPrompt, context);
+            const data = await response.json();
+            $('#modal-summary-text').val(data.answer.trim());
+        } catch (error) {
+            console.error('Summary generation failed:', error);
+        } finally {
+            $btn.prop('disabled', false).html(originalText);
+        }
     });
 
     // Close modal on click outside
@@ -223,25 +354,129 @@ $(document).ready(function () {
             $summaryModal.hide();
         }
     });
-    
+
+    // Report Selection Modal Logic
+    const $reportModal = $('#report-selection-modal');
+    const $reportDetailModal = $('#report-gen-detail-modal');
+
+    $('#open-report-modal').on('click', function () {
+        $reportModal.css('display', 'flex');
+    });
+
+    $('#close-report-modal').on('click', function () {
+        $reportModal.hide();
+    });
+
+    // Close detail modal
+    $('#close-gen-detail-modal').on('click', function () {
+        $reportDetailModal.hide();
+    });
+
+    // Back button logic
+    $('#back-to-selection').on('click', function () {
+        $reportDetailModal.hide();
+        $reportModal.css('display', 'flex');
+    });
+
+    // Card click logic
+    $('.report-card').on('click', function () {
+        const title = $(this).find('h5').text();
+        const desc = $(this).find('p').text();
+        const type = $(this).data('type');
+
+        // Update detail modal content
+        $('#selected-report-title').text(title);
+        $('#selected-report-desc').text(desc);
+
+        // Set default instructions based on type
+        let instruction = "";
+        switch (type) {
+            case 'direct': instruction = "원하는 보고서의 구조와 내용을 자유롭게 설명해주세요."; break;
+            case 'quick-review': instruction = "현재 소스들을 바탕으로 핵심 인사이트와 인용문을 포함한 빠른 요약 보고서를 생성해주세요."; break;
+            case 'teaser': instruction = "투자자의 관심을 끌 수 있도록 핵심 정보 위주의 티저 문서를 작성해주세요."; break;
+            case 'im': instruction = "사업 내용, 재무 현황, 미래 전략을 포함한 상세 투자 설명서(IM)를 작성해주세요."; break;
+            case 'invest-report': instruction = "투자 심의를 위한 리스크 분석 및 투자 논리가 담긴 보고서를 작성해주세요."; break;
+            case 'pitch-deck': instruction = "제안 발표를 위한 핵심 문구와 구조를 잡아주세요."; break;
+            case 'market-report': instruction = "산업 동향 및 경쟁 환경 분석 결과를 보고서 형태로 정리해주세요."; break;
+            case 'valuation': instruction = "기업 가치 평가 결과와 산출 근거를 정리한 보고서를 작성해주세요."; break;
+        }
+        $('#report-instruction').val(instruction);
+
+        // Transition modals
+        $reportModal.hide();
+        $reportDetailModal.css('display', 'flex');
+    });
+
+    // Click outside to close
+    $(window).on('click', function (e) {
+        if ($(e.target).is($reportModal)) {
+            $reportModal.hide();
+        }
+        if ($(e.target).is($reportDetailModal)) {
+            $reportDetailModal.hide();
+        }
+    });
+
+    $('#start-generate-report').on('click', async function () {
+        const instruction = $('#report-instruction').val().trim();
+        const language = $('#report-language').val();
+        const reportType = $('#selected-report-title').text();
+
+        if (!instruction) {
+            alert('만들려는 보고서에 대한 설명을 입력해주세요.');
+            $('#report-instruction').focus();
+            return;
+        }
+
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 18px;">sync</span> 생성 중...');
+
+        try {
+            // Lambda를 통해 AI 응답 생성 (보안 및 일관성을 위해 직접 호출 대신 Lambda 사용)
+            const prompt = `[Report Type] ${reportType}\n[Language] ${language}\n[Instruction] ${instruction}`;
+
+            const response = await addAiResponse(prompt, getRAGdata());
+            const data = await response.json();
+            const generatedContent = data.answer;
+
+            if (generatedContent) {
+                addMessage(`[${reportType} 생성 완료]\n\n${generatedContent}`, 'ai');
+                $reportDetailModal.hide();
+                alert('보고서가 생성되었습니다. 채팅창을 확인해주세요.');
+            } else {
+                throw new Error('응답을 생성할 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('보고서 생성 실패:', error);
+            alert('보고서 생성 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).text(originalText);
+        }
+    });
+
     // Register Deal Modal Logic
     const $registerModal = $('#register-deal-modal');
-    
-    $('#btn-register-deal').on('click', function() {
+
+    $('#btn-register-deal').on('click', function () {
         // 프리필 작업 (현재 데이터가 있으면 기본값으로 채워줌)
+        console.log(currentCompanyData);
         if (currentCompanyData) {
             $('input[name="company_name"]').val(currentCompanyData.companyName || '');
             $('textarea[name="summary"]').val($('#summary').val() || '');
+            $('input[name="industry"]').val($('#industry').val() || '');
+            $('input[name="registrant"]').val($('#userId').val() || '');
         }
+        updateFileDatalist(); // 모달 열 때 파일 리스트 업데이트
         $registerModal.css('display', 'flex');
     });
 
-    $('#close-register-modal, #cancel-register').on('click', function() {
+    $('#close-register-modal, #cancel-register').on('click', function () {
         $registerModal.hide();
     });
 
     // 공유 타입 변경 감지
-    $('input[name="share_type"]').on('change', function() {
+    $('input[name="share_type"]').on('change', function () {
         if ($(this).val() === 'select') {
             $('#share-target-wrapper').css('display', 'flex');
         } else {
@@ -249,10 +484,57 @@ $(document).ready(function () {
         }
     });
 
-    // 공유 대상 태그 시스템
+    // 공유 대상 및 파일 태그 시스템
     let selectedShareTargets = [];
+    let selectedSharedFiles = [];
 
-    $('#share-with-input').on('keydown', function(e) {
+    // 현재 업로드된 소스 리스트로 datalist 업데이트
+    function updateFileDatalist() {
+        const $datalist = $('#available-sources');
+        $datalist.empty();
+        $('#source-list .source-name').each(function () {
+            const fileName = $(this).text().trim();
+            if (fileName) {
+                $datalist.append(`<option value="${fileName}">`);
+            }
+        });
+    }
+
+    // 파일 공유 입력창 이벤트
+    $('#share-file-input').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const fileName = $(this).val().trim();
+            if (fileName && !selectedSharedFiles.includes(fileName)) {
+                selectedSharedFiles.push(fileName);
+                renderSharedFileTags();
+                $(this).val('');
+            }
+        }
+    });
+
+    function renderSharedFileTags() {
+        const $container = $('#shared-files-container');
+        $container.empty();
+        selectedSharedFiles.forEach((name, index) => {
+            const $tag = $(`
+                <div class="share-tag">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">attachment</span>
+                    <span>${name}</span>
+                    <span class="material-symbols-outlined remove-file-tag" data-index="${index}" style="cursor: pointer; font-size: 16px;">close</span>
+                </div>
+            `);
+            $container.append($tag);
+        });
+    }
+
+    $(document).on('click', '.remove-file-tag', function () {
+        const index = $(this).data('index');
+        selectedSharedFiles.splice(index, 1);
+        renderSharedFileTags();
+    });
+
+    $('#share-with-input').on('keydown', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const name = $(this).val().trim();
@@ -278,36 +560,66 @@ $(document).ready(function () {
         });
     }
 
-    $(document).on('click', '.remove-tag', function() {
+    $(document).on('click', '.remove-tag', function () {
         const index = $(this).data('index');
         selectedShareTargets.splice(index, 1);
         renderShareTags();
     });
 
     // 등록하기 버튼 클릭
-    $('#save-deal').on('click', function() {
+    $('#save-deal').on('click', function () {
         const formData = {
-            company_name: $('input[name="company_name"]').val(),
+            companyId: companyId,
+            companyName: $('input[name="company_name"]').val(),
             summary: $('textarea[name="summary"]').val(),
             industry: $('input[name="industry"]').val(),
-            sale_method: $('input[name="sale_method"]').val(),
+            sale_method: $('[name="sale_method"]').val(),
             sale_price: $('input[name="sale_price"]').val(),
-            registrant: $('input[name="registrant"]').val(),
+            userId: userId,
             others: $('textarea[name="others"]').val(),
+            share_files: selectedSharedFiles, // 공유 파일 리스트
             share_type: $('input[name="share_type"]:checked').val(),
             share_with: selectedShareTargets // 태그 리스트 전달
         };
 
-        console.log('등록할 매물 데이터:', formData);
-        
-        // TODO: 실제 서버 저장 로직 추가 가능
-        alert('매물이 등록되였습니다.');
-        $registerModal.hide();
-        // 폼 초기화
-        $('#register-deal-form')[0].reset();
-        selectedShareTargets = [];
-        renderShareTags();
-        $('#share-target-wrapper').hide();
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.prop('disabled', true).text('등록 중...');
+
+        // Lambda Payload 구성
+        const payload3 = {
+            ...formData,
+            table: 'sellers',
+            action: 'create'
+        };
+
+        APIcall(payload3, LAMBDA_URL, {
+            'Content-Type': 'application/json'
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert('등록 중 오류가 발생했습니다: ' + result.error);
+                } else {
+                    alert('매물이 등록되었습니다.');
+                    $registerModal.hide();
+
+                    // 폼 및 상태 초기화
+                    $('#register-deal-form')[0].reset();
+                    selectedShareTargets = [];
+                    selectedSharedFiles = [];
+                    renderShareTags();
+                    renderSharedFileTags();
+                    $('#share-target-wrapper').hide();
+                }
+            })
+            .catch(error => {
+                console.error('등록 요청 실패:', error);
+                alert('등록 요청에 실패했습니다.');
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).text(originalText);
+            });
     });
 
     $registerModal.on('click', function (e) {
@@ -324,36 +636,148 @@ $(document).ready(function () {
         $fileUpload.click();
     });
 
-    $fileUpload.on('change', function (e) {
-        const files = e.target.files;
-        if (files.length > 0) {
-            if ($welcomeScreen.length) {
-                $welcomeScreen.hide();
+    // PDF.js worker setup
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    // File Parsing Functions
+    async function parseFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        let text = "";
+
+        if (ext === 'txt') {
+            text = await file.text();
+        } else if (ext === 'pdf') {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = "";
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                fullText += content.items.map(item => item.str).join(' ') + "\n";
+            }
+            text = fullText;
+        } else if (ext === 'docx' || ext === 'doc') {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+            text = result.value;
+        } else {
+            throw new Error('지원하지 않는 파일 형식입니다.');
+        }
+        return text;
+    }
+
+    // n8n Webhook URL (이미지에 제시된 주소)
+    const WEBHOOK_URL = 'http://ai.yleminvest.com:5678/webhook/dealchat-upload';
+
+    $fileUpload.on('change', async function (e) {
+        if (!companyId) {
+            alert('회사 ID를 확인할 수 없습니다. 파일을 업로드할 수 없습니다.');
+            return;
+        }
+
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!filetypecheck(file)) {
+            $fileUpload.val('');
+            return;
+        }
+
+        const icon = getFileIcon(file.name);
+        const $newItem = $(`
+            <li class="source-item uploading">
+                <span class="material-symbols-outlined spin">${icon}</span>
+                <span class="source-name">${file.name} (처리 중...)</span>
+            </li>
+        `);
+        $sourceList.append($newItem);
+
+        try {
+            const response = await fileUpload(file, companyId);
+            if (response.ok) {
+                // 성공 UI 업데이트
+                $newItem.removeClass('uploading');
+                $newItem.find('.material-symbols-outlined').removeClass('spin');
+                $newItem.find('.source-name').text(file.name);
+
+                // 새로고침이나 목록 업데이트 로직이 필요할 수 있지만 
+                // 여기서는 일단 UI만 업데이트
+                addMessage(`[${file.name}] 파일이 성공적으로 업로드되었습니다.`, 'ai');
+            } else {
+                throw new Error(`상태 코드: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            $newItem.find('.source-name').text(`${file.name} (업로드 실패)`);
+            $newItem.find('.material-symbols-outlined').text('error').removeClass('spin');
+            alert('파일 업로드 중 오류가 발생했습니다.');
+        }
+
+        $fileUpload.val('');
+    });
+
+    function addFileToSidebar(fileName, fileKey) {
+        const icon = getFileIcon(fileName);
+        const fileUrl = fileKey ? (fileKey.startsWith('http') ? fileKey : (S3_BASE_URL + fileKey)) : '#';
+
+        const $newItem = $(`
+            <li class="source-item" title="${fileName}">
+                <span class="material-symbols-outlined">${icon}</span>
+                <a href="${fileUrl}" target="_blank" class="source-name" style="text-decoration: none; color: inherit;">${fileName}</a>
+                <button class="btn-delete-source" title="파일 삭제">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </li>
+        `);
+
+        // 삭제 버튼 클릭 이벤트
+        $newItem.find('.btn-delete-source').on('click', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!confirm(`'${fileName}' 파일을 정말 삭제하시겠습니까?`)) {
+                return;
             }
 
-            Array.from(files).forEach(file => {
-                const icon = getFileIcon(file.name);
-                const $newItem = $(`
-                    <li class="source-item">
-                        <span class="material-symbols-outlined">${icon}</span>
-                        <span class="source-name">${file.name}</span>
-                    </li>
-                `);
+            const $btn = $(this);
+            $btn.find('.material-symbols-outlined').text('sync').addClass('spin');
 
-                $newItem.on('click', function () {
-                    $('.source-item').removeClass('active');
-                    $(this).addClass('active');
+            try {
+                const response = await fetch(DELETE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        companyId: companyId,
+                        fileKey: fileKey,
+                        fileName: fileName
+                    })
                 });
 
-                $sourceList.append($newItem);
-            });
+                if (response.ok) {
+                    $newItem.fadeOut(300, function () {
+                        $(this).remove();
+                    });
+                } else {
+                    alert('삭제 처리에 실패했습니다. (서버 응답 오류)');
+                    $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
+                }
+            } catch (error) {
+                console.error('삭제 요청 중 오류 발생:', error);
+                alert('삭제 중 오류가 발생했습니다. 네트워크 상태를 확인해 주세요.');
+                $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
+            }
+        });
 
-            addMessage(`${files.length}개의 소스가 추가되었습니다.`, 'ai');
+        $newItem.on('click', function (e) {
+            // 링크나 버튼 자체를 클릭한 게 아니라면 active 처리
+            if (!$(e.target).closest('a, button').length) {
+                $('.source-item').removeClass('active');
+                $(this).addClass('active');
+            }
+        });
 
-            // Reset input so the same file can be uploaded again if needed
-            $fileUpload.val('');
-        }
-    });
+        $sourceList.append($newItem);
+    }
 
     function getFileIcon(fileName) {
         const ext = fileName.split('.').pop().toLowerCase();
