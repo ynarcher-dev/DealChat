@@ -95,6 +95,20 @@ $(document).ready(function () {
                 if (data.userId) {
                     $('#userId').val(data.userId);
                 }
+                // 기존 첨부파일 로드 (attachments는 fileId 문자열 배열)
+                if (data.attachments && data.attachments.length > 0) {
+                    setTimeout(() => {
+                        data.attachments.forEach(fileId => {
+                            // availableFiles에서 해당 fileId를 가진 파일 찾기
+                            const file = availableFiles.find(f => f.id === fileId);
+                            if (file) {
+                                addFileToSourceList(file.name || file.file_name, file.id, file.location);
+                            } else {
+                                console.warn('파일을 찾을 수 없습니다:', fileId);
+                            }
+                        });
+                    }, 500);
+                }
             }
         })
         .catch(error => {
@@ -677,6 +691,81 @@ $(document).ready(function () {
     const $fileUpload = $('#file-upload');
     const $sourceList = $('#source-list');
 
+    // 공통 함수: 파일을 소스 리스트에 추가
+    function addFileToSourceList(fileName, fileId, fileLocation = null) {
+        const icon = getFileIcon(fileName);
+        const fileUrl = fileLocation ? (fileLocation.startsWith('http') ? fileLocation : (S3_BASE_URL + fileLocation)) : '#';
+
+        const $newItem = $(`
+            <li class="source-item" data-id="${fileId}" data-filename="${fileName}">
+                <span class="material-symbols-outlined">${icon}</span>
+                <a href="${fileUrl}" target="_blank" class="source-name" style="text-decoration: none; color: inherit;">${fileName}</a>
+                <button class="btn-delete-source" title="파일 삭제">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </li>
+        `);
+
+        // 삭제 버튼 클릭 이벤트
+        $newItem.find('.btn-delete-source').on('click', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!confirm(`'${fileName}' 파일을 정말 삭제하시겠습니까?`)) {
+                return;
+            }
+
+            const $btn = $(this);
+            const $item = $btn.closest('.source-item');
+            const itemFileId = $item.attr('data-id');
+            const itemFileName = $item.attr('data-filename');
+
+            $btn.find('.material-symbols-outlined').text('sync').addClass('spin');
+
+            try {
+                // Lambda를 통한 파일 삭제
+                const deletePayload = {
+                    table: 'companies',
+                    action: 'delete',
+                    companyId: companyId,
+                    fileId: itemFileId,
+                    fileName: itemFileName,
+                    userId: userId
+                };
+
+                const response = await APIcall(deletePayload, LAMBDA_URL, {
+                    'Content-Type': 'application/json'
+                });
+                const deleteResult = await response.json();
+
+                if (response.ok && !deleteResult.error) {
+                    $newItem.fadeOut(300, function () {
+                        $(this).remove();
+                    });
+                    loadAvailableFiles();
+                } else {
+                    alert('삭제 처리에 실패했습니다: ' + (deleteResult.error || '서버 응답 오류'));
+                    $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
+                }
+            } catch (error) {
+                console.error('삭제 요청 중 오류 발생:', error);
+                alert('삭제 중 오류가 발생했습니다: ' + error.message);
+                $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
+            }
+        });
+
+        // 파일 아이템 클릭 시 active 처리
+        $newItem.on('click', function (e) {
+            if (!$(e.target).closest('a, button').length) {
+                $('.source-item').removeClass('active');
+                $(this).addClass('active');
+            }
+        });
+
+        $sourceList.append($newItem);
+        return $newItem;
+    }
+
     $('#add-source').on('click', function () {
         $fileUpload.click();
     });
@@ -745,14 +834,9 @@ $(document).ready(function () {
                     if (fetchResponse.ok || finalData.statusCode == 200 || finalData.message === "Upload Success" || finalData.id) {
                         console.log('Upload Success:', finalData);
 
-                        // 5. UI 업데이트
-                        $newItem.removeClass('uploading');
-                        $newItem.find('.material-symbols-outlined').removeClass('spin');
-                        $newItem.find('.source-name').text(file.name);
-
-                        // 삭제 시 필요한 정보(id, filename)를 데이터 속성에 저장
-                        $newItem.attr('data-id', finalData.id || result.id);
-                        $newItem.attr('data-filename', file.name);
+                        // 5. 업로드 중 표시 제거 후 새로운 파일 아이템으로 교체
+                        $newItem.remove();
+                        addFileToSourceList(file.name, finalData.id || result.id, finalData.location || result.location);
 
                         alert('업로드 및 정보 저장이 완료되었습니다.');
 
