@@ -13,7 +13,7 @@ $(document).ready(function () {
 
     if (!userData || !userData.isLoggedIn) {
         alert('로그인 후 이용해주세요.');
-        location.href = './signin.html';
+        location.href = './html/signin.html';
         return;
     }
     const columnDefs = [
@@ -97,137 +97,39 @@ $(document).ready(function () {
     // --- Modal Logic ---
     const $modal = $('#buyer-modal');
     const $form = $('#buyer-form');
-    const $modalTitle = $modal.find('.modal-header h3');
-    const $saveBtn = $('#save-buyer-btn');
-    const $deleteBtn = $('#delete-buyer-btn');
-    let currentAction = 'create';
 
     openBuyerModal = function (data = null) {
         $form[0].reset();
 
-        if (data) {
-            // 상세/수정 모드
-            currentAction = 'update';
-            $modalTitle.text('바이어 상세');
-            $saveBtn.text('저장');
-            $deleteBtn.show();
+        // 기본 정보 채우기
+        $('#buyer-id').val(data.id || '');
+        $('#companyName').val(data.companyName || '');
+        $('#summary').val(data.summary || '');
+        $('#interest_industry').val(data.interest_industry || '');
+        $('#investment_method').val(data.investment_method || '');
+        $('#investment_amount').val(data.investment_amount || '');
+        $('#userId').val(data.userId || userId);
+        $('#etc').val(data.etc || '');
 
-            $('input[name="id"]').val(data.id || '');
-            $('input[name="companyName"]').val(data.companyName || '');
-            $('textarea[name="summary"]').val(data.summary || '');
-            $('textarea[name="interest_summary"]').val(data.interest_summary || '');
-            $('input[name="interest_industry"]').val(data.interest_industry || '');
-            $('input[name="investment_amount"]').val(data.investment_amount || '');
-            $('input[name="etc"]').val(data.etc || '');
-        } else {
-            // 신규 등록 모드
-            currentAction = 'create';
-            $modalTitle.text('바이어 등록');
-            $saveBtn.text('등록');
-            $deleteBtn.hide();
-
-            const randomId = crypto.randomUUID();
-            $('input[name="id"]').val(randomId);
+        // 공유 파일 처리
+        $('#shared-files-container').empty();
+        if (data.shared_files && Array.isArray(data.shared_files)) {
+            data.shared_files.forEach(file => {
+                const chip = $(`
+                    <div class="chip">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">description</span>
+                        <span>${file}</span>
+                    </div>
+                `);
+                $('#shared-files-container').append(chip);
+            });
         }
 
         $modal.css('display', 'flex');
     }
 
-    $('#new-btn').on('click', () => {
-        openBuyerModal();
-    });
-
     $('#close-modal, #cancel-btn').on('click', () => {
         $modal.hide();
     });
 
-    $('#save-buyer-btn').on('click', function () {
-        const formData = {
-            id: $('input[name="id"]').val(),
-            companyName: $('input[name="companyName"]').val().trim(),
-            summary: $('textarea[name="summary"]').val().trim(),
-            interest_summary: $('textarea[name="interest_summary"]').val().trim(),
-            interest_industry: $('input[name="interest_industry"]').val().trim(),
-            investment_amount: $('input[name="investment_amount"]').val().trim(),
-            etc: $('input[name="etc"]').val().trim(),
-            userId: "67b320626fc0e9133183cb8b",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            table: 'buyers',
-            action: currentAction
-        };
-
-        if (currentAction === 'create') {
-            formData.createdAt = new Date().toISOString();
-        }
-
-        if (!formData.companyName) {
-            alert('회사명을 입력해주세요.');
-            return;
-        }
-
-        const $btn = $(this);
-        const originalText = $btn.text();
-        $btn.prop('disabled', true).text('등록 중...');
-
-        APIcall(formData, LAMBDA_URL, {
-            'Content-Type': 'application/json'
-        })
-            .then(response => response.json())
-            .then(result => {
-                if (result.error) {
-                    alert('등록 중 오류가 발생했습니다: ' + result.error);
-                } else {
-                    alert('성공적으로 등록되었습니다.');
-                    $modal.hide();
-                    gridApi.setGridOption('datasource', datasource); // 그리드 새로고침
-                }
-            })
-            .catch(error => {
-                console.error('Create Error:', error);
-                alert('등록 요청에 실패했습니다.');
-            })
-            .finally(() => {
-                $btn.prop('disabled', false).text(originalText);
-            });
-    });
-
-    // 삭제 처리
-    $deleteBtn.on('click', function () {
-        const id = $('input[name="id"]').val();
-        if (!id) return;
-
-        if (!confirm('정말로 이 바이어 정보를 삭제하시겠습니까?')) {
-            return;
-        }
-
-        const $btn = $(this);
-        const originalText = $btn.text();
-        $btn.prop('disabled', true).text('삭제 중...');
-
-        APIcall({
-            id: id,
-            table: 'buyers',
-            action: 'delete'
-        }, LAMBDA_URL, {
-            'Content-Type': 'application/json'
-        }, 'DELETE')
-            .then(response => response.json())
-            .then(result => {
-                if (result.error) {
-                    alert('삭제 중 오류가 발생했습니다: ' + result.error);
-                } else {
-                    alert('성공적으로 삭제되었습니다.');
-                    $modal.hide();
-                    gridApi.setGridOption('datasource', datasource); // 그리드 새로고침
-                }
-            })
-            .catch(error => {
-                console.error('Delete Error:', error);
-                alert('삭제 요청에 실패했습니다.');
-            })
-            .finally(() => {
-                $btn.prop('disabled', false).text(originalText);
-            });
-    });
 });

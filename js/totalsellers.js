@@ -2,6 +2,9 @@ import { APIcall } from './APIcallFunction.js';
 
 const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
 
+let gridApi;
+let openSellerModal;
+
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
     { field: "companyName", headerName: "매도자명", sortable: true, filter: true, flex: 1 },
@@ -25,14 +28,12 @@ const gridOptions = {
     pagination: true,
     paginationPageSize: 20,
     onRowClicked: (params) => {
-        const id = params.data.id;
-        if (id) {
-            window.location.href = `./seller.html?id=${encodeURIComponent(id)}`;
+        const data = params.data;
+        if (data) {
+            openSellerModal(data);
         }
     }
 };
-
-let gridApi;
 
 $(document).ready(function () {
     const userData = JSON.parse(localStorage.getItem('dealchat_users'));
@@ -40,7 +41,7 @@ $(document).ready(function () {
 
     if (!userData || !userData.isLoggedIn) {
         alert('로그인 후 이용해주세요.');
-        location.href = './signin.html';
+        location.href = './html/signin.html';
         return;
     }
 
@@ -91,4 +92,43 @@ $(document).ready(function () {
         $('#search-input').val('');
         gridApi.setGridOption('datasource', datasource);
     });
+
+    // --- Modal Logic ---
+    const $modal = $('#seller-modal');
+    const $form = $('#seller-form');
+
+    openSellerModal = function (data = null) {
+        $form[0].reset();
+
+        // 기본 정보 채우기
+        $('#seller-id').val(data.id || '');
+        $('#companyName').val(data.companyName || '');
+        $('#summary').val(data.summary || '');
+        $('#industry').val(data.industry || '');
+        $('#sale_method').val(data.sale_method || '');
+        $('#sale_price').val(data.sale_price || '');
+        $('#userId').val(data.userId || userId);
+        $('#others').val(data.others || '');
+
+        // 공유 파일 처리
+        $('#shared-files-container').empty();
+        if (data.shared_files && Array.isArray(data.shared_files)) {
+            data.shared_files.forEach(file => {
+                const chip = $(`
+                    <div class="chip">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">description</span>
+                        <span>${file}</span>
+                    </div>
+                `);
+                $('#shared-files-container').append(chip);
+            });
+        }
+
+        $modal.css('display', 'flex');
+    }
+
+    $('#close-modal, #cancel-btn').on('click', () => {
+        $modal.hide();
+    });
+
 });

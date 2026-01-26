@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sellers - DealChat</title>
+    <title>Seller Detail - DealChat</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,55 +13,49 @@
         rel="stylesheet">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <!-- AG Grid -->
-    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
-</head>
-
-<body>
-    <div class="app-container">
-
-        <main class="main-content">
-            <header class="top-bar">
-                <div class="logo" style="cursor: pointer;" onclick="location.href='../index.html'">
-                    <img src="../img/logo.png" style="height: 24px;">
-                </div>
-                <div class="search-container"
-                    style="display: flex; gap: 10px; flex: 1; max-width: 600px; margin: 0 40px;">
-                    <div class="input-wrapper"
-                        style="flex: 1; padding: 5px 15px; border-radius: 20px; box-shadow: none;">
-                        <input type="text" id="search-input" placeholder="매도자명 또는 ID 검색..."
-                            style="width: 100%; border: none; outline: none; background: transparent;">
-                    </div>
-                    <button id="search-btn" class="btn-primary" style="padding: 8px 20px;">검색</button>
-                </div>
-            </header>
-
-            <section class="grid-container" style="padding: 24px; flex: 1;">
-                <div id="sellerGrid" class="ag-theme-alpine" style="height: 100%; width: 100%;"></div>
-            </section>
-        </main>
-    </div>
-
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="../js/totalsellers.js" type="module"></script>
     <style>
-        @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css');
-        @import url('https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css');
-
-        .ag-theme-alpine {
-            --ag-border-color: var(--border-color);
-            --ag-header-background-color: #f1f3f4;
-            --ag-odd-row-background-color: #fafafa;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: var(--shadow-md);
+        .page-content {
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            overflow-y: auto;
+            height: calc(100vh - 64px);
+            /* Top bar height subtraction */
         }
 
-        .ag-row {
-            cursor: pointer;
+        .seller-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+            border: 1px solid var(--border-color);
         }
 
-        /* Seller Modal Styles */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-header h2 small {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
         .form-row {
             display: flex;
             margin-bottom: 24px;
@@ -236,54 +230,38 @@
             border-top: 1px dashed #e9ecef;
         }
 
-        .modal-content-seller {
-            background: white;
-            padding: 24px 32px;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 900px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            border: 1px solid #e5e7eb;
-        }
-
-        .modal-body-seller {
-            padding: 16px 0;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
-        .modal-body-seller::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .modal-body-seller::-webkit-scrollbar-track {
-            background: #f1f3f4;
-            border-radius: 4px;
-        }
-
-        .modal-body-seller::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 4px;
-        }
-
-        .modal-body-seller::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
+        .suggestion-chip:hover {
+            background-color: #eef2ff !important;
+            border-color: var(--primary-color) !important;
         }
     </style>
+</head>
 
-    <!-- Seller Detail Modal -->
-    <div id="seller-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content-seller">
-            <div class="modal-header" style="border: none; padding-bottom: 16px;">
-                <h3
-                    style="font-family: 'Outfit', sans-serif; font-weight: 600; color: #1a1a1a; margin: 0; display: flex; align-items: center; gap: 12px;">
-                    매물 상세
-                </h3>
-                <button class="btn-close" id="close-modal">
-                    <span class="material-symbols-outlined">close</span>
+<body>
+    <div class="app-container" style="flex-direction: column;">
+        <header class="top-bar">
+            <div class="logo" style="cursor: pointer;" onclick="location.href='./sellers.html'">
+                <img src="../img/logo.png" style="height: 24px;">
+            </div>
+            <div style="flex: 1; margin-left: 20px;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-main);">매물 상세 정보</h4>
+            </div>
+            <div class="top-actions">
+                <button class="btn-secondary" onclick="location.href='./sellers.html'">
+                    <span class="material-symbols-outlined">list</span>
+                    목록으로
                 </button>
             </div>
-            <div class="modal-body-seller">
+        </header>
+
+        <main class="page-content" style="flex: 1; width: 100%;">
+            <div class="seller-card">
+                <div class="section-header">
+                    <h2>매물 정보 <small>(상세 내용을 수정할 수 있습니다)</small></h2>
+                    <span class="material-symbols-outlined text-muted" style="cursor: help;"
+                        title="필요한 정보를 입력하고 저장 버튼을 눌러주세요">info</span>
+                </div>
+
                 <form id="seller-form">
                     <input type="hidden" name="id" id="seller-id">
 
@@ -291,7 +269,7 @@
                         <div class="form-label">기업명</div>
                         <div class="form-content">
                             <input type="text" name="companyName" id="companyName" class="form-control-custom"
-                                placeholder="기업명을 입력하세요" readonly>
+                                placeholder="기업명을 입력하세요">
                         </div>
                     </div>
 
@@ -299,7 +277,7 @@
                         <div class="form-label">요약</div>
                         <div class="form-content">
                             <textarea name="summary" id="summary" class="form-control-custom"
-                                placeholder="핵심 요약 내용을 입력하세요" rows="10" readonly></textarea>
+                                placeholder="핵심 요약 내용을 입력하세요" rows="4"></textarea>
                         </div>
                     </div>
 
@@ -307,15 +285,14 @@
                         <div class="form-label">업종</div>
                         <div class="form-content">
                             <input type="text" name="industry" id="industry" class="form-control-custom"
-                                placeholder="업종을 입력하세요" readonly>
+                                placeholder="업종을 입력하세요">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-label">매각방식</div>
                         <div class="form-content">
-                            <select name="sale_method" id="sale_method" class="form-control-custom select-custom"
-                                disabled>
+                            <select name="sale_method" id="sale_method" class="form-control-custom select-custom">
                                 <option value="">매각방식을 선택하세요</option>
                                 <option value="경영권 매각">경영권 매각</option>
                                 <option value="구주 매각">구주 매각</option>
@@ -331,7 +308,7 @@
                         <div class="form-content">
                             <div class="price-input-wrapper">
                                 <input type="text" name="sale_price" id="sale_price" class="form-control-custom"
-                                    placeholder="금액을 입력하세요" readonly>
+                                    placeholder="금액을 입력하세요">
                                 <span class="price-unit">억원</span>
                             </div>
                         </div>
@@ -348,7 +325,7 @@
                         <div class="form-label">기타사항</div>
                         <div class="form-content">
                             <textarea name="others" id="others" class="form-control-custom" placeholder="기타 특이사항을 입력하세요"
-                                rows="4" readonly></textarea>
+                                rows="4"></textarea>
                         </div>
                     </div>
 
@@ -356,17 +333,51 @@
                         <div class="form-label">공유 파일</div>
                         <div class="form-content">
                             <input type="text" id="share-file-input" class="form-control-custom"
-                                placeholder="파일명을 입력하고 Enter를 누르세요" readonly>
+                                placeholder="파일명을 입력하고 Enter를 누르세요">
                             <div id="shared-files-container" class="chips-container">
                                 <!-- chips will be here -->
                             </div>
                         </div>
                     </div>
 
+                    <div class="form-row"
+                        style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 30px;">
+                        <div class="form-label">공유 설정</div>
+                        <div class="form-content">
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="public" checked> 전체 공개
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="private"> 비공개
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="select"> 대상 선택
+                                </label>
+                            </div>
+
+                            <div id="share-target-wrapper" style="display: none;">
+                                <input type="text" id="share-with-input" class="form-control-custom"
+                                    placeholder="이름을 입력하고 Enter를 누르세요">
+                                <div id="share-tags-container" class="chips-container">
+                                    <!-- Tags will be injected here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-footer">
+                        <button type="button" id="delete-btn" class="btn-cancel"
+                            style="color: #fa5252; border-color: #fa5252; margin-right: auto;">Delete</button>
+                        <button type="button" id="save-btn" class="btn-save">Update</button>
+                    </div>
                 </form>
             </div>
-        </div>
+        </main>
     </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="../js/buyer.js" type="module"></script>
 </body>
 
 </html>
