@@ -533,6 +533,62 @@
             </div>
         </div>
     </div>
+
+    <!-- Source Option Modal -->
+    <div id="source-option-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px; padding: 0; background: white; border-radius: 16px;">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 18px;">소스 추가</h3>
+                <button class="btn-close" id="close-source-option-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px; padding: 24px;">
+                <button class="btn btn-outline-primary w-100 d-flex align-items-center gap-3 p-3" id="btn-upload-local" style="border-radius: 12px; text-align: left; transition: all 0.2s;">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">upload_file</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-weight: 600; font-size: 15px;">내 컴퓨터에서 업로드</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">PDF, DOCX, TXT 파일 지원</span>
+                    </div>
+                </button>
+                <button class="btn btn-outline-primary w-100 d-flex align-items-center gap-3 p-3" id="btn-select-internal" style="border-radius: 12px; text-align: left; transition: all 0.2s;">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">home_storage</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-weight: 600; font-size: 15px;">시스템 내 파일에서 선택</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">이미 업로드된 내 파일 목록에서 선택</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Internal File Selection Modal -->
+    <div id="internal-file-modal" class="modal-overlay">
+        <div class="modal-content-large" style="max-width: 600px; height: 70vh;">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 18px;">내 파일에서 선택</h3>
+                <button class="btn-close" id="close-internal-file-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body" style="flex-direction: column; padding: 20px; overflow: hidden;">
+                <div class="search-box mb-3" style="position: relative;">
+                    <span class="material-symbols-outlined" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 20px;">search</span>
+                    <input type="text" id="internal-file-search" class="form-control" placeholder="파일명으로 검색..." style="padding-left: 40px; border-radius: 10px; height: 45px; border: 1px solid var(--border-color);">
+                </div>
+                <div id="internal-file-list-container" style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px;">
+                    <ul id="internal-file-list" class="list-group list-group-flush">
+                        <!-- Internal files will be listed here -->
+                        <li class="list-group-item text-center py-5 text-secondary">파일을 불러오는 중...</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="btn btn-secondary" id="cancel-internal-selection" style="border-radius: 20px; padding: 8px 20px;">취소</button>
+                <button class="btn btn-primary" id="confirm-internal-select" style="border-radius: 20px; padding: 8px 25px;">추가하기 (<span id="selected-count">0</span>)</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 

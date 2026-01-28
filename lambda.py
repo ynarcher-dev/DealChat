@@ -146,8 +146,8 @@ def handle_files_table(action, body, bucket_name):
                 'userId': user_id,
                 'summary': body.get('summary', ''),
                 'tags': body.get('tags', []),
-                'updatedAt': now,
-                'createdAt': body.get('createdAt', now)
+                'createdAt': body.get('createdAt', now),
+                'updatedAt': body.get('updatedAt', now)
             }
             table.put_item(Item=item)
             
@@ -211,15 +211,17 @@ def handle_companies_table(action, body):
                 'industry': body.get('industry', ''),
                 'attachments': body.get('attachments', []),
                 'userId': body.get('userId'),
-                'createdAt': now,
-                'updatedAt': now
+                'createdAt': body.get('createdAt', now),
+                'updatedAt': body.get('updatedAt', now)
             }
             table.put_item(Item=item)
             return {"statusCode": 200, "body": json.dumps({"companyId": company_id})}
         case 'get':
             return perform_get_query('companies', body)
         case 'delete':
-            target_id = body.get('id') or body.get('companyId')
+            target_id = body.get('id')
+            if not target_id:
+                return {"statusCode": 400, "body": json.dumps({"message": "삭제할 아이템의 id가 필요합니다."})}
             table.delete_item(Key={'id': target_id})
             return {"statusCode": 200, "body": json.dumps({"message": "Deleted"})}
         case _:
@@ -240,15 +242,17 @@ def handle_sellers_table(action, body):
                 'sale_method': body.get('sale_method', ''),
                 'sale_price': body.get('sale_price', ''),
                 'userId': body.get('userId'),
-                'createdAt': now,
-                'updatedAt': now
+                'createdAt': body.get('createdAt', now),
+                'updatedAt': body.get('updatedAt', now)
             }
             table.put_item(Item=item)
             return {"statusCode": 200, "body": json.dumps({"seller_id": seller_id})}
         case 'get':
             return perform_get_query('sellers', body)
         case 'delete':
-            target_id = body.get('id') or body.get('sellerId')
+            target_id = body.get('id')
+            if not target_id:
+                return {"statusCode": 400, "body": json.dumps({"message": "삭제할 아이템의 id가 필요합니다."})}
             table.delete_item(Key={'id': target_id})
             return {"statusCode": 200, "body": json.dumps({"message": "Deleted"})}
         case _:
@@ -266,15 +270,17 @@ def handle_buyers_table(action, body):
                 'interest_industry': body.get('interest_industry', ''),
                 'interest_summary': body.get('interest_summary', ''),
                 'userId': body.get('userId'),
-                'createdAt': now,
-                'updatedAt': now
+                'createdAt': body.get('createdAt', now),
+                'updatedAt': body.get('updatedAt', now)
             }
             table.put_item(Item=item)
             return {"statusCode": 200, "body": json.dumps({"buyer_id": buyer_id})}
         case 'get':
             return perform_get_query('buyers', body)
         case 'delete':
-            target_id = body.get('id') or body.get('buyerId')
+            target_id = body.get('id')
+            if not target_id:
+                return {"statusCode": 400, "body": json.dumps({"message": "삭제할 아이템의 id가 필요합니다."})}
             table.delete_item(Key={'id': target_id})
             return {"statusCode": 200, "body": json.dumps({"message": "Deleted"})}
         case _:
@@ -291,8 +297,8 @@ def handle_users_table(action, body):
                 'password': body.get('password'),
                 'name': body.get('name'),
                 'company': body.get('company', ''),
-                'createdAt': now,
-                'updatedAt': now
+                'createdAt': body.get('createdAt', now),
+                'updatedAt': body.get('updatedAt', now)
             }
             table.put_item(Item=item)
             return {"statusCode": 200, "body": json.dumps({"message": "User created", "id": item['id']})}

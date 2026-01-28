@@ -178,9 +178,9 @@ h3,
 .source-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
+    gap: 1px;
+    padding: 3px 6px;
+    border-radius: 1px;
     cursor: pointer;
     transition: background 0.2s, padding 0.2s;
     font-size: 14px;

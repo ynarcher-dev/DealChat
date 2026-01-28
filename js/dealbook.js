@@ -84,7 +84,7 @@ $(document).ready(function () {
                 console.error('데이터를 불러오는 중 오류가 발생했습니다:', data.error);
             } else {
                 currentCompanyData = data;
-                console.log('회사 정보:', data);
+                console.log('회사 정보:', data)
 
                 if (data.companyName) {
                     $('.notebook-title').text(data.companyName);
@@ -140,7 +140,8 @@ $(document).ready(function () {
             industry: updatedIndustry,
             table: 'companies',
             userId: userId,
-            action: 'update' // Lambda에서 저장 로직을 타게 하기 위한 식별자
+            updatedAt: new Date().toISOString(),
+            action: 'upload' // Lambda에서 저장 로직을 타게 하기 위한 식별자
         };
 
         const $btn = $(this);
@@ -425,6 +426,14 @@ $(document).ready(function () {
         if ($(e.target).is($reportDetailModal)) {
             $reportDetailModal.hide();
         }
+        if ($(e.target).is($sourceOptionModal)) {
+            $sourceOptionModal.hide();
+        }
+        if ($(e.target).is($internalFileModal)) {
+            $internalFileModal.hide();
+            selectedInternalFiles = [];
+            updateSelectedCount();
+        }
     });
 
     $('#start-generate-report').on('click', async function () {
@@ -640,9 +649,10 @@ $(document).ready(function () {
             sale_price: $('input[name="sale_price"]').val(),
             userId: userId,
             others: $('textarea[name="others"]').val(),
-            share_files: selectedSharedFiles, // 공유 파일 리스트
+            share_files: selectedSharedFiles,
             share_type: $('input[name="share_type"]:checked').val(),
-            share_with: selectedShareTargets // 태그 리스트 전달
+            share_with: selectedShareTargets,
+            updatedAt: new Date().toISOString()
         };
 
         const $btn = $(this);
@@ -653,7 +663,7 @@ $(document).ready(function () {
         const payload3 = {
             ...formData,
             table: 'sellers',
-            action: 'create'
+            action: 'upload'
         };
 
         APIcall(payload3, LAMBDA_URL, {
@@ -727,22 +737,28 @@ $(document).ready(function () {
             $btn.find('.material-symbols-outlined').text('sync').addClass('spin');
 
             try {
-                // Lambda를 통한 파일 삭제
-                const deletePayload = {
+                // 1. 현재 attachments에서 해당 파일 ID 제거
+                const newAttachments = (currentCompanyData.attachments || []).filter(id => id !== itemFileId);
+
+                // 2. 회사 데이터 업데이트 (파일 참조 제거)
+                const updatePayload = {
+                    ...currentCompanyData,
+                    attachments: newAttachments,
                     table: 'companies',
-                    action: 'delete',
-                    companyId: companyId,
-                    fileId: itemFileId,
-                    fileName: itemFileName,
-                    userId: userId
+                    action: 'upload', // Lambda에서 upsert로 동작함
+                    userId: userId,
+                    updatedAt: new Date().toISOString()
                 };
 
-                const response = await APIcall(deletePayload, LAMBDA_URL, {
+                const response = await APIcall(updatePayload, LAMBDA_URL, {
                     'Content-Type': 'application/json'
                 });
                 const deleteResult = await response.json();
 
                 if (response.ok && !deleteResult.error) {
+                    // 로컬 데이터 갱신
+                    currentCompanyData.attachments = newAttachments;
+                    
                     $newItem.fadeOut(300, function () {
                         $(this).remove();
                     });
@@ -770,9 +786,151 @@ $(document).ready(function () {
         return $newItem;
     }
 
+    // --- Source Add Modals Logic ---
+    const $sourceOptionModal = $('#source-option-modal');
+    const $internalFileModal = $('#internal-file-modal');
+    let selectedInternalFiles = []; // Array of file objects [{id, name, location}]
+
     $('#add-source').on('click', function () {
+        $sourceOptionModal.css('display', 'flex');
+    });
+
+    $('#close-source-option-modal').on('click', function () {
+        $sourceOptionModal.hide();
+    });
+
+    $('#btn-upload-local').on('click', function () {
+        $sourceOptionModal.hide();
         $fileUpload.click();
     });
+
+    $('#btn-select-internal').on('click', function () {
+        $sourceOptionModal.hide();
+        renderInternalFileList();
+        $internalFileModal.css('display', 'flex');
+    });
+
+    $('#close-internal-file-modal, #cancel-internal-selection').on('click', function () {
+        $internalFileModal.hide();
+        selectedInternalFiles = [];
+        updateSelectedCount();
+    });
+
+    $('#internal-file-search').on('input', function () {
+        renderInternalFileList($(this).val().trim().toLowerCase());
+    });
+
+    function updateSelectedCount() {
+        $('#selected-count').text(selectedInternalFiles.length);
+    }
+
+    function renderInternalFileList(filter = "") {
+        const $list = $('#internal-file-list');
+        $list.empty();
+
+        // 현재 이미 등록된 파일 ID 목록 (attachments)
+        const attachedIds = currentCompanyData?.attachments || [];
+
+        const filteredFiles = availableFiles.filter(file => {
+            const matchesFilter = file.name.toLowerCase().includes(filter);
+            const notAttached = !attachedIds.includes(file.id);
+            return matchesFilter && notAttached;
+        });
+
+        if (filteredFiles.length === 0) {
+            $list.append('<li class="list-group-item text-center py-4 text-secondary">파일이 없습니다.</li>');
+            return;
+        }
+
+        filteredFiles.forEach(file => {
+            const isSelected = selectedInternalFiles.some(f => f.id === file.id);
+            const $item = $(`
+                <li class="list-group-item d-flex align-items-center gap-3 py-3" style="cursor: pointer; transition: background 0.2s;">
+                    <div class="form-check" style="pointer-events: none;">
+                        <input class="form-check-input" type="checkbox" ${isSelected ? 'checked' : ''} style="cursor: pointer;">
+                    </div>
+                    <span class="material-symbols-outlined text-secondary">${getFileIcon(file.name)}</span>
+                    <span style="flex: 1; font-size: 14px;">${file.name}</span>
+                </li>
+            `);
+
+            $item.on('click', function () {
+                const checkbox = $(this).find('input');
+                const checked = !checkbox.prop('checked');
+                checkbox.prop('checked', checked);
+
+                if (checked) {
+                    selectedInternalFiles.push(file);
+                } else {
+                    selectedInternalFiles = selectedInternalFiles.filter(f => f.id !== file.id);
+                }
+                updateSelectedCount();
+            });
+
+            $list.append($item);
+        });
+    }
+
+    $('#confirm-internal-select').on('click', async function () {
+        if (selectedInternalFiles.length === 0) {
+            alert('파일을 선택해주세요.');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.prop('disabled', true).text('추가 중...');
+
+        try {
+            // 현재 attachments에 새로 선택된 ID들 추가
+            const newAttachments = [...(currentCompanyData.attachments || [])];
+            selectedInternalFiles.forEach(file => {
+                if (!newAttachments.includes(file.id)) {
+                    newAttachments.push(file.id);
+                }
+            });
+
+            //서버 저장
+            const payload = {
+                ...currentCompanyData,
+                attachments: newAttachments,
+                table: 'companies',
+                userId: userId,
+                updatedAt: new Date().toISOString(),
+                action: 'upload'
+            };
+
+            const response = await APIcall(payload, LAMBDA_URL, {
+                'Content-Type': 'application/json'
+            });
+            const result = await response.json();
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            // UI 업데이트
+            selectedInternalFiles.forEach(file => {
+                addFileToSourceList(file.name, file.id, file.location);
+            });
+
+            // 로컬 데이터 갱신
+            currentCompanyData.attachments = newAttachments;
+
+            alert(`${selectedInternalFiles.length}개의 파일이 추가되었습니다.`);
+            $internalFileModal.hide();
+            selectedInternalFiles = [];
+            updateSelectedCount();
+
+        } catch (error) {
+            console.error('내 파일 추가 실패:', error);
+            alert('파일 추가 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false).text(originalText);
+        }
+    });
+
+    // --- End Source Add Modals Logic ---
 
     $fileUpload.on('change', async function (e) {
         if (!userId) {
@@ -869,73 +1027,6 @@ $(document).ready(function () {
         $fileUpload.val('');
     });
 
-    function addFileToSidebar(fileName, fileKey) {
-        const icon = getFileIcon(fileName);
-        const fileUrl = fileKey ? (fileKey.startsWith('http') ? fileKey : (S3_BASE_URL + fileKey)) : '#';
-
-        const $newItem = $(`
-            <li class="source-item" title="${fileName}">
-                <span class="material-symbols-outlined">${icon}</span>
-                <a href="${fileUrl}" target="_blank" class="source-name" style="text-decoration: none; color: inherit;">${fileName}</a>
-                <button class="btn-delete-source" title="파일 삭제">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </li>
-        `);
-
-        // 삭제 버튼 클릭 이벤트
-        $newItem.find('.btn-delete-source').on('click', async function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (!confirm(`'${fileName}' 파일을 정말 삭제하시겠습니까?`)) {
-                return;
-            }
-
-            const $btn = $(this);
-            $btn.find('.material-symbols-outlined').text('sync').addClass('spin');
-
-            try {
-                // Lambda를 통한 파일 삭제
-                const deletePayload = {
-                    table: 'company_files',
-                    action: 'delete',
-                    companyId: companyId,
-                    fileKey: fileKey,
-                    fileName: fileName,
-                    userId: userId
-                };
-
-                const response = await APIcall(deletePayload, LAMBDA_URL, {
-                    'Content-Type': 'application/json'
-                });
-                const result = await response.json();
-
-                if (response.ok && !result.error) {
-                    $newItem.fadeOut(300, function () {
-                        $(this).remove();
-                    });
-                } else {
-                    alert('삭제 처리에 실패했습니다: ' + (result.error || '서버 응답 오류'));
-                    $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
-                }
-            } catch (error) {
-                console.error('삭제 요청 중 오류 발생:', error);
-                alert('삭제 중 오류가 발생했습니다: ' + error.message);
-                $btn.find('.material-symbols-outlined').text('close').removeClass('spin');
-            }
-        });
-
-        $newItem.on('click', function (e) {
-            // 링크나 버튼 자체를 클릭한 게 아니라면 active 처리
-            if (!$(e.target).closest('a, button').length) {
-                $('.source-item').removeClass('active');
-                $(this).addClass('active');
-            }
-        });
-
-        $sourceList.append($newItem);
-    }
 
     function getFileIcon(fileName) {
         const ext = fileName.split('.').pop().toLowerCase();

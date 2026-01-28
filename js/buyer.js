@@ -282,7 +282,7 @@ $(document).ready(function () {
             share_type: $('input[name="share_type"]:checked').val(),
             share_with: selectedShareTargets,
             table: 'sellers',
-            action: 'update'
+            action: 'upload'
         };
 
         const $btn = $(this);
