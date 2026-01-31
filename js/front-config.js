@@ -16,6 +16,11 @@ window.config = {
   colors: {
     black: window.Helpers.getCssVar('pure-black'),
     white: window.Helpers.getCssVar('white')
+  },
+  supabase: {
+    url: 'https://pqhqmvymssjtjhmiloga.supabase.co',
+    anonKey: 'sb_publishable_NSrXrC4dpsKnPBviNDl-7g_fcNZeH4I',
+    endpoint: 'https://pqhqmvymssjtjhmiloga.supabase.co/functions/v1/upload-handler'
   }
 };
 /**

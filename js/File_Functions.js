@@ -1,7 +1,6 @@
 import { APIcall } from './APIcallFunction.js';
 import { getEncoding } from "https://cdn.jsdelivr.net/npm/js-tiktoken@1.0.17/+esm";
 
-const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 
@@ -123,9 +122,7 @@ export async function fileUpload(file, userId = null, companyId = null) {
             };
 
             try {
-                const response = await APIcall(payload, LAMBDA_URL, {
-                    'Content-Type': 'application/json'
-                });
+                const response = await APIcall(payload); // Defaults to Supabase endpoint
                 resolve(response);
             } catch (err) {
                 reject(err);
@@ -146,9 +143,7 @@ export async function fileDelete(fileId, fileName, userId, companyId = null) {
     };
 
     try {
-        const response = await APIcall(payload, LAMBDA_URL, {
-            'Content-Type': 'application/json'
-        });
+        const response = await APIcall(payload);
         return response;
     } catch (error) {
         throw error;

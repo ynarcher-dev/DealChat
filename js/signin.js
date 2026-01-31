@@ -25,8 +25,7 @@ $(document).ready(function () {
     APIcall({
       table: 'users',
       action: 'read',
-      email: email,
-      password: password
+      email: email
     }, LAMBDA_URL, {
       'Content-Type': 'application/json'
     })

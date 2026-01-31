@@ -3,21 +3,26 @@ export function APIcall(prompts, Furl, Fheaders, Fmethod = 'POST') {
     if (prompts instanceof FormData) {
         body = prompts;
     } else {
-        // 람다 함수에서 json.loads(event['body'])로 바로 읽을 수 있도록 수정
         body = JSON.stringify(prompts);
     }
 
-    // 6MB 제한 체크
-    if (body.length > 6 * 1024 * 1024) {
-        console.error('Payload size exceeds 6MB limit');
-        return Promise.reject(new Error('파일 용량이 너무 큽니다 (6MB 제한)'));
+    // Use global config if URL is not provided (or matches the old Lambda URL)
+    const endpoint = Furl && !Furl.includes('lambda-url') ? Furl : window.config.supabase.endpoint;
+
+    const headers = {
+        ...Fheaders,
+        'apikey': window.config.supabase.anonKey,
+        'Authorization': `Bearer ${window.config.supabase.anonKey}`
+    };
+
+    // Remove Content-Type if body is FormData (browser will set it with boundary)
+    if (body instanceof FormData && headers['Content-Type']) {
+        delete headers['Content-Type'];
     }
 
-    console.log('APIcall Request URL:', Furl);
-
-    return fetch(Furl, {
+    return fetch(endpoint, {
         method: Fmethod,
-        headers: Fheaders || {},
+        headers: headers,
         body: body,
         mode: 'cors'
     }).then(response => {

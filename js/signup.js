@@ -86,11 +86,11 @@ $(document).ready(function () {
             password: password, // 실제 환경에서는 암호화 필요
             name: name,
             company: company || '',
-            agreeTerms: agreeTerms,
-            agreePrivacy: agreePrivacy,
-            agreeMarketing: agreeMarketing,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            agree_terms: agreeTerms,
+            agree_privacy: agreePrivacy,
+            agree_marketing: agreeMarketing,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             table: 'users',
             action: 'create'
         };
