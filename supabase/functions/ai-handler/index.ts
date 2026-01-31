@@ -59,9 +59,9 @@ serve(async (req) => {
             // match_documents 함수는 Supabase SQL Editor에서 미리 정의되어 있어야 함
             const { data: documents, error } = await supabase.rpc('match_documents', {
                 query_embedding: queryEmbedding,
-                match_threshold: 0.5, // 유사도 임계값
+                match_threshold: 0.3, // 유사도 임계값 완화 (0.5 -> 0.3)
                 match_count: topK,
-                filter: vectorNamespace ? { company_id: vectorNamespace } : {} // 메타데이터 필터링 (구조에 따라 조정 필요)
+                filter: vectorNamespace ? { company_id: vectorNamespace } : {}
             });
 
             if (error) throw error;

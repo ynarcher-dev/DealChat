@@ -55,14 +55,6 @@
                     style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;"
                     placeholder="산업 분야가 여기에 표시됩니다..." readonly>
                 <br /><br />
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <p style="margin: 0; font-weight: 600;">보고서</p>
-                </div>
-                <button class="btn btn-sm btn-primary w-100 d-flex align-items-center justify-content-center gap-2"
-                    type="button" id="open-report-modal" style="font-size: 13px;">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">article</span>
-                    <span>보고서 생성</span>
-                </button>
             </nav>
 
             <div class="sidebar-footer" id="user-menu-trigger" style="position: relative; cursor: pointer;">
@@ -151,7 +143,7 @@
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
-            <div class="panel-content">
+            <div class="panel-content" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
                 <div class="guide-section">
                     <button class="btn-new-source" id="add-source">
                         <span class="material-symbols-outlined">add</span>
@@ -164,6 +156,17 @@
                         <!-- Uploaded files will appear here -->
                     </ul>
                 </div>
+            </div>
+
+            <!-- Persistent Report Button Footer -->
+            <div class="panel-footer"
+                style="padding: 24px; border-top: 1px solid var(--border-color); background: white;">
+                <button class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2"
+                    type="button" id="open-report-modal"
+                    style="border-radius: 12px; padding: 12px; box-shadow: 0 4px 12px rgba(66, 133, 244, 0.15);">
+                    <span class="material-symbols-outlined">article</span>
+                    <span style="font-weight: 600;">보고서 생성</span>
+                </button>
             </div>
         </aside>
     </div>

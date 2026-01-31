@@ -228,7 +228,12 @@ Deno.serve(async (req) => {
                                         content: chunk,
                                         embedding: embedding,
                                         company_id: vectorNamespace,
-                                        metadata: { file_id: uploadedFileId, file_name: file_name, user_id: userId }
+                                        metadata: {
+                                            file_id: uploadedFileId,
+                                            file_name: file_name,
+                                            user_id: userId,
+                                            company_id: vectorNamespace // Filter consistency
+                                        }
                                     });
                                     if (insErr) throw insErr;
                                 }
@@ -346,7 +351,12 @@ Deno.serve(async (req) => {
                             content: chunk,
                             embedding: embedding,
                             company_id: vectorNamespace,
-                            metadata: { file_id: fileId, file_name: file_name || "Unknown", user_id: userId }
+                            metadata: {
+                                file_id: fileId,
+                                file_name: file_name || "Unknown",
+                                user_id: userId,
+                                company_id: vectorNamespace // Filter consistency
+                            }
                         });
                         if (insErr) throw insErr;
                     }
