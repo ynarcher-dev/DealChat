@@ -11,10 +11,22 @@ const S3_BASE_URL = 'https://dealchat.co.kr.s3.ap-northeast-2.amazonaws.com/';
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
-    { field: "file_name", headerName: "파일명", sortable: true, filter: true, flex: 1 },
+    { field: "file_name", headerName: "파일명", sortable: true, filter: true, flex: 1.5 },
+    { field: "tags", headerName: "태그", sortable: true, filter: true, flex: 1 },
     { field: "summary", headerName: "요약", sortable: true, flex: 2 },
-    { field: "updatedAt", headerName: "업데이트일", sortable: true, flex: 0.5, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : "" }
-
+    {
+        field: "updated_at",
+        headerName: "수정일",
+        sortable: true,
+        flex: 0.8,
+        valueFormatter: params => params.value ? new Date(params.value).toLocaleString('ko-KR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : ""
+    }
 ];
 
 let currentFile = null;
@@ -40,13 +52,36 @@ const gridOptions = {
             $('#modal-file-name-input').val(currentFile.file_name || '');
             $('#modal-comments').val(currentFile.comments || '');
             $('#modal-summary').val(currentFile.summary || '');
-
-            const fileUrl = currentFile.location ? (currentFile.location.startsWith('http') ? currentFile.location : (S3_BASE_URL + currentFile.location)) : '#';
-            $('#modal-location-icon').attr('href', fileUrl);
-            $('#modal-location-btn').attr('href', fileUrl);
             $('#modal-tags').val(currentFile.tags || '');
-            $('#modal-createdAt').val(currentFile.createdAt || '');
-            $('#modal-updatedAt').val(currentFile.updatedAt || '');
+
+            // Preserve parsedText for AI processing (not displayed in modal)
+            // currentFile.parsedText is already available from params.data
+
+            // Format timestamps for display
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            };
+            $('#modal-createdAt').val(formatDate(currentFile.created_at));
+            $('#modal-updatedAt').val(formatDate(currentFile.updated_at));
+
+            // Generate Supabase Storage download URL
+            if (currentFile.location) {
+                const supabaseUrl = window.config.supabase.url;
+                const downloadUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${currentFile.location}`;
+                $('#modal-location-icon').attr('href', downloadUrl);
+                $('#modal-location-btn').attr('href', downloadUrl);
+            } else {
+                $('#modal-location-icon').attr('href', '#');
+                $('#modal-location-btn').attr('href', '#');
+            }
 
             const modalEl = document.getElementById('file-modal');
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -116,14 +151,20 @@ $(document).ready(function () {
 
     // AI 요약 생성 이벤트
     $('#AI-generate-summary').on('click', async function () {
-        const ragData = getRAGdata();
-        const sourceText = currentFile?.parsedText || $('#modal-summary').val();
+        console.log('AI Summary: Button clicked');
+        console.log('AI Summary: currentFile:', currentFile);
+
+        const sourceText = currentFile?.parsedText || currentFile?.summary || $('#modal-summary').val();
+
+        console.log('AI Summary: parsedText length:', currentFile?.parsedText?.length || 0);
+        console.log('AI Summary: summary length:', currentFile?.summary?.length || 0);
+        console.log('AI Summary: sourceText length:', sourceText?.length || 0);
+        console.log('AI Summary: First 100 chars:', sourceText?.substring(0, 100));
+
         if (!sourceText || sourceText.length < 10) {
-            alert('요약할 내용이 없습니다.');
+            alert('요약할 내용이 없습니다. 파일에서 텍스트를 추출할 수 없거나 이미지 기반 PDF일 수 있습니다.');
             return;
         }
-
-        const totalText = ragData + sourceText;
         const $btn = $(this);
         const originalIcon = $btn.html();
 
@@ -131,12 +172,18 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
 
         try {
-            const prompt = "위 문서를 바탕으로 핵심 내용을 500자 이내의 한글 마크다운 형식으로 요약해줘. 다른 설명은 하지 마.";
-            const response = await addAiResponse(prompt, totalText);
+            console.log('AI Summary: Sending request to AI...');
+            const prompt = `다음 문서의 핵심 내용을 1000자 이내의 한글로 요약해주세요. 마크다운 형식으로 작성하되, 제목이나 추가 설명 없이 요약 내용만 작성해주세요.\n\n문서 내용:\n${sourceText}`;
+
+            // 파일 내용만 프롬프트에 포함, RAG 데이터는 빈 문자열로
+            const response = await addAiResponse(prompt, "");
             const data = await response.json();
+
+            console.log('AI Summary: Response received:', data);
 
             if (data.answer) {
                 $('#modal-summary').val(data.answer.trim());
+                console.log('AI Summary: Summary updated successfully');
             } else {
                 throw new Error('응답 데이터가 없습니다.');
             }
@@ -196,7 +243,7 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
 
         try {
-            const prompt = "위 문서를 바탕으로 핵심 내용을 500자 이내의 한글 마크다운 형식으로 요약해줘. 다른 설명은 하지 마.";
+            const prompt = "위 문서를 바탕으로 핵심 내용을 1000자 이내의 한글 마크다운 형식으로 요약해줘. 다른 설명은 하지 마.";
             const response = await addAiResponse(prompt, sourceText);
             const data = await response.json();
             $('#upload-summary').val(data.answer.trim());

@@ -703,21 +703,28 @@ h3,
     background-color: rgba(0, 0, 0, 0.5);
     display: none;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     z-index: 2000;
     backdrop-filter: blur(4px);
+    overflow-y: auto;
+    padding: 40px 0;
 }
 
 .modal-content-large {
     background-color: var(--sidebar-bg);
     width: 80%;
     max-width: 900px;
-    height: 80vh;
+    height: auto;
+    /* Remove fixed height */
+    min-height: 200px;
+    margin: 40px auto;
+    /* Center horizontally and add vertical margin */
     border-radius: 16px;
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-md);
-    overflow: hidden;
+    overflow: visible;
+    /* Remove overflow:hidden */
     animation: modalFadeIn 0.3s ease-out;
 }
 

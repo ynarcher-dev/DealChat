@@ -104,8 +104,68 @@ $(document).ready(function () {
     const $deleteBtn = $('#delete-buyer-btn');
     let currentAction = 'create';
 
+    // --- Tag Handling Logic ---
+    let selectedUsers = [];
+
+    const updateHiddenInput = () => {
+        $('input[name="selective_users"]').val(selectedUsers.join(','));
+    };
+
+    const renderTags = () => {
+        const $wrapper = $('#tag-wrapper');
+        const $input = $('#selective-users-input');
+
+        // Remove existing tags only (keep the input)
+        $wrapper.find('.tag-item').remove();
+
+        selectedUsers.forEach(user => {
+            const tagHtml = `
+                <div class="tag-item" data-user="${user}">
+                    <span>${user}</span>
+                    <span class="tag-remove material-symbols-outlined">close</span>
+                </div>
+            `;
+            $input.before(tagHtml);
+        });
+
+        updateHiddenInput();
+    };
+
+    // Tag Input Event Listener
+    $('#selective-users-input').on('keydown', function (e) {
+        // IME composition check for Korean input
+        if (e.originalEvent.isComposing) {
+            return;
+        }
+
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = $(this).val().trim().replace(/,/g, '');
+
+            if (val && !selectedUsers.includes(val)) {
+                selectedUsers.push(val);
+                renderTags();
+            }
+            $(this).val('');
+        }
+        // Backspace to remove last tag if input is empty
+        if (e.key === 'Backspace' && $(this).val() === '' && selectedUsers.length > 0) {
+            selectedUsers.pop();
+            renderTags();
+        }
+    });
+
+    // Tag Remove Event Listener (Delegate)
+    $('#tag-wrapper').on('click', '.tag-remove', function () {
+        const userToRemove = $(this).closest('.tag-item').data('user');
+        selectedUsers = selectedUsers.filter(user => user !== userToRemove);
+        renderTags();
+    });
+
     openBuyerModal = function (data = null) {
         $form[0].reset();
+        selectedUsers = []; // Reset tags
+        $('#tag-wrapper .tag-item').remove(); // Clear UI
 
         if (data) {
             // 상세/수정 모드
@@ -121,6 +181,39 @@ $(document).ready(function () {
             $('input[name="interest_industry"]').val(data.interest_industry || '');
             $('input[name="investment_amount"]').val(data.investment_amount || '');
             $('input[name="etc"]').val(data.etc || '');
+
+            // Visibility scope
+            const visibilityScope = data.visibility_scope || 'private';
+            $('select[name="visibility_scope"]').val(visibilityScope);
+
+            // Load tags from comma-separated string
+            const usersStr = data.selective_users || '';
+            if (usersStr) {
+                selectedUsers = usersStr.split(',').map(s => s.trim()).filter(s => s);
+                renderTags();
+            }
+
+            // Show/hide selective users input based on current value
+            if (visibilityScope === 'selective') {
+                $('#selective-users-row').show();
+            } else {
+                $('#selective-users-row').hide();
+            }
+
+            // Format and display timestamps
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            };
+            $('input[name="created_at"]').val(formatDate(data.created_at));
+            $('input[name="updated_at"]').val(formatDate(data.updated_at));
         } else {
             // 신규 등록 모드
             currentAction = 'create';
@@ -130,6 +223,14 @@ $(document).ready(function () {
 
             const randomId = crypto.randomUUID();
             $('input[name="id"]').val(randomId);
+
+            // Set default visibility to private
+            $('select[name="visibility_scope"]').val('private');
+            $('#selective-users-row').hide();
+
+            // Clear timestamp fields for new entries
+            $('input[name="created_at"]').val('');
+            $('input[name="updated_at"]').val('');
         }
 
         $modal.css('display', 'flex');
@@ -143,7 +244,19 @@ $(document).ready(function () {
         $modal.hide();
     });
 
+    // Visibility scope change handler
+    $('#visibility-scope').on('change', function () {
+        const selectedValue = $(this).val();
+        if (selectedValue === 'selective') {
+            $('#selective-users-row').show();
+        } else {
+            $('#selective-users-row').hide();
+        }
+    });
+
     $('#save-buyer-btn').on('click', function () {
+        const now = new Date().toISOString();
+
         const formData = {
             id: $('input[name="id"]').val(),
             companyName: $('input[name="companyName"]').val().trim(),
@@ -152,15 +265,20 @@ $(document).ready(function () {
             interest_industry: $('input[name="interest_industry"]').val().trim(),
             investment_amount: $('input[name="investment_amount"]').val().trim(),
             etc: $('input[name="etc"]').val().trim(),
+            visibility_scope: $('select[name="visibility_scope"]').val(),
+            selective_users: $('input[name="selective_users"]').val().trim(),
             userId: userId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
             table: 'buyers',
-            action: 'upload'
+            action: currentAction === 'create' ? 'upload' : 'update'
         };
 
+        // 생성 시: created_at, updated_at 모두 설정
+        // 수정 시: updated_at만 설정 (Edge Function에서 자동 처리되지만 명시적으로 전달)
         if (currentAction === 'create') {
-            formData.createdAt = new Date().toISOString();
+            formData.created_at = now;
+            formData.updated_at = now;
+        } else {
+            formData.updated_at = now;
         }
 
         if (!formData.companyName) {

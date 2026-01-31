@@ -1,15 +1,14 @@
-import { addAiResponse, getRAGdata } from './AI_Functions.js';
+import { addAiResponse, getRAGdata, searchVectorDB } from './AI_Functions.js';
 import { APIcall } from './APIcallFunction.js';
-import { filetypecheck, fileUpload, extractTextFromPDF, extractTextFromDocx, extractTextFromPptx, extractTextFromTxt } from './File_Functions.js';
-
-const LAMBDA_URL = 'https://fx4w4useafzrufeqxfqui6z5p40aazkb.lambda-url.ap-northeast-2.on.aws/';
-const S3_BASE_URL = 'https://dealchat.co.kr.s3.ap-northeast-2.amazonaws.com/';
+import { filetypecheck, fileUpload, extractTextFromPDF, extractTextFromDocx, extractTextFromPptx, extractTextFromTxt, validateText } from './File_Functions.js';
+const LAMBDA_URL = window.config.supabase.endpoint;
+const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
 
 $(document).ready(function () {
     let currentCompanyData = null;
     let availableFiles = [];
     let searchResults = [];
-    
+
     const userData = JSON.parse(localStorage.getItem('dealchat_users'));
 
     if (!userData || !userData.isLoggedIn) {
@@ -36,12 +35,9 @@ $(document).ready(function () {
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
     const $guidePanel = $('#guide-panel');
-
-
-
     // 0. 가용 파일 목록(dealchat_files) 불러오기
     function loadAvailableFiles() {
-        APIcall({
+        return APIcall({
             action: 'get',
             table: 'files',
             userId: userId
@@ -53,7 +49,7 @@ $(document).ready(function () {
                 const files = Array.isArray(data) ? data : (data.Items || []);
                 availableFiles = files.map(f => ({
                     id: f.id,
-                    name: f.file_name,
+                    name: f.file_name || f.name || 'Unknown',
                     userId: f.userId,
                     location: f.location
                 }));
@@ -64,62 +60,80 @@ $(document).ready(function () {
             });
     }
 
-    loadAvailableFiles();
-    console.log('Available files for registration loaded:', availableFiles);
+    // 1. 회사 기본 정보 가져오기 (순차 실행을 위해 함수로 분리)
+    function loadCompanyData() {
+        const payload1 = {
+            action: 'get',
+            table: 'companies',
+            id: companyId,
+            userId: userId
+        };
 
-    // 1. 회사 기본 정보 가져오기 (Lambda)
-    const payload1 = {
-        action: 'get',
-        table: 'companies',
-        id: companyId,
-        userId: userId
-    };
+        APIcall(payload1, LAMBDA_URL, {
+            'Content-Type': 'application/json'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('데이터를 불러오는 중 오류가 발생했습니다:', data.error);
+                } else {
+                    currentCompanyData = data;
+                    console.log('회사 정보:', data);
 
-    APIcall(payload1, LAMBDA_URL, {
-        'Content-Type': 'application/json'
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                console.error('데이터를 불러오는 중 오류가 발생했습니다:', data.error);
-            } else {
-                currentCompanyData = data;
-                console.log('회사 정보:', data)
+                    if (data.companyName) {
+                        $('.notebook-title').text(data.companyName);
+                    }
 
-                if (data.companyName) {
-                    $('.notebook-title').text(data.companyName);
-                }
+                    if (data.summary) {
+                        $('#summary').val(data.summary);
+                    }
+                    if (data.industry) {
+                        $('#industry').val(data.industry);
+                    }
+                    if (data.userId) {
+                        $('#userId').val(data.userId);
+                    }
+                    // 기존 첨부파일 로드 (attachments는 fileId 문자열 배열)
+                    if (data.attachments && data.attachments.length > 0) {
+                        let validAttachments = [];
+                        let missingFound = false;
 
-                if (data.summary) {
-                    $('#summary').val(data.summary);
-                }
-                if (data.industry) {
-                    $('#industry').val(data.industry);
-                }
-                if (data.userId) {
-                    $('#userId').val(data.userId);
-                }
-                // 기존 첨부파일 로드 (attachments는 fileId 문자열 배열)
-                if (data.attachments && data.attachments.length > 0) {
-                    setTimeout(() => {
                         data.attachments.forEach(fileId => {
-                            // availableFiles에서 해당 fileId를 가진 파일 찾기
                             const file = availableFiles.find(f => f.id === fileId);
                             if (file) {
                                 addFileToSourceList(file.name || file.file_name, file.id, file.location);
+                                validAttachments.push(fileId);
                             } else {
-                                console.warn('파일을 찾을 수 없습니다:', fileId);
+                                console.warn('파일을 찾을 수 없습니다 (자동 삭제 대상):', fileId);
+                                missingFound = true;
                             }
                         });
-                    }, 500);
+
+                        // 존재하지 않는 파일 ID가 발견되면 서버 정보 업데이트 (데이터 정합성 유지)
+                        if (missingFound) {
+                            console.log('유효하지 않은 첨부파일 ID를 정리합니다...');
+                            currentCompanyData.attachments = validAttachments;
+                            const cleanupPayload = {
+                                ...currentCompanyData,
+                                attachments: validAttachments,
+                                table: 'companies',
+                                action: 'update',
+                                userId: userId,
+                                updatedAt: new Date().toISOString()
+                            };
+                            APIcall(cleanupPayload).then(res => res.json()).then(console.log).catch(console.error);
+                        }
+                    }
                 }
-            }
-        })
-        .catch(error => {
-            console.error('데이터 로드 실패:', error);
-        });
+            })
+            .catch(error => {
+                console.error('데이터 로드 실패:', error);
+            });
+    }
 
-
+    loadAvailableFiles().then(() => {
+        loadCompanyData();
+    });
 
     // Save 버튼 클릭 이벤트
     $('#save-summary').on('click', function () {
@@ -141,7 +155,7 @@ $(document).ready(function () {
             table: 'companies',
             userId: userId,
             updatedAt: new Date().toISOString(),
-            action: 'upload' // Lambda에서 저장 로직을 타게 하기 위한 식별자
+            action: 'update' // 기존 데이터 업데이트
         };
 
         const $btn = $(this);
@@ -183,11 +197,16 @@ $(document).ready(function () {
     });
 
     // Send message function
+    let isSending = false; // 중복 전송 방지 플래그
+
     async function sendMessage() {
+        if (isSending) return; // 이미 전송 중이면 무시
+
         const userInput = $chatInput.val().trim();
-        const ragData = getRAGdata();
 
         if (userInput) {
+            isSending = true; // 전송 시작
+
             if ($welcomeScreen.length) {
                 $welcomeScreen.hide();
             }
@@ -196,14 +215,33 @@ $(document).ready(function () {
             addMessage(userInput, 'user');
             $chatInput.val('').css('height', 'auto');
 
-            // AI Response (대기 중 표시를 위해 빈 메시지 등을 먼저 띄울 수도 있지만 우선 직접 받아서 처리)
+            // AI Response (RAG -> LLM 구조)
             try {
-                const response = await addAiResponse(userInput, ragData);
+                // 1. Vector DB에서 관련 정보 검색 (RAG)
+                // companyId는 상위 스코프에 정의되어 있음
+                let context = "";
+                if (companyId) {
+                    try {
+                        console.log("🔍 Searching Vector DB with Namespace (Company ID):", companyId);
+                        context = await searchVectorDB(userInput, companyId, LAMBDA_URL);
+                        console.log("📄 RAG Search Result Length:", context.length);
+                        if (context.length > 0) console.log("📄 First 100 chars of context:", context.substring(0, 100));
+                    } catch (ragErr) {
+                        console.warn("RAG Search failed, proceeding without context:", ragErr);
+                    }
+                } else {
+                    console.warn("⚠️ No Company ID found. Skipping Vector Search.");
+                }
+
+                // 2. 검색된 컨텍스트와 함께 AI 응답 생성 요청
+                const response = await addAiResponse(userInput, context);
                 const data = await response.json();
                 addMessage(data.answer, 'ai');
             } catch (error) {
                 console.error('AI Response Error:', error);
                 addMessage('죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.', 'ai');
+            } finally {
+                isSending = false; // 전송 완료 (성공/실패 상관없이 해제)
             }
         }
     }
@@ -251,6 +289,7 @@ $(document).ready(function () {
 
     $chatInput.on('keydown', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.originalEvent.isComposing) return; // 한글 입력 조합 중 엔터 방지 (IME 문제 해결)
             e.preventDefault();
             sendMessage();
         }
@@ -479,7 +518,6 @@ $(document).ready(function () {
 
     $('#btn-register-deal').on('click', function () {
         // 프리필 작업 (현재 데이터가 있으면 기본값으로 채워줌)
-        console.log(currentCompanyData);
         if (currentCompanyData) {
             $('input[name="company_name"]').val(currentCompanyData.companyName || '');
             $('textarea[name="summary"]').val($('#summary').val() || '');
@@ -515,10 +553,12 @@ $(document).ready(function () {
             const queryLower = query.toLowerCase();
 
             if (query) {
+                const searchTerms = queryLower.split(/\s+/).filter(t => t);
                 // availableFiles에서 키워드 포함하는 파일 모두 찾기
-                const matches = availableFiles.filter(file =>
-                    file.name.toLowerCase().includes(queryLower)
-                );
+                const matches = availableFiles.filter(file => {
+                    const fileName = (file.name || "").toLowerCase();
+                    return searchTerms.every(term => fileName.includes(term));
+                });
 
                 if (matches.length > 0) {
                     matches.forEach(file => {
@@ -543,10 +583,15 @@ $(document).ready(function () {
     });
 
     $('#share-file-input').on('input', function () {
-        const query = $(this).val().trim().toLowerCase();
-        if (query.length > 0) {
+        const query = $(this).val().toLowerCase().normalize('NFC');
+        const searchTerms = query.trim().split(/\s+/).filter(t => t.length >= 2);
+
+        if (searchTerms.length > 0) {
             searchResults = availableFiles
-                .filter(file => file.name.toLowerCase().includes(query))
+                .filter(file => {
+                    const fileName = (file.name || "").toLowerCase().normalize('NFC');
+                    return searchTerms.every(term => fileName.includes(term));
+                })
                 .slice(0, 5);
         } else {
             searchResults = [];
@@ -586,7 +631,7 @@ $(document).ready(function () {
 
         // 선택된 파일 표시
         selectedSharedFiles.forEach((file, index) => {
-            const fileUrl = file.location ? (file.location.startsWith('http') ? file.location : (S3_BASE_URL + file.location)) : '#';
+            const fileUrl = file.location ? (file.location.startsWith('http') ? file.location : (SUPABASE_STORAGE_URL + file.location)) : '#';
             const $tag = $(`
                 <div class="share-tag" data-id="${file.id}">
                     <a href="${fileUrl}" target="_blank" style="display: flex; align-items: center; color: inherit; text-decoration: none;">
@@ -708,7 +753,7 @@ $(document).ready(function () {
     // 공통 함수: 파일을 소스 리스트에 추가
     function addFileToSourceList(fileName, fileId, fileLocation = null) {
         const icon = getFileIcon(fileName);
-        const fileUrl = fileLocation ? (fileLocation.startsWith('http') ? fileLocation : (S3_BASE_URL + fileLocation)) : '#';
+        const fileUrl = fileLocation ? (fileLocation.startsWith('http') ? fileLocation : (SUPABASE_STORAGE_URL + fileLocation)) : '#';
 
         const $newItem = $(`
             <li class="source-item" data-id="${fileId}" data-filename="${fileName}">
@@ -745,20 +790,32 @@ $(document).ready(function () {
                     ...currentCompanyData,
                     attachments: newAttachments,
                     table: 'companies',
-                    action: 'upload', // Lambda에서 upsert로 동작함
+                    action: 'update',
                     userId: userId,
                     updatedAt: new Date().toISOString()
                 };
 
-                const response = await APIcall(updatePayload, LAMBDA_URL, {
-                    'Content-Type': 'application/json'
-                });
+                // [추가] Vector DB에서 해당 파일의 임베딩 데이터 삭제 요청
+                // (파일 자체는 남겨두되, 이 회사의 검색 결과에서는 빠져야 하므로)
+                const vectorDeletePayload = {
+                    action: 'delete_vector', // 백엔드에서 처리해야 할 새로운 액션 타입
+                    table: 'document_sections', // [Fix] upload-handler 필수 파라미터 추가
+                    fileId: itemFileId,
+                    vectorNamespace: companyId, // 해당 회사의 네임스페이스에서만 삭제
+                    userId: userId
+                };
+
+                // 두 요청을 병렬로 처리 (순서 상관 없음)
+                const [response, vectorResponse] = await Promise.all([
+                    APIcall(updatePayload, LAMBDA_URL, { 'Content-Type': 'application/json' }),
+                    APIcall(vectorDeletePayload, LAMBDA_URL, { 'Content-Type': 'application/json' })
+                ]);
                 const deleteResult = await response.json();
 
                 if (response.ok && !deleteResult.error) {
                     // 로컬 데이터 갱신
                     currentCompanyData.attachments = newAttachments;
-                    
+
                     $newItem.fadeOut(300, function () {
                         $(this).remove();
                     });
@@ -806,6 +863,7 @@ $(document).ready(function () {
 
     $('#btn-select-internal').on('click', function () {
         $sourceOptionModal.hide();
+        $('#internal-file-search').val(''); // 검색어 초기화
         renderInternalFileList();
         $internalFileModal.css('display', 'flex');
     });
@@ -817,23 +875,33 @@ $(document).ready(function () {
     });
 
     $('#internal-file-search').on('input', function () {
-        renderInternalFileList($(this).val().trim().toLowerCase());
+        const query = $(this).val().toLowerCase();
+        renderInternalFileList(query);
     });
 
     function updateSelectedCount() {
         $('#selected-count').text(selectedInternalFiles.length);
     }
 
-    function renderInternalFileList(filter = "") {
+    function renderInternalFileList(query = "") {
         const $list = $('#internal-file-list');
         $list.empty();
 
         // 현재 이미 등록된 파일 ID 목록 (attachments)
         const attachedIds = currentCompanyData?.attachments || [];
+        // 유니코드 정규화(NFC)를 통해 맥(NFD)에서 업로드된 파일명과 검색어 간의 매칭 정확도 향상
+        const normalizedQuery = query.toLowerCase().normalize('NFC');
+        const searchTerms = normalizedQuery.trim().split(/\s+/).filter(t => t.length >= 2);
 
         const filteredFiles = availableFiles.filter(file => {
-            const matchesFilter = file.name.toLowerCase().includes(filter);
+            const fileName = (file.name || "").toLowerCase().normalize('NFC');
             const notAttached = !attachedIds.includes(file.id);
+
+            // 검색어가 없거나 2자 미만인 경우 필터링 없이 미첨부 파일 모두 표시
+            if (searchTerms.length === 0) return notAttached;
+
+            // 모든 검색 단어가 파일명에 포함되어야 함 (부분 일치)
+            const matchesFilter = searchTerms.every(term => fileName.includes(term));
             return matchesFilter && notAttached;
         });
 
@@ -882,42 +950,101 @@ $(document).ready(function () {
         $btn.prop('disabled', true).text('추가 중...');
 
         try {
-            // 현재 attachments에 새로 선택된 ID들 추가
+            // [수정] 선택된 파일들의 텍스트를 추출하여 VectorDB에 등록하는 과정 추가
+            // RAG 검색을 위해 필수적인 과정입니다.
+            let successCount = 0;
             const newAttachments = [...(currentCompanyData.attachments || [])];
-            selectedInternalFiles.forEach(file => {
-                if (!newAttachments.includes(file.id)) {
-                    newAttachments.push(file.id);
-                }
-            });
 
-            //서버 저장
+            for (const fileData of selectedInternalFiles) {
+                try {
+                    // 1. 이미 첨부된 파일이면 건너뜀
+                    if (newAttachments.includes(fileData.id)) continue;
+
+                    // 2. 파일 다운로드 (Supabase Storage URL)
+                    const fileUrl = fileData.location.startsWith('http') ? fileData.location : (SUPABASE_STORAGE_URL + fileData.location);
+                    console.log(`Processing file for VectorDB: ${fileData.name} (${fileUrl})`);
+
+                    const res = await fetch(fileUrl);
+                    if (!res.ok) throw new Error(`Failed to fetch file: ${res.statusText}`);
+                    const blob = await res.blob();
+
+                    // 3. File 객체로 변환 (MIME 타입 추론)
+                    const file = new File([blob], fileData.name, { type: blob.type });
+
+                    // 4. 텍스트 추출
+                    let extractedText = "";
+                    if (file.type.includes("pdf")) {
+                        extractedText = await extractTextFromPDF(file);
+                    } else if (file.type.includes("word") || file.name.endsWith(".docx")) {
+                        extractedText = await extractTextFromDocx(file);
+                    } else if (file.type.includes("presentation") || file.name.endsWith(".pptx")) {
+                        extractedText = await extractTextFromPptx(file);
+                    } else if (file.type.includes("text") || file.name.endsWith(".txt")) {
+                        extractedText = await extractTextFromTxt(file);
+                    }
+
+                    // 5. 텍스트 유효성 검사
+                    const validation = validateText(extractedText);
+                    if (!validation.valid) {
+                        console.warn(`Skipping VectorDB registration for ${file.name}: ${validation.msg}`);
+                        // 텍스트 추출 실패해도 파일 연결은 진행할지 여부 결정. 여기서는 일단 연결은 진행.
+                    } else {
+                        // 6. VectorDB 등록을 위해 새로운 index_existing 액션 사용
+                        // (이미 존재하는 파일이므로 files 테이블 추가 없이 Vector 생성만 유도함)
+                        console.log(`Registering to VectorDB (Index Only): ${fileData.name}, Text Length: ${extractedText.length}`);
+
+                        await APIcall({
+                            action: 'index_existing',
+                            table: 'companies', // Lambda requires a table, but index_existing logic handles document_sections
+                            parsedText: extractedText,
+                            fileId: fileData.id,
+                            file_name: fileData.name,
+                            vectorNamespace: companyId,
+                            userId: userId
+                        }, LAMBDA_URL, {
+                            'Content-Type': 'application/json'
+                        });
+
+                        console.log(`✅ VectorDB registration (Index) successful for: ${fileData.name}`);
+                    }
+
+                    newAttachments.push(fileData.id);
+                    successCount++;
+
+                    // UI에 추가
+                    addFileToSourceList(fileData.name, fileData.id, fileData.location);
+
+                } catch (innerError) {
+                    console.error(`❌ Failed to process internal file ${fileData.name}:`, innerError);
+                    alert(`'${fileData.name}' 파일 처리 중 오류가 발생하여 건너뜁니다.`);
+                }
+            }
+
+            if (successCount === 0 && selectedInternalFiles.length > 0) {
+                alert("추가할 수 있는 새로운 파일이 없거나 모든 파일 분석에 실패했습니다.");
+                return;
+            }
+
+            //서버 저장 (Attachments 리스트 업데이트)
             const payload = {
                 ...currentCompanyData,
                 attachments: newAttachments,
                 table: 'companies',
                 userId: userId,
                 updatedAt: new Date().toISOString(),
-                action: 'upload'
+                action: 'update'
             };
 
             const response = await APIcall(payload, LAMBDA_URL, {
                 'Content-Type': 'application/json'
             });
-            const result = await response.json();
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            // UI 업데이트
-            selectedInternalFiles.forEach(file => {
-                addFileToSourceList(file.name, file.id, file.location);
-            });
+            await response.json();
 
             // 로컬 데이터 갱신
             currentCompanyData.attachments = newAttachments;
 
-            alert(`${selectedInternalFiles.length}개의 파일이 추가되었습니다.`);
+            console.log(`Successfully added and indexed ${successCount} files.`);
+            alert(`${successCount}개의 파일이 추가되었으며, AI 채팅 분석(RAG) 등록이 완료되었습니다.`);
             $internalFileModal.hide();
             selectedInternalFiles = [];
             updateSelectedCount();
@@ -973,6 +1100,17 @@ $(document).ready(function () {
             // 3. 추출 성공 여부 확인 및 업로드 진행
             if (extractedText && extractedText.trim().length > 0) {
                 const cleanText = extractedText.trim();
+
+                // [추가] 텍스트 품질 검증 (File_Functions와 동일 로직 적용)
+                const validation = validateText(cleanText);
+                if (!validation.valid) {
+                    const confirmMsg = `파일 업로드 불가: ${validation.msg}\n\n텍스트 추출에 실패했거나 내용이 충분하지 않은 문서입니다.`;
+                    alert(confirmMsg);
+                    $newItem.remove();
+                    $fileUpload.val('');
+                    return; // 업로드 중단
+                }
+
                 console.log('텍스트 추출 완료:', cleanText.substring(0, 100) + '...');
 
                 // 업로드 상태 업데이트
@@ -980,7 +1118,8 @@ $(document).ready(function () {
 
                 try {
                     // 4. 통합 Lambda 호출 (fileUpload 내에서 fetch 수행)
-                    const fetchResponse = await fileUpload(file, userId, companyId);
+                    // cleanText를 전달하여 불필요한 재추출 방지
+                    const fetchResponse = await fileUpload(file, userId, companyId, cleanText);
 
                     // [핵심] fetch 결과인 Response 객체에서 JSON 데이터를 읽어옴
                     const result = await fetchResponse.json();
@@ -998,7 +1137,28 @@ $(document).ready(function () {
 
                         // 5. 업로드 중 표시 제거 후 새로운 파일 아이템으로 교체
                         $newItem.remove();
-                        addFileToSourceList(file.name, finalData.id || result.id, finalData.location || result.location);
+                        const newFileId = finalData.id || result.id;
+                        addFileToSourceList(file.name, newFileId, finalData.location || result.location);
+
+                        // [중요] 회사 정보의 attachments 업데이트
+                        if (currentCompanyData && newFileId) {
+                            const currentAttachments = currentCompanyData.attachments || [];
+                            if (!currentAttachments.includes(newFileId)) {
+                                const newAttachments = [...currentAttachments, newFileId];
+                                currentCompanyData.attachments = newAttachments; // 로컬 업데이트
+
+                                // 서버 업데이트 (비동기)
+                                const updatePayload = {
+                                    ...currentCompanyData,
+                                    attachments: newAttachments,
+                                    table: 'companies',
+                                    userId: userId,
+                                    updatedAt: new Date().toISOString(),
+                                    action: 'update'
+                                };
+                                APIcall(updatePayload).then(res => res.json()).then(console.log).catch(console.error);
+                            }
+                        }
 
                         alert('업로드 및 정보 저장이 완료되었습니다.');
 
@@ -1038,4 +1198,29 @@ $(document).ready(function () {
             default: return 'attachment';
         }
     }
+
+    // User Menu & Sign out Logic
+    $('#user-menu-trigger').on('click', function (e) {
+        e.stopPropagation();
+        $('#user-menu-dropdown').fadeToggle(150);
+    });
+
+    $(document).on('click', function () {
+        $('#user-menu-dropdown').fadeOut(150);
+    });
+
+    $('#btn-signout').on('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm('로그아웃 하시겠습니까?')) {
+            localStorage.removeItem('dealchat_users');
+            // Move to the index (landing) page which is outside current 'html' directory
+            location.href = '../index.html';
+        }
+    });
+
+    // Prevent closing when clicking inside the dropdown
+    $('#user-menu-dropdown').on('click', function (e) {
+        e.stopPropagation();
+    });
 });

@@ -2,7 +2,7 @@ import { APIcall } from "./APIcallFunction.js";
 import { countTokens } from "./File_Functions.js";
 
 export function addAiResponse(userInput, sourceTexts) {
-    const AI_LAMBDA_URL = 'https://iocc4lp5btcyfcrgmyux4s3mea0lnbko.lambda-url.ap-northeast-2.on.aws/';
+    const AI_LAMBDA_URL = window.config.supabase.url + '/functions/v1/ai-handler';
 
     // 토큰 제한 설정 (Lambda 타임아웃 및 페이로드 제한을 고려하여 30k 정도로 제한)
     const MAX_TOKEN = 120000;
@@ -21,7 +21,9 @@ export function addAiResponse(userInput, sourceTexts) {
     // 2. 프롬프트 개선: 역할 부여, 문맥 구분, 출력 가이드라인 추가
     let prompts = `
         [Role]
-        You are a professional investment analyst and corporate analysis expert. Based on the provided materials, you must provide objective and accurate answers to the user's questions.
+        You are a professional investment analyst and corporate analysis expert. 
+        Your goal is to assist the user by answering questions based on the provided [Context Documents].
+        However, you should also be helpful and polite in general conversation.
 
         [Context Documents]
         ${truncatedSource}
@@ -30,12 +32,11 @@ export function addAiResponse(userInput, sourceTexts) {
         ${userInput}
 
         [Instructions]
-        1. Answer strictly based on the [Context Documents].
-        2. Do not make up information not present in the documents (No Hallucination).
-        3. If the answer cannot be found in the documents, reply "I cannot find the relevant information in the provided documents."
-        4. Answer in Korean, maintaining a professional and trustworthy tone.
-        5. Use appropriate line breaks and markdown (bullet points, etc.) for readability.
-        6. Write the answer in Korean.
+        1. **Context Priority**: First, check if the [Context Documents] contain the answer. If they do, use them as your primary source.
+        2. **General Conversation**: If the user's input is a greeting (e.g., "Hi", "Hello"), a compliment, or a general question unrelated to the documents, answer naturally and politely in Korean. Do not say "I cannot find info in documents" for greetings.
+        3. **Missing Info**: If the question asks for specific details about the company/deal that represent facts NOT present in the [Context Documents], clearly state: "제공된 문서에서 해당 내용을 찾을 수 없습니다." (do not HALLUCINATE facts).
+        4. **Style**: Answer in Korean. Maintain a professional, objective, and trustworthy tone suitable for investment banking.
+        5. **Formatting**: Use Markdown (bullet points, bold text) for readability.
     `.trim();
 
     // 3. 최종 토큰 수 확인
@@ -49,6 +50,45 @@ export function addAiResponse(userInput, sourceTexts) {
 
     // API 호출 (Promise를 반환하므로 호출부에서 처리가 필요할 수 있습니다)
     return APIcall({ body: prompts }, AI_LAMBDA_URL, { 'Content-Type': 'application/json' });
+}
+
+export async function searchVectorDB(query, companyId, lambdaUrl) {
+    if (!query || !companyId) return "";
+
+    const payload = {
+        action: 'search_vector',
+        query: query,
+        vectorNamespace: companyId,
+        topK: 5 // 상위 5개 문서 추출
+    };
+
+    try {
+        const response = await APIcall(payload, lambdaUrl, { 'Content-Type': 'application/json' });
+        const data = await response.json();
+
+        // Lambda 응답 구조에 따라 처리 (문자열 배열 가정)
+        // data.results가 배열이라고 가정하고 연결
+        if (data.results && Array.isArray(data.results)) {
+            return data.results.join("\n\n");
+        } else if (typeof data.results === 'string') {
+            return data.results;
+        } else if (data.body) {
+            // Lambda Proxy Integration의 경우 body 파싱
+            try {
+                const body = typeof data.body === 'string' ? JSON.parse(data.body) : data.body;
+                if (Array.isArray(body.results)) return body.results.join("\n\n");
+                if (typeof body.results === 'string') return body.results;
+                return "";
+            } catch (e) {
+                return "";
+            }
+        }
+
+        return "";
+    } catch (error) {
+        console.error("Vector Search Failed:", error);
+        return ""; // 검색 실패 시 빈 컨텍스트 반환 (일반 LLM 응답으로 fallback)
+    }
 }
 
 export function getRAGdata() {

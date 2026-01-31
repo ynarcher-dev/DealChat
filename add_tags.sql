@@ -1,0 +1,6 @@
+-- Direct SQL execution to add tags and parsedText columns
+ALTER TABLE files ADD COLUMN IF NOT EXISTS tags TEXT;
+ALTER TABLE files ADD COLUMN IF NOT EXISTS parsedText TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS tags TEXT;
+ALTER TABLE sellers ADD COLUMN IF NOT EXISTS tags TEXT;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS tags TEXT;

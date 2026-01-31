@@ -14,8 +14,9 @@ window.templateName = document.documentElement.getAttribute('data-template');
 window.config = {
   // global color variables for charts except chartjs
   colors: {
-    black: window.Helpers.getCssVar('pure-black'),
-    white: window.Helpers.getCssVar('white')
+    black: '#1a1c1e',
+    white: '#ffffff',
+    cardColor: '#ffffff'
   },
   supabase: {
     url: 'https://pqhqmvymssjtjhmiloga.supabase.co',

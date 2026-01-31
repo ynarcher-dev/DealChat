@@ -42,16 +42,13 @@ $(document).ready(function () {
 
             // 람다 함수가 POST를 지원하고, keyword가 없어도 전체 조회를 지원하도록 수정되었으므로
             // 명확하게 JSON 바디를 담아 POST 요청을 보냅니다.
-            fetch(LAMBDA_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
+            window.APIcall({
                     table: 'companies',
-                    keyword: keyword
+                    keyword: keyword,
+                    action: 'get' // Added action: 'get' to match Supabase function expectation
+                }, LAMBDA_URL, {
+                    'Content-Type': 'application/json'
                 })
-            })
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {

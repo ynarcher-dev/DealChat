@@ -6,8 +6,23 @@ export function APIcall(prompts, Furl, Fheaders, Fmethod = 'POST') {
         body = JSON.stringify(prompts);
     }
 
-    // Use global config if URL is not provided (or matches the old Lambda URL)
-    const endpoint = Furl && !Furl.includes('lambda-url') ? Furl : window.config.supabase.endpoint;
+    // AI 호출인지 일반 CRUD 호출인지에 따라 엔드포인트를 결정합니다.
+    // AI 호출인지 일반 CRUD 호출인지에 따라 엔드포인트를 결정합니다.
+    let endpoint = Furl;
+
+    // [라우팅 로직 개선]
+    // 1. Vector Search 요청은 무조건 ai-handler로 전송
+    if (prompts && prompts.action === 'search_vector') {
+        endpoint = window.config.supabase.url + '/functions/v1/ai-handler';
+    }
+    // 2. AI 질문(body 포함) 요청도 ai-handler로 전송
+    else if (prompts && prompts.body) {
+        endpoint = window.config.supabase.url + '/functions/v1/ai-handler';
+    }
+    // 3. URL이 없거나 레거시 URL인 경우 기본 upload-handler 사용
+    else if (!Furl || Furl.includes('lambda-url')) {
+        endpoint = window.config.supabase.endpoint;
+    }
 
     const headers = {
         ...Fheaders,
