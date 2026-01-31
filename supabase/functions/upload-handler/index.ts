@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
                 };
 
                 // Filter metadata to only include known/safe fields
-                const excludedFields = ['vectorNamespace', 'scanMode', 'companyId', 'parsedText', 'is_base64', 'content', 'content_type', 'action', 'table', 'createdAt', 'updatedAt', 'created_at', 'updated_at'];
+                const excludedFields = ['vectorNamespace', 'scanMode', 'companyId', 'parsedText', 'is_base64', 'content', 'content_type', 'action', 'table', 'created_at', 'updated_at'];
 
                 for (const [key, value] of Object.entries(metadata)) {
                     if (!excludedFields.includes(key) && value !== undefined && value !== null && value !== "") {
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
                 created_at: now,
                 updated_at: now,
             };
-            const globalExcluded = ['scanMode', 'companyId', 'createdAt', 'updatedAt', 'created_at', 'updated_at'];
+            const globalExcluded = ['scanMode', 'companyId', 'created_at', 'updated_at'];
 
             for (const [key, value] of Object.entries(rawData)) {
                 if (!globalExcluded.includes(key) && value !== undefined && value !== null && value !== "") {
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
             const data: Record<string, any> = {
                 updated_at: now, // Always update the modification time
             };
-            const globalExcluded = ['scanMode', 'companyId', 'createdAt', 'updatedAt', 'created_at', 'updated_at'];
+            const globalExcluded = ['scanMode', 'companyId', 'created_at', 'updated_at'];
 
             for (const [key, value] of Object.entries(updRawData)) {
                 if (!globalExcluded.includes(key) && value !== undefined && value !== null && value !== "") {

@@ -65,7 +65,50 @@ $(document).ready(function () {
             conversationHistory = conversationHistory.slice(-MAX_HISTORY_LENGTH);
         }
 
+        // Save to Server (DB)
+        if (currentCompanyData && userId) {
+            // 로컬 데이터 동기화
+            currentCompanyData.history = conversationHistory;
+
+            const updatePayload = {
+                id: companyId,
+                table: 'companies',
+                action: 'update',
+                userId: userId,
+                history: conversationHistory,
+                updated_at: new Date().toISOString()
+            };
+
+            // 백그라운드 저장
+            APIcall(updatePayload, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' })
+                .then(res => res.json())
+                .catch(err => console.error('Failed to save history to DB:', err));
+        }
+
         console.log(`📜 History updated: ${conversationHistory.length} messages stored`);
+    }
+
+    // Load conversation history from localStorage
+    function loadHistory() {
+        try {
+            const savedHistory = localStorage.getItem(`history_${companyId}`);
+            if (savedHistory) {
+                conversationHistory = JSON.parse(savedHistory);
+                console.log(`📜 History loaded: ${conversationHistory.length} messages`);
+
+                // UI에 복원
+                conversationHistory.forEach(msg => {
+                    // role을 'user'/'assistant'에서 'user'/'ai'로 변환 (addMessage는 'ai' 사용)
+                    const sender = msg.role === 'assistant' ? 'ai' : msg.role;
+                    addMessage(msg.content, sender, false); // false: 애니메이션 없이 즉시 표시
+                });
+
+                // 스크롤을 맨 아래로 이동
+                $chatMessages.scrollTop($chatMessages[0].scrollHeight);
+            }
+        } catch (e) {
+            console.error('Failed to load history:', e);
+        }
     }
 
     // Format history for LLM prompt
@@ -170,13 +213,31 @@ $(document).ready(function () {
                             }
                         });
                     }
+
+                    // 대화 히스토리 복원 (DB)
+                    if (data.history && Array.isArray(data.history) && data.history.length > 0) {
+                        $welcomeScreen.hide();
+                        conversationHistory = data.history;
+                        console.log(`📜 History loaded from DB: ${conversationHistory.length} messages`);
+
+                        conversationHistory.forEach(msg => {
+                            let sender = msg.role;
+                            // [Fix] 'assistant' 또는 대문자 'AI'를 소문자 'ai'로 통일 (화면 표시용)
+                            if (sender === 'assistant' || sender === 'AI') sender = 'ai';
+
+                            addMessage(msg.content, sender, false);
+                        });
+                        // 스크롤 이동
+                        setTimeout(() => {
+                            $chatMessages.scrollTop($chatMessages[0].scrollHeight);
+                        }, 100);
+                    }
                 }
             })
             .catch(error => {
                 console.error('데이터 로드 실패:', error);
             });
     }
-
     loadAvailableFiles().then(() => {
         loadCompanyData();
     });
@@ -312,12 +373,14 @@ $(document).ready(function () {
                 const aiAnswer = data.answer;
 
                 addMessage(aiAnswer, 'ai');
-                addToHistory('assistant', aiAnswer); // Store AI response in history
+                console.log('💾 AI Response saving to history...'); // [Check] 실행 확인 로그
+                addToHistory('AI', aiAnswer); // Store AI response in history
             } catch (error) {
                 console.error('AI Response Error:', error);
                 const errorMsg = '죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.';
                 addMessage(errorMsg, 'ai');
-                addToHistory('assistant', errorMsg); // Store error in history too
+                console.log('💾 ErrorMsg saving to history...');
+                addToHistory('AI', errorMsg); // Store error in history too
             } finally {
                 isSending = false; // 전송 완료 (성공/실패 상관없이 해제)
             }
@@ -339,7 +402,7 @@ $(document).ready(function () {
         return html;
     }
 
-    function addMessage(text, sender) {
+    function addMessage(text, sender, animate = true) {
         const avatar = sender === 'ai'
             ? '<div class="avatar material-symbols-outlined">auto_awesome</div>'
             : '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" class="avatar">';
@@ -359,7 +422,11 @@ $(document).ready(function () {
         $chatMessages.append($message);
 
         // Scroll to bottom
-        $chatMessages.animate({ scrollTop: $chatMessages[0].scrollHeight }, 300);
+        if (animate) {
+            $chatMessages.animate({ scrollTop: $chatMessages[0].scrollHeight }, 300);
+        } else {
+            $chatMessages.scrollTop($chatMessages[0].scrollHeight);
+        }
     }
 
     // Event Listeners
@@ -1396,6 +1463,46 @@ $(document).ready(function () {
             default: return 'attachment';
         }
     }
+
+    // Clear History Logic
+    $('#clear-history-btn').on('click', function () {
+        if (!confirm('대화 내용을 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+        // 1. Local state clear
+        conversationHistory = [];
+        $chatMessages.empty();
+        $welcomeScreen.css('display', 'flex'); // flex로 복구해야 중앙 정렬 유지됨
+
+        // 2. DB Update
+        if (currentCompanyData && userId) {
+            currentCompanyData.history = [];
+            const updatePayload = {
+                id: companyId,
+                table: 'companies',
+                action: 'update',
+                userId: userId,
+                history: [],
+                updated_at: new Date().toISOString()
+            };
+
+            const $btn = $(this);
+            $btn.prop('disabled', true).text('삭제 중...');
+
+            APIcall(updatePayload, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' })
+                .then(res => res.json())
+                .then(() => {
+                    alert('대화 내용이 삭제되었습니다.');
+                    location.reload();
+                })
+                .catch(err => {
+                    console.error('Failed to clear history:', err);
+                    alert('삭제 중 오류가 발생했습니다.');
+                })
+                .finally(() => {
+                    $btn.prop('disabled', false).html('<span class="material-symbols-outlined" style="font-size: 18px;">delete_sweep</span> 대화 삭제');
+                });
+        }
+    });
 
     // User Menu & Sign out Logic
     $('#user-menu-trigger').on('click', function (e) {
