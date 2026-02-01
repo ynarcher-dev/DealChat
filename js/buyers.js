@@ -66,7 +66,13 @@ $(document).ready(function () {
                         return;
                     }
 
-                    const rows = Array.isArray(data) ? data : [];
+                    let rows = Array.isArray(data) ? data : [];
+
+                    // [Filter] userId가 일치하는 항목만 필터링
+                    if (userId) {
+                        rows = rows.filter(row => row.userId === userId);
+                    }
+
                     params.successCallback(rows, rows.length);
                 })
                 .catch(error => {
