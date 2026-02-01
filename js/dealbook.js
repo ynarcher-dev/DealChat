@@ -1,6 +1,6 @@
 import { addAiResponse, searchVectorDB } from './AI_Functions.js';
 import { APIcall } from './APIcallFunction.js';
-import { filetypecheck, fileUpload, extractTextFromPDF, extractTextFromDocx, extractTextFromPptx, extractTextFromTxt, validateText } from './File_Functions.js';
+import { filetypecheck, fileUpload, extractTextFromPDF, extractTextFromDocx, extractTextFromPptx, extractTextFromTxt, validateText, downloadTextFile } from './File_Functions.js';
 import { checkAuth } from './auth_utils.js';
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
@@ -12,6 +12,8 @@ $(document).ready(function () {
 
     const userData = checkAuth();
     if (!userData) return;
+
+    let availableReportTypes = []; // Report Types loaded from JSON
 
     // URL에서 id 파라미터 추출
     const urlParams = new URLSearchParams(window.location.search);
@@ -241,6 +243,47 @@ $(document).ready(function () {
     loadAvailableFiles().then(() => {
         loadCompanyData();
     });
+
+    // Load Report Types
+    loadReportTypes();
+
+    function loadReportTypes() {
+        $.getJSON('../data/reports.json', function (data) {
+            availableReportTypes = data;
+            renderReportCards();
+        }).fail(function () {
+            console.error("Failed to load report types.");
+        });
+    }
+
+    function renderReportCards() {
+        const $formatGrid = $('#report-grid-format');
+        const $recGrid = $('#report-grid-recommended');
+
+        $formatGrid.empty();
+        $recGrid.empty();
+
+        availableReportTypes.forEach(report => {
+            const isPrimary = report.isPrimary ? 'primary' : '';
+            const iconHtml = report.isPrimary ? '' : '<span class="material-symbols-outlined edit-icon">edit</span>';
+
+            const cardHtml = `
+                <div class="report-card ${isPrimary}" data-id="${report.id}">
+                    <div class="card-info">
+                        <h5>${report.title}</h5>
+                        <p>${report.description}</p>
+                    </div>
+                    ${iconHtml}
+                </div>
+            `;
+
+            if (report.category === 'format') {
+                $formatGrid.append(cardHtml);
+            } else {
+                $recGrid.append(cardHtml);
+            }
+        });
+    }
 
     // Save 버튼 클릭 이벤트
     $('#save-summary').on('click', function () {
@@ -584,29 +627,17 @@ $(document).ready(function () {
         $reportModal.css('display', 'flex');
     });
 
-    // Card click logic
-    $('.report-card').on('click', function () {
-        const title = $(this).find('h5').text();
-        const desc = $(this).find('p').text();
-        const type = $(this).data('type');
+    // Card click logic (Delegated for dynamic elements)
+    $(document).on('click', '.report-card', function () {
+        const reportId = $(this).data('id');
+        const reportData = availableReportTypes.find(r => r.id === reportId);
+
+        if (!reportData) return;
 
         // Update detail modal content
-        $('#selected-report-title').text(title);
-        $('#selected-report-desc').text(desc);
-
-        // Set default instructions based on type
-        let instruction = "";
-        switch (type) {
-            case 'direct': instruction = "원하는 보고서의 구조와 내용을 자유롭게 설명해주세요."; break;
-            case 'quick-review': instruction = "현재 소스들을 바탕으로 핵심 인사이트와 인용문을 포함한 빠른 요약 보고서를 생성해주세요."; break;
-            case 'teaser': instruction = "투자자의 관심을 끌 수 있도록 핵심 정보 위주의 티저 문서를 작성해주세요."; break;
-            case 'im': instruction = "사업 내용, 재무 현황, 미래 전략을 포함한 상세 투자 설명서(IM)를 작성해주세요."; break;
-            case 'invest-report': instruction = "투자 심의를 위한 리스크 분석 및 투자 논리가 담긴 보고서를 작성해주세요."; break;
-            case 'pitch-deck': instruction = "제안 발표를 위한 핵심 문구와 구조를 잡아주세요."; break;
-            case 'market-report': instruction = "산업 동향 및 경쟁 환경 분석 결과를 보고서 형태로 정리해주세요."; break;
-            case 'valuation': instruction = "기업 가치 평가 결과와 산출 근거를 정리한 보고서를 작성해주세요."; break;
-        }
-        $('#report-instruction').val(instruction);
+        $('#selected-report-title').text(reportData.title);
+        $('#selected-report-desc').text(reportData.description);
+        $('#report-instruction').val(reportData.instruction);
 
         // Transition modals
         $reportModal.hide();
@@ -650,10 +681,28 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 18px;">sync</span> 생성 중...');
 
         try {
-            // AI 응답 생성 (보안 및 일관성을 위해 Edge Function 사용)
+            // 1. Prompt Construction
             const prompt = `[Report Type] ${reportType}\n[Language] ${language}\n[Instruction] ${instruction}`;
 
-            // [Fix] 실제 RAG 데이터 가져오기 (VectorDB 검색)
+            // 2. Context Gathering
+            // 2.1 Company Info
+            let companyInfo = "";
+            const companyName = currentCompanyData?.companyName || $('.notebook-title').text() || "회사명 없음";
+            const summary = currentCompanyData?.summary || $('#summary').val() || "";
+            const industry = currentCompanyData?.industry || $('#industry').val() || "";
+
+            if (companyName || summary || industry) {
+                companyInfo = "=== 회사 기본 정보 ===\n";
+                if (companyName) companyInfo += `회사명: ${companyName}\n`;
+                if (industry) companyInfo += `산업: ${industry}\n`;
+                if (summary) companyInfo += `회사소개: ${summary}\n`;
+                companyInfo += "\n";
+            }
+
+            // 2.2 Conversation History
+            const historyForPrompt = formatHistoryForPrompt(conversationHistory);
+
+            // 2.3 RAG Search
             let ragContext = "";
             try {
                 console.log("🔍 Generating Report: Searching VectorDB...");
@@ -662,14 +711,19 @@ $(document).ready(function () {
                 console.warn("RAG Search failed for report gen:", e);
             }
 
-            const response = await addAiResponse(prompt, ragContext);
+            // 3. Full Context Composition
+            const fullContext = companyInfo + historyForPrompt + (ragContext ? "\n=== 관련 문서 내용 ===\n" + ragContext : "");
+
+            // 4. Generate AI Response
+            const response = await addAiResponse(prompt, fullContext);
             const data = await response.json();
             const generatedContent = data.answer;
 
             if (generatedContent) {
-                addMessage(`[${reportType} 생성 완료]\n\n${generatedContent}`, 'ai');
+                // 5. Download & Display
+                downloadTextFile(`${reportType}.txt`, generatedContent);
                 $reportDetailModal.hide();
-                alert('보고서가 생성되었습니다. 채팅창을 확인해주세요.');
+                alert(`[${reportType} 생성 완료]\n\n파일이 다운로드되었습니다.`);
             } else {
                 throw new Error('응답을 생성할 수 없습니다.');
             }

@@ -58,6 +58,9 @@ async function loadPage(page) {
         case 'files':
             await renderGrid($content, 'files', '파일 관리');
             break;
+        case 'reports':
+            await renderGrid($content, 'reports', '보고서 설정');
+            break;
         case 'qna':
             await renderGrid($content, 'qna', '상담 문의');
             break;
@@ -272,11 +275,18 @@ async function renderGrid($container, tableName, title) {
     `);
 
     // Fetch Data
+    // Fetch Data
     let rowData = [];
     try {
-        const response = await APIcall({ action: 'read', table: tableName }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' });
-        const data = await response.json();
-        rowData = Array.isArray(data) ? data : [];
+        if (tableName === 'reports') {
+            // Special handling for JSON file
+            const response = await fetch('../../data/reports.json');
+            rowData = await response.json();
+        } else {
+            const response = await APIcall({ action: 'read', table: tableName }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' });
+            const data = await response.json();
+            rowData = Array.isArray(data) ? data : [];
+        }
     } catch (e) {
         console.error(`Fetch ${tableName} error:`, e);
         alert('데이터 로드 실패');
@@ -358,6 +368,15 @@ function getColumnDefs(tableName) {
                 { field: 'industry', headerName: 'Industry' },
                 { field: 'summary', headerName: 'Summary' }
             ].concat(common);
+
+        case 'reports':
+            return [
+                { field: 'id', headerName: 'ID', checkboxSelection: true, headerCheckboxSelection: true, width: 100 },
+                { field: 'title', headerName: 'Title', width: 150 },
+                { field: 'description', headerName: 'Description', flex: 2 },
+                { field: 'category', headerName: 'Category', width: 100 },
+                { field: 'instruction', headerName: 'Instruction', hide: true }
+            ];
 
         default:
             return common;
