@@ -25,7 +25,7 @@ window.config = {
     aiHandlerUrl: 'https://pqhqmvymssjtjhmiloga.supabase.co/functions/v1/ai-handler'
   },
   ai: {
-    model: 'gpt-5-nano', // Current model in use (best cost-performance)
+    model: 'gpt-5-mini', // Current model in use (best cost-performance)
     tokenLimits: {
       'gpt-5-mini': {
         maxContextTokens: 400000,
