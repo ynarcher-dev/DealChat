@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Companies Import Tool</title>
+
+    <!-- Config -->
+    <script src="../js/front-config.js"></script>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        #log {
+            background: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .button:disabled {
+            background: #ccc;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DealChat Companies Import Tool</h1>
+    <p>Imports <code>data/dealchat_companies.json</code> to Supabase <code>companies</code> table using the existing
+        upload function (APIcall).</p>
+
+    <button id="startBtn" class="button">Start Import</button>
+    <button id="clearLogBtn" class="button" style="background: #6c757d;">Clear Log</button>
+
+    <div id="log"></div>
+
+    <script type="module">
+        import { checkAuth } from '../js/auth_utils.js';
+        import { APIcall } from '../js/APIcallFunction.js';
+
+        const logDiv = document.getElementById('log');
+        const startBtn = document.getElementById('startBtn');
+        const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
+
+        function log(msg, type = 'normal') {
+            const el = document.createElement('div');
+            el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            if (type === 'error') el.className = 'error';
+            if (type === 'success') el.className = 'success';
+            if (type === 'info') el.className = 'info';
+            logDiv.appendChild(el);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        document.getElementById('clearLogBtn').onclick = () => logDiv.innerHTML = '';
+
+        startBtn.onclick = async () => {
+            startBtn.disabled = true;
+            log('Starting import process...', 'info');
+
+            // 1. Auth Check
+            const userData = checkAuth();
+            if (!userData) {
+                log('Authentication failed. Please login first.', 'error');
+                startBtn.disabled = false;
+                return;
+            }
+            const userId = userData.id;
+            log(`Authenticated as User ID: ${userId}`, 'success');
+
+            try {
+                // 2. Fetch Data
+                log('Fetching data/dealchat_companies.json...', 'info');
+                const response = await fetch('../data/dealchat_companies.json');
+                if (!response.ok) throw new Error(`Failed to load JSON: ${response.statusText}`);
+                const data = await response.json();
+
+                log(`Loaded ${data.length} records.`, 'success');
+
+                // 3. Loop and Upload
+                let successCount = 0;
+                let failCount = 0;
+
+                for (let i = 0; i < data.length; i++) {
+                    const item = data[i];
+                    const now = new Date().toISOString();
+
+                    // Merge extra fields into summary
+                    let enrichedSummary = item.summary || '';
+
+                    const extraFields = [
+                        { key: 'Founder', val: item.founder },
+                        { key: 'Team', val: item.team },
+                        { key: 'History', val: item.history },
+                        { key: 'Funding', val: item.funding },
+                        { key: 'Market', val: item.market },
+                        { key: 'Competitors', val: item.competitors },
+                        { key: 'Tags', val: item.tags },
+                        { key: 'Address', val: item.address },
+                        { key: 'Products', val: item.products },
+                        { key: 'Contact', val: item.contact },
+                        { key: 'Partnerships', val: item.partnerships }
+                    ];
+
+                    let extraText = '';
+                    let hasExtra = false;
+
+                    extraFields.forEach(field => {
+                        if (field.val) {
+                            hasExtra = true;
+                            // Check if val is empty object/array
+                            if (typeof field.val === 'object' && Object.keys(field.val).length === 0) return;
+
+                            let valStr = typeof field.val === 'object' ? JSON.stringify(field.val, null, 2) : field.val;
+                            extraText += `\n[${field.key}]\n${valStr}\n`;
+                        }
+                    });
+
+                    if (hasExtra) {
+                        enrichedSummary += '\n\n--- [Additional Details] ---\n' + extraText;
+                    }
+
+                    const payload = {
+                        companyName: item.companyName, // DB Column: companyName, JSON Key: companyName
+                        industry: item.industry,
+                        summary: enrichedSummary,
+                        attachments: [],
+                        table: 'companies',
+                        action: 'upload',
+                        userId: item.userId, // User requested to use the userId from the file
+                        created_at: now,
+                        updated_at: now
+                    };
+
+                    try {
+                        const res = await APIcall(payload, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' });
+                        const result = await res.json();
+
+                        if (result.error) {
+                            throw new Error(result.error);
+                        }
+
+                        log(`[${i + 1}/${data.length}] Imported: ${item.companyName}`, 'success');
+                        successCount++;
+                    } catch (err) {
+                        log(`[${i + 1}/${data.length}] Error importing "${item.companyName}": ${err.message}`, 'error');
+                        failCount++;
+                    }
+
+                    // Small delay to prevent rate limiting issues if any
+                    // await new Promise(r => setTimeout(r, 50));
+                }
+
+                log(`Import Complete! Success: ${successCount}, Failed: ${failCount}`, 'success');
+                if (successCount > 0) {
+                    log('You can now check "html/companies.html" or "dealbook.html" to see the data.', 'info');
+                }
+
+            } catch (err) {
+                log(`Critical Error: ${err.message}`, 'error');
+                console.error(err);
+            } finally {
+                startBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+
+</html>

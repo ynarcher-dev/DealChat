@@ -1,6 +1,6 @@
 import { checkAuth } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
-import { addAiResponse, getRAGdata } from './AI_Functions.js';
+import { addAiResponse } from './AI_Functions.js';
 import {
     filetypecheck,
     fileUpload,
@@ -194,14 +194,14 @@ $(document).ready(function () {
 
     // AI 태그 생성 이벤트 (상세 모달)
     $('#AI-generate-tags').on('click', async function () {
-        const ragData = getRAGdata();
+        // [Fix] files.js는 companyId 컨텍스트가 없으므로 파일 자체 내용만 사용
         const sourceText = currentFile?.parsedText || $('#modal-summary').val();
         if (!sourceText || sourceText.length < 10) {
             alert('태그를 추출할 내용이 없습니다.');
             return;
         }
 
-        const totalText = ragData + sourceText;
+        const totalText = sourceText;
         const $btn = $(this);
         const originalIcon = $btn.html();
 
@@ -209,7 +209,7 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
 
         try {
-            const prompt = "위 문서와 가장 연관된 핵심 키워드 5개를 뽑아서 쉼표(,)로 구분된 문자열로만 답변해줘. 예: 태그1, 태그2, 태그3";
+            const prompt = "Identify the top 5 core keywords most related to the provided document in Korean. Your response must contain only the keywords separated by commas, with no additional text. E.g., Tag1, Tag2, Tag3";
             const response = await addAiResponse(prompt, totalText);
             const data = await response.json();
 

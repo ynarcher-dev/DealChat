@@ -189,8 +189,7 @@ export async function fileUpload(file, userId = null, companyId = null, preExtra
                 summary: previewText, // 미리보기용 요약
                 userId: userId,
                 companyId: companyId,
-                vectorNamespace: companyId, // Backend can use this to create/store in a company-specific Vector DB namespace
-                scanMode: false
+                vectorNamespace: companyId
             };
 
             console.log('Upload payload:', {

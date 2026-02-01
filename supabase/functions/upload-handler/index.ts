@@ -6,6 +6,85 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Helpers ---
+
+function createResponse(body: any, status: number = 200) {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+}
+
+function errorResponse(message: string, status: number = 400) {
+    return createResponse({ error: message }, status);
+}
+
+// Reusable logic for RAG/Embeddings
+async function generateAndStoreEmbeddings(
+    parsedText: string,
+    vectorNamespace: string,
+    fileId: string,
+    fileName: string,
+    userId: string,
+    supabase: any
+) {
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!apiKey) {
+        console.warn("OPENAI_API_KEY is missing. Skipping vector indexing.");
+        return;
+    }
+
+    const chunkSize = 1000;
+    const overlap = 200;
+    const textLength = parsedText.length;
+
+    console.log(`Starting indexing for file ${fileId}. Namespace: ${vectorNamespace}`);
+
+    for (let i = 0; i < textLength; i += (chunkSize - overlap)) {
+        const chunk = parsedText.substring(i, i + chunkSize);
+        if (chunk.length < 50) continue;
+
+        const embeddingResp = await fetch("https://api.openai.com/v1/embeddings", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "text-embedding-3-small",
+                input: chunk,
+            }),
+        });
+
+        if (!embeddingResp.ok) {
+            const errText = await embeddingResp.text();
+            throw new Error(`Embedding API error: ${embeddingResp.status} ${errText}`);
+        }
+
+        const embeddingData = await embeddingResp.json();
+
+        if (embeddingData.data && embeddingData.data[0]) {
+            const embedding = embeddingData.data[0].embedding;
+
+            const { error: insErr } = await supabase.from('document_sections').insert({
+                content: chunk,
+                embedding: embedding,
+                company_id: vectorNamespace,
+                metadata: {
+                    file_id: fileId,
+                    file_name: fileName || "Unknown",
+                    user_id: userId,
+                    company_id: vectorNamespace
+                }
+            });
+            if (insErr) throw insErr;
+        }
+    }
+    console.log(`Vector indexing completed for file ${fileId}`);
+}
+
+// --- Main Handler ---
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -19,6 +98,7 @@ Deno.serve(async (req) => {
 
         const contentType = req.headers.get("content-type") || "";
 
+        // 1. Multipart Form Data Handling
         if (contentType.includes("multipart/form-data")) {
             const formData = await req.formData();
             const file = formData.get("file") as File;
@@ -55,43 +135,34 @@ Deno.serve(async (req) => {
 
                 if (dbError) throw dbError;
 
-                return new Response(JSON.stringify({ message: "Upload success", data }), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return createResponse({ message: "Upload success", data });
             }
         }
 
-        // JSON handling
+        // 2. JSON Handling
         let body;
         try {
             body = await req.json();
         } catch (e) {
-            return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return errorResponse("Invalid JSON");
         }
 
         const { action, table } = body;
 
         if (!action || !table) {
-            return new Response(JSON.stringify({ error: "Missing action or table" }), {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return errorResponse("Missing action or table");
         }
 
         const query = supabase.from(table);
 
         if (action === "get" || action === "read") {
-            const { id, userId, keyword, ...filters } = body;
+            // Updated Logic: shareType and remove scanMode
+            const { id, userId, keyword, shareType, ...filters } = body;
 
             if (id) {
                 const { data, error } = await query.select("*").eq("id", id).single();
                 if (error) throw error;
-                return new Response(JSON.stringify(data), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return createResponse(data);
             } else {
                 let select = query.select("*");
 
@@ -102,15 +173,23 @@ Deno.serve(async (req) => {
                     }
                 }
 
-                // User filter
+                // Explicit share_type filter
+                if (shareType) {
+                    select = select.eq('share_type', shareType);
+                }
+
+                // User filter logic (My Data OR Public Data)
                 if (userId) {
-                    select = select.eq("userId", userId);
+                    if (['sellers', 'buyers'].includes(table)) {
+                        select = select.or(`userId.eq.${userId},share_type.eq.public`);
+                    } else {
+                        select = select.eq("userId", userId);
+                    }
                 }
 
                 // Search keyword
                 if (keyword && typeof keyword === 'string' && keyword.trim() !== "") {
                     const cleanKw = keyword.trim();
-                    // 한글 검색 시 맥(NFD)과 윈도우(NFC) 차이로 인한 검색 누락 방지
                     const nfcKw = cleanKw.normalize('NFC');
                     const nfdKw = cleanKw.normalize('NFD');
 
@@ -125,10 +204,9 @@ Deno.serve(async (req) => {
 
                 const { data, error } = await select;
                 if (error) throw error;
-                return new Response(JSON.stringify(data), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return createResponse(data);
             }
+
         } else if (action === "upload" || action === "create") {
             const { action: _, table: __, ...rawData } = body;
 
@@ -140,7 +218,6 @@ Deno.serve(async (req) => {
                 const parsedText = metadata.parsedText;
                 const vectorNamespace = metadata.vectorNamespace || metadata.companyId;
 
-                // Create safe filename for storage (remove special chars, keep extension)
                 const timestamp = Date.now();
                 const ext = file_name.substring(file_name.lastIndexOf('.'));
                 const safeFileName = `${timestamp}${ext}`;
@@ -165,15 +242,14 @@ Deno.serve(async (req) => {
                 // 2. Insert into Database
                 const now = new Date().toISOString();
                 const dbRow: Record<string, any> = {
-                    file_name: file_name, // Keep original filename for display
-                    location: storagePath, // Use safe path for storage
+                    file_name: file_name,
+                    location: storagePath,
                     userId: userId,
                     created_at: now,
                     updated_at: now,
                 };
 
-                // Filter metadata to only include known/safe fields
-                const excludedFields = ['vectorNamespace', 'scanMode', 'companyId', 'parsedText', 'is_base64', 'content', 'content_type', 'action', 'table', 'created_at', 'updated_at'];
+                const excludedFields = ['vectorNamespace', 'companyId', 'parsedText', 'is_base64', 'content', 'content_type', 'action', 'table', 'created_at', 'updated_at'];
 
                 for (const [key, value] of Object.entries(metadata)) {
                     if (!excludedFields.includes(key) && value !== undefined && value !== null && value !== "") {
@@ -187,67 +263,14 @@ Deno.serve(async (req) => {
                 // [RAG] 3. Generate Embeddings & Save to Vector DB
                 if (parsedText && vectorNamespace) {
                     try {
-                        const apiKey = Deno.env.get("OPENAI_API_KEY");
-                        if (!apiKey) {
-                            console.warn("OPENAI_API_KEY is missing. Skipping vector indexing.");
-                        } else {
-                            const chunkSize = 1000;
-                            const overlap = 200;
-                            const textLength = parsedText.length;
-                            const uploadedFileId = result[0].id;
-
-                            console.log(`Starting indexing for file ${uploadedFileId}. Namespace: ${vectorNamespace}`);
-
-                            for (let i = 0; i < textLength; i += (chunkSize - overlap)) {
-                                const chunk = parsedText.substring(i, i + chunkSize);
-                                if (chunk.length < 50) continue;
-
-                                const embeddingResp = await fetch("https://api.openai.com/v1/embeddings", {
-                                    method: "POST",
-                                    headers: {
-                                        "Authorization": `Bearer ${apiKey}`,
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        model: "text-embedding-3-small",
-                                        input: chunk,
-                                    }),
-                                });
-
-                                if (!embeddingResp.ok) {
-                                    const errText = await embeddingResp.text();
-                                    throw new Error(`Embedding API error: ${embeddingResp.status} ${errText}`);
-                                }
-
-                                const embeddingData = await embeddingResp.json();
-
-                                if (embeddingData.data && embeddingData.data[0]) {
-                                    const embedding = embeddingData.data[0].embedding;
-
-                                    const { error: insErr } = await supabase.from('document_sections').insert({
-                                        content: chunk,
-                                        embedding: embedding,
-                                        company_id: vectorNamespace,
-                                        metadata: {
-                                            file_id: uploadedFileId,
-                                            file_name: file_name,
-                                            user_id: userId,
-                                            company_id: vectorNamespace // Filter consistency
-                                        }
-                                    });
-                                    if (insErr) throw insErr;
-                                }
-                            }
-                            console.log(`Vector indexing completed for file ${uploadedFileId}`);
-                        }
+                        const fileId = result[0].id;
+                        await generateAndStoreEmbeddings(parsedText, vectorNamespace, fileId, file_name, userId, supabase);
                     } catch (vecErr: any) {
                         console.error("Vector generation failed:", vecErr);
                     }
                 }
 
-                return new Response(JSON.stringify(result), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return createResponse(result);
             }
 
             // Normal JSON create/upload (not base64)
@@ -266,15 +289,14 @@ Deno.serve(async (req) => {
 
             const { data: result, error } = await query.insert(data).select();
             if (error) throw error;
-            return new Response(JSON.stringify(result), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return createResponse(result);
+
         } else if (action === "update") {
             const { id, action: _upd, table: __upd, ...updRawData } = body;
 
             const now = new Date().toISOString();
             const data: Record<string, any> = {
-                updated_at: now, // Always update the modification time
+                updated_at: now,
             };
             const globalExcluded = ['scanMode', 'companyId', 'created_at', 'updated_at'];
 
@@ -286,113 +308,38 @@ Deno.serve(async (req) => {
 
             const { data: result, error } = await query.update(data).eq("id", id).select();
             if (error) throw error;
-            return new Response(JSON.stringify(result), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return createResponse(result);
+
         } else if (action === "delete") {
             const targetId = body.id || body.fileId;
             const { data: result, error } = await query.delete().eq("id", targetId).select();
             if (error) throw error;
-            return new Response(JSON.stringify(result), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return createResponse(result);
+
         } else if (action === "index_existing") {
             const { parsedText, vectorNamespace, fileId, file_name, userId } = body;
 
             if (!parsedText || !vectorNamespace || !fileId) {
-                return new Response(JSON.stringify({ error: "Missing parsedText, vectorNamespace, or fileId" }), {
-                    status: 400,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return errorResponse("Missing parsedText, vectorNamespace, or fileId");
             }
 
             try {
-                const apiKey = Deno.env.get("OPENAI_API_KEY");
-                if (!apiKey) {
-                    return new Response(JSON.stringify({ error: "OPENAI_API_KEY is not configured on the server" }), {
-                        status: 500,
-                        headers: { ...corsHeaders, "Content-Type": "application/json" },
-                    });
-                }
-
-                const chunkSize = 1000;
-                const overlap = 200;
-                const textLength = parsedText.length;
-
-                console.log(`Starting index_existing for file ${fileId}. Namespace: ${vectorNamespace}`);
-
-                for (let i = 0; i < textLength; i += (chunkSize - overlap)) {
-                    const chunk = parsedText.substring(i, i + chunkSize);
-                    if (chunk.length < 50) continue;
-
-                    const embeddingResp = await fetch("https://api.openai.com/v1/embeddings", {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${apiKey}`,
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            model: "text-embedding-3-small",
-                            input: chunk,
-                        }),
-                    });
-
-                    if (!embeddingResp.ok) {
-                        const errText = await embeddingResp.text();
-                        throw new Error(`Embedding API error: ${embeddingResp.status} ${errText}`);
-                    }
-
-                    const embeddingData = await embeddingResp.json();
-
-                    if (embeddingData.data && embeddingData.data[0]) {
-                        const embedding = embeddingData.data[0].embedding;
-
-                        const { error: insErr } = await supabase.from('document_sections').insert({
-                            content: chunk,
-                            embedding: embedding,
-                            company_id: vectorNamespace,
-                            metadata: {
-                                file_id: fileId,
-                                file_name: file_name || "Unknown",
-                                user_id: userId,
-                                company_id: vectorNamespace // Filter consistency
-                            }
-                        });
-                        if (insErr) throw insErr;
-                    }
-                }
-
-                console.log(`index_existing completed successfully for file ${fileId}`);
-                return new Response(JSON.stringify({ message: "Indexing success" }), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                await generateAndStoreEmbeddings(parsedText, vectorNamespace, fileId, file_name, userId, supabase);
+                return createResponse({ message: "Indexing success" });
             } catch (vecErr: any) {
                 console.error("Vector generation failed:", vecErr);
-                return new Response(JSON.stringify({ error: vecErr.message }), {
-                    status: 500,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return createResponse({ error: vecErr.message }, 500);
             }
+
         } else if (action === "delete_vector") {
             // [RAG] Vector Deletion Action
             const { fileId, vectorNamespace } = body;
 
             if (!fileId || !vectorNamespace) {
-                return new Response(JSON.stringify({ error: "Missing fileId or vectorNamespace" }), {
-                    status: 400,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
+                return errorResponse("Missing fileId or vectorNamespace");
             }
 
             // Delete from document_sections using metadata filter
-            // Note: Supabase JS library doesn't support JSON containment filtering well in .delete().match(), 
-            // so we might need a workaround or ensure metadata column is indexed properly if we use contains.
-            // Using RPC or raw SQL is better, or just filtering client side logic? No, must be server.
-            // For now, let's try assuming we have permissions. 
-            // Better approach: Use the postgres json selector in filter if possible, or use a custom RPC like 'delete_document_sections'.
-            // Alternatively, use `filter` syntax if supabase-js supports it for delete.
-            // Let's use metadata->>'file_id' eq syntax.
-
             const { error } = await supabase
                 .from('document_sections')
                 .delete()
@@ -401,21 +348,13 @@ Deno.serve(async (req) => {
 
             if (error) throw error;
 
-            return new Response(JSON.stringify({ message: "Vectors deleted" }), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return createResponse({ message: "Vectors deleted" });
         }
 
-        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return errorResponse(`Unknown action: ${action}`);
 
     } catch (error: any) {
         console.error(error);
-        return new Response(JSON.stringify({ error: error.message || String(error) }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return createResponse({ error: error.message || String(error) }, 500);
     }
 });

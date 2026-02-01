@@ -52,7 +52,8 @@ $(document).ready(function () {
             APIcall({
                 action: 'get',
                 table: 'buyers',
-                scanMode: true,
+                userId: userId,
+                shareType: 'public',
                 keyword: keyword
             }, SUPABASE_ENDPOINT, {
                 'Content-Type': 'application/json'

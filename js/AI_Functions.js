@@ -107,6 +107,4 @@ export async function searchVectorDB(query, companyId) {
     }
 }
 
-export function getRAGdata() {
-    return 'No special data';
-}
+

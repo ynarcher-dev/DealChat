@@ -36,9 +36,9 @@ $(document).ready(function () {
         pagination: true,
         paginationPageSize: 20,
         onRowClicked: (params) => {
-            const data = params.data;
-            if (data) {
-                openBuyerModal(data);
+            const id = params.data.id;
+            if (id) {
+                window.location.href = `./buyer.html?id=${encodeURIComponent(id)}`;
             }
         }
     };
@@ -104,33 +104,23 @@ $(document).ready(function () {
     // --- Tag Handling Logic ---
     let selectedUsers = [];
 
-    const updateHiddenInput = () => {
-        $('input[name="selective_users"]').val(selectedUsers.join(','));
-    };
-
     const renderTags = () => {
-        const $wrapper = $('#tag-wrapper');
-        const $input = $('#selective-users-input');
-
-        // Remove existing tags only (keep the input)
-        $wrapper.find('.tag-item').remove();
+        const $container = $('#share-tags-container');
+        $container.empty();
 
         selectedUsers.forEach(user => {
             const tagHtml = `
-                <div class="tag-item" data-user="${user}">
+                <div class="chip">
                     <span>${user}</span>
-                    <span class="tag-remove material-symbols-outlined">close</span>
+                    <span class="remove material-symbols-outlined" data-user="${user}" style="font-size: 16px; cursor: pointer;">close</span>
                 </div>
             `;
-            $input.before(tagHtml);
+            $container.append(tagHtml);
         });
-
-        updateHiddenInput();
     };
 
     // Tag Input Event Listener
-    $('#selective-users-input').on('keydown', function (e) {
-        // IME composition check for Korean input
+    $('#share-with-input').on('keydown', function (e) {
         if (e.originalEvent.isComposing) {
             return;
         }
@@ -145,24 +135,28 @@ $(document).ready(function () {
             }
             $(this).val('');
         }
-        // Backspace to remove last tag if input is empty
-        if (e.key === 'Backspace' && $(this).val() === '' && selectedUsers.length > 0) {
-            selectedUsers.pop();
-            renderTags();
-        }
     });
 
     // Tag Remove Event Listener (Delegate)
-    $('#tag-wrapper').on('click', '.tag-remove', function () {
-        const userToRemove = $(this).closest('.tag-item').data('user');
+    $('#share-tags-container').on('click', '.remove', function () {
+        const userToRemove = $(this).data('user');
         selectedUsers = selectedUsers.filter(user => user !== userToRemove);
         renderTags();
+    });
+
+    // Radio button change listener
+    $('input[name="share_type"]').on('change', function () {
+        if ($(this).val() === 'select') {
+            $('#share-target-wrapper').show();
+        } else {
+            $('#share-target-wrapper').hide();
+        }
     });
 
     openBuyerModal = function (data = null) {
         $form[0].reset();
         selectedUsers = []; // Reset tags
-        $('#tag-wrapper .tag-item').remove(); // Clear UI
+        $('#share-tags-container').empty(); // Clear UI
 
         if (data) {
             // 상세/수정 모드
@@ -180,8 +174,11 @@ $(document).ready(function () {
             $('input[name="etc"]').val(data.etc || '');
 
             // Visibility scope
-            const visibilityScope = data.visibility_scope || 'private';
-            $('select[name="visibility_scope"]').val(visibilityScope);
+            let visibilityScope = data.share_type || 'private';
+            // Normalize old 'selective' to new 'select'
+            if (visibilityScope === 'selective') visibilityScope = 'select';
+
+            $(`input[name="share_type"][value="${visibilityScope}"]`).prop('checked', true);
 
             // Load tags from comma-separated string
             const usersStr = data.selective_users || '';
@@ -191,10 +188,10 @@ $(document).ready(function () {
             }
 
             // Show/hide selective users input based on current value
-            if (visibilityScope === 'selective') {
-                $('#selective-users-row').show();
+            if (visibilityScope === 'select') {
+                $('#share-target-wrapper').show();
             } else {
-                $('#selective-users-row').hide();
+                $('#share-target-wrapper').hide();
             }
 
             // Format and display timestamps
@@ -222,8 +219,8 @@ $(document).ready(function () {
             $('input[name="id"]').val(randomId);
 
             // Set default visibility to private
-            $('select[name="visibility_scope"]').val('private');
-            $('#selective-users-row').hide();
+            $('input[name="share_type"][value="private"]').prop('checked', true);
+            $('#share-target-wrapper').hide();
 
             // Clear timestamp fields for new entries
             $('input[name="created_at"]').val('');
@@ -234,21 +231,11 @@ $(document).ready(function () {
     }
 
     $('#new-btn').on('click', () => {
-        openBuyerModal();
+        window.location.href = './buyer.html';
     });
 
     $('#close-modal, #cancel-btn').on('click', () => {
         $modal.hide();
-    });
-
-    // Visibility scope change handler
-    $('#visibility-scope').on('change', function () {
-        const selectedValue = $(this).val();
-        if (selectedValue === 'selective') {
-            $('#selective-users-row').show();
-        } else {
-            $('#selective-users-row').hide();
-        }
     });
 
     $('#save-buyer-btn').on('click', function () {
@@ -262,8 +249,8 @@ $(document).ready(function () {
             interest_industry: $('input[name="interest_industry"]').val().trim(),
             investment_amount: $('input[name="investment_amount"]').val().trim(),
             etc: $('input[name="etc"]').val().trim(),
-            visibility_scope: $('select[name="visibility_scope"]').val(),
-            selective_users: $('input[name="selective_users"]').val().trim(),
+            share_type: $('input[name="share_type"]:checked').val(),
+            selective_users: selectedUsers.join(','),
             userId: userId,
             table: 'buyers',
             action: currentAction === 'create' ? 'upload' : 'update'

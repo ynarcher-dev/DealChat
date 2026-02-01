@@ -1,4 +1,4 @@
-import { addAiResponse, getRAGdata, searchVectorDB } from './AI_Functions.js';
+import { addAiResponse, searchVectorDB } from './AI_Functions.js';
 import { APIcall } from './APIcallFunction.js';
 import { filetypecheck, fileUpload, extractTextFromPDF, extractTextFromDocx, extractTextFromPptx, extractTextFromTxt, validateText } from './File_Functions.js';
 import { checkAuth } from './auth_utils.js';
@@ -493,17 +493,19 @@ $(document).ready(function () {
         const $btn = $(this);
         const originalText = $btn.html();
         const context = $('#modal-summary-text').val(); // 모달 내 요약 텍스트 사용
-        const ragData = getRAGdata();
-        const fcontext = (context || "") + "\n\n" + (ragData || "");
-
-        if (!fcontext.trim()) {
-            alert('회사소개 내용이나 업로드된 파일이 없습니다.');
-            return;
-        }
-
-        // 로딩 상태 표시
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
 
+
+        let ragData = "";
+        try {
+            // [Fix] 실제 RAG 데이터 가져오기 (VectorDB 검색)
+            console.log("🔍 Generating Industry: Searching VectorDB...");
+            ragData = await searchVectorDB("Industry Sector", companyId);
+        } catch (e) {
+            console.warn("RAG Search failed for industry gen:", e);
+        }
+
+        const fcontext = context + "\n\n" + ragData;
         try {
             const industryPrompt = "이 회사가 속한 산업 분야를 짧은 단어로만 답변해줘. 다른 설명은 하지마.";
             const response = await addAiResponse(industryPrompt, fcontext);
@@ -518,8 +520,21 @@ $(document).ready(function () {
     });
 
     $('#generate-summary').on('click', async function () {
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
+
         const text1 = $('#summary').val();
-        const text2 = getRAGdata();
+
+        let text2 = "";
+        try {
+            // [Fix] 실제 RAG 데이터 가져오기 (VectorDB 검색)
+            console.log("🔍 Generating Summary: Searching VectorDB...");
+            text2 = await searchVectorDB("Make a Company Summary", companyId);
+        } catch (e) {
+            console.warn("RAG Search failed for summary gen:", e);
+        }
+
         const context = text1 + "\n\n" + text2;
 
         if (!text1) {
@@ -527,12 +542,8 @@ $(document).ready(function () {
             return;
         }
 
-        const $btn = $(this);
-        const originalText = $btn.html();
-        $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 16px;">sync</span>');
-
         try {
-            const summaryPrompt = "자료를 바탕으로 이 회사소개를 500자 이내로 요약해줘.";
+            const summaryPrompt = "자료를 바탕으로 이 회사소개를 500자 이내로 요약해줘. 다른 설명은 하지마.";
             const response = await addAiResponse(summaryPrompt, context);
             const data = await response.json();
             $('#modal-summary-text').val(data.answer.trim());
@@ -642,7 +653,16 @@ $(document).ready(function () {
             // AI 응답 생성 (보안 및 일관성을 위해 Edge Function 사용)
             const prompt = `[Report Type] ${reportType}\n[Language] ${language}\n[Instruction] ${instruction}`;
 
-            const response = await addAiResponse(prompt, getRAGdata());
+            // [Fix] 실제 RAG 데이터 가져오기 (VectorDB 검색)
+            let ragContext = "";
+            try {
+                console.log("🔍 Generating Report: Searching VectorDB...");
+                ragContext = await searchVectorDB(`${reportType} 보고서 관련 정보`, companyId);
+            } catch (e) {
+                console.warn("RAG Search failed for report gen:", e);
+            }
+
+            const response = await addAiResponse(prompt, ragContext);
             const data = await response.json();
             const generatedContent = data.answer;
 

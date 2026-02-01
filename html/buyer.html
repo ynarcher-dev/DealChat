@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seller Detail - DealChat</title>
+    <title>Buyer Detail - DealChat</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -240,16 +240,16 @@
 <body>
     <div class="app-container" style="flex-direction: column;">
         <header class="top-bar">
-            <div class="logo" style="cursor: pointer;" onclick="location.href='./sellers.html'">
+            <div class="logo" style="cursor: pointer;" onclick="location.href='./buyers.html'">
                 <img src="../img/logo.png" style="height: 24px;">
             </div>
             <div style="flex: 1; margin-left: 20px;">
-                <h4 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-main);">매물 상세 정보</h4>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-main);">바이어 상세 정보</h4>
             </div>
             <div class="top-actions">
-                <button class="btn-secondary" onclick="location.href='./sellers.html'">
+                <button class="btn-secondary" onclick="location.href='./buyers.html'">
                     <span class="material-symbols-outlined">list</span>
-                    목록으로
+                    목록
                 </button>
             </div>
         </header>
@@ -257,58 +257,52 @@
         <main class="page-content" style="flex: 1; width: 100%;">
             <div class="seller-card">
                 <div class="section-header">
-                    <h2>매물 정보 <small>(상세 내용을 수정할 수 있습니다)</small></h2>
+                    <h2>바이어 정보 <small>(상세 내용을 수정할 수 있습니다)</small></h2>
                     <span class="material-symbols-outlined text-muted" style="cursor: help;"
                         title="필요한 정보를 입력하고 저장 버튼을 눌러주세요">info</span>
                 </div>
 
-                <form id="seller-form">
-                    <input type="hidden" name="id" id="seller-id">
+                <form id="buyer-form">
+                    <input type="hidden" name="id" id="buyer-id">
 
                     <div class="form-row">
-                        <div class="form-label">기업명</div>
+                        <div class="form-label">바이어명</div>
                         <div class="form-content">
                             <input type="text" name="companyName" id="companyName" class="form-control-custom"
-                                placeholder="기업명을 입력하세요">
+                                placeholder="바이어명을 입력하세요">
                         </div>
                     </div>
 
                     <div class="form-row">
-                        <div class="form-label">요약</div>
+                        <div class="form-label">바이어 요약</div>
                         <div class="form-content">
                             <textarea name="summary" id="summary" class="form-control-custom"
-                                placeholder="핵심 요약 내용을 입력하세요" rows="4"></textarea>
+                                placeholder="바이어에 대해 간단히 요약하여 입력하세요" rows="4"></textarea>
                         </div>
                     </div>
 
                     <div class="form-row">
-                        <div class="form-label">업종</div>
+                        <div class="form-label">투자 요약</div>
                         <div class="form-content">
-                            <input type="text" name="industry" id="industry" class="form-control-custom"
-                                placeholder="업종을 입력하세요">
+                            <textarea name="interest_summary" id="interest_summary" class="form-control-custom"
+                                placeholder="관심 업종 및 지역, 투자규모를 입력하세요" rows="4"></textarea>
                         </div>
                     </div>
 
                     <div class="form-row">
-                        <div class="form-label">매각방식</div>
+                        <div class="form-label">투자 산업</div>
                         <div class="form-content">
-                            <select name="sale_method" id="sale_method" class="form-control-custom select-custom">
-                                <option value="">매각방식을 선택하세요</option>
-                                <option value="경영권 매각">경영권 매각</option>
-                                <option value="구주 매각">구주 매각</option>
-                                <option value="신주 발행">신주 발행</option>
-                                <option value="자산 매각">자산 매각</option>
-                                <option value="기타">기타</option>
-                            </select>
+                            <input type="text" name="interest_industry" id="interest_industry"
+                                class="form-control-custom" placeholder="관심 업종을 입력하세요">
                         </div>
                     </div>
 
                     <div class="form-row">
-                        <div class="form-label">매각금액</div>
+                        <div class="form-label">투자 규모</div>
                         <div class="form-content">
                             <div class="price-input-wrapper">
-                                <input type="text" name="sale_price" id="sale_price" class="form-control-custom"
-                                    placeholder="금액을 입력하세요">
+                                <input type="text" name="investment_amount" id="investment_amount"
+                                    class="form-control-custom" placeholder="투자규모를 입력하세요">
                                 <span class="price-unit">억원</span>
                             </div>
                         </div>
@@ -322,21 +316,10 @@
                     </div>
 
                     <div class="form-row">
-                        <div class="form-label">기타사항</div>
+                        <div class="form-label">기타</div>
                         <div class="form-content">
-                            <textarea name="others" id="others" class="form-control-custom" placeholder="기타 특이사항을 입력하세요"
-                                rows="4"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-label">공유 파일</div>
-                        <div class="form-content">
-                            <input type="text" id="share-file-input" class="form-control-custom"
-                                placeholder="파일명을 입력하고 Enter를 누르세요">
-                            <div id="shared-files-container" class="chips-container">
-                                <!-- chips will be here -->
-                            </div>
+                            <input type="text" name="etc" id="etc" class="form-control-custom"
+                                placeholder="기타 정보를 입력하세요">
                         </div>
                     </div>
 

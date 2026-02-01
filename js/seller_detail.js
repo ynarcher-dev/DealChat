@@ -86,6 +86,7 @@ $(document).ready(function () {
                     alert('저장 오류: ' + result.error);
                 } else {
                     alert('저장되었습니다.');
+                    location.href = './sellers.html';
                 }
             })
             .catch(err => alert('요청 실패: ' + err.message))

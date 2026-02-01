@@ -93,11 +93,22 @@ def main(req):
             else:
                 # Apply filters dynamically if provided
                 for key, value in body.items():
-                    if key not in ["action", "table", "userId"]:
+                    if key not in ["action", "table", "userId", "shareType"]:
                         query = query.eq(key, value)
                 
+                share_type_param = body.get("shareType")
+                if share_type_param:
+                    query = query.eq("share_type", share_type_param)
+
                 if user_id:
-                    query = query.eq("userId", user_id)
+                    if table_name in ["sellers", "buyers"]:
+                        # For sellers/buyers, show My Data OR Public Data
+                        # Use raw filter string for complicated OR logic if referencing dynamic values, 
+                        # but Supabase-py uses .or_("field.eq.value,field2.eq.value") syntax.
+                        filter_str = f"userId.eq.{user_id},share_type.eq.public"
+                        query = query.or_(filter_str)
+                    else:
+                        query = query.eq("userId", user_id)
                 
                 res = query.select("*").execute()
             return create_response(res.data)

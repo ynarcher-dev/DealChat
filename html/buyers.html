@@ -154,6 +154,61 @@
             font-size: 14px;
             box-shadow: none;
         }
+
+        /* Radio styles copied from seller.html */
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            padding-top: 0;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: #495057;
+            cursor: pointer;
+            font-weight: 400;
+        }
+
+        .radio-label input[type="radio"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f3f5;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 13px;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+
+        .chip .remove {
+            cursor: pointer;
+            color: #adb5bd;
+            display: flex;
+            align-items: center;
+            transition: color 0.1s;
+        }
+
+        .chip .remove:hover {
+            color: #fa5252;
+        }
     </style>
 
     <!-- Register Buyer Modal -->
@@ -209,26 +264,32 @@
                         <input type="text" name="etc" placeholder="기타 정보를 입력하세요">
                     </div>
 
-                    <!-- Visibility Scope -->
-                    <div class="form-group-row">
-                        <label>공개 범위</label>
-                        <select name="visibility_scope" id="visibility-scope"
-                            style="flex: 1; padding: 6px 12px; border: 1px solid #d1d9e6; border-radius: 6px; font-family: inherit; font-size: 14px; outline: none; background-color: #fff;">
-                            <option value="private" selected>비공개</option>
-                            <option value="public">전체공개</option>
-                            <option value="selective">선택공개</option>
-                        </select>
-                    </div>
+                    <!-- Visibility Scope (Updated to Radio Style) -->
+                    <div class="form-group-row"
+                        style="align-items: flex-start; margin-top: 20px; border-top: 1px dashed #e9ecef; padding-top: 16px;">
+                        <label style="padding-top: 2px;">공유 설정</label>
+                        <div style="flex: 1;">
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="public" checked> 전체 공개
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="private"> 비공개
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="share_type" value="select"> 대상 선택
+                                </label>
+                            </div>
 
-                    <!-- Selective Users Input (Tag Style) -->
-                    <div class="form-group-row" id="selective-users-row" style="display: none;">
-                        <label>공개 대상</label>
-                        <div class="tag-container" id="tag-wrapper">
-                            <!-- Tags will be inserted here dynamically -->
-                            <input type="text" id="selective-users-input" placeholder="사용자 ID 입력 후 엔터">
+                            <div id="share-target-wrapper" style="display: none; margin-top: 10px;">
+                                <input type="text" id="share-with-input"
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #d1d9e6; border-radius: 6px; font-size: 14px; outline: none;"
+                                    placeholder="이름을 입력하고 Enter를 누르세요">
+                                <div id="share-tags-container" class="chips-container">
+                                    <!-- Tags will be injected here -->
+                                </div>
+                            </div>
                         </div>
-                        <!-- Hidden input to store the actual comma-separated value -->
-                        <input type="hidden" name="selective_users">
                     </div>
 
                     <!-- Timestamps -->
@@ -244,7 +305,7 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer" style="gap: 12px;">
+            <div class="modal-footer" style="border: none; justify-content: flex-end; gap: 12px; padding-top: 8px;">
                 <button type="button" id="delete-buyer-btn" class="btn-cancel"
                     style="color: var(--danger-color); border-color: var(--danger-color); border-radius: 12px; padding: 10px 24px; margin-right: auto; display: none;">삭제</button>
                 <button type="button" class="btn-primary" id="save-buyer-btn"
