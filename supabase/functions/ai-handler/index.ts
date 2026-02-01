@@ -84,16 +84,23 @@ serve(async (req) => {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-mini",
+                model: "gpt-5-nano",
                 messages: [
                     { role: "system", content: "You are a professional assistant." },
                     { role: "user", content: userPrompt }
                 ],
-                temperature: 0.7,
             }),
         });
 
         const data = await response.json();
+
+        if (data.error) {
+            return new Response(JSON.stringify({ error: data.error, model_used: "gpt-5-nano" }), {
+                status: response.status,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
         const answer = data.choices?.[0]?.message?.content || "No response generated.";
 
         return new Response(JSON.stringify({ answer }), {
