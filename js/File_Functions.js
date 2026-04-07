@@ -1,18 +1,16 @@
 import { APIcall } from './APIcallFunction.js';
-import { getEncoding } from "https://cdn.jsdelivr.net/npm/js-tiktoken@1.0.17/+esm";
+// tiktoken은 AI_Functions.js에서 처리하도록 이동됨
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-
 
 // 텍스트 품질 검증 함수 (외부 사용 가능하도록 export)
 export const validateText = (text) => {
     if (!text) return { valid: false, msg: "텍스트를 추출할 수 없습니다. (빈 내용)" };
     const clean = text.trim();
 
-    // 1. 최소 길이 체크 (50자 미만은 문맥 파악 불가로 판단)
-    if (clean.length < 50) {
-        return { valid: false, msg: `문서 내용이 너무 짧습니다. (현재 ${clean.length}자 / 최소 50자)\n의미 있는 검색을 위해 더 많은 내용이 필요합니다.` };
+    // 1. 최소 길이 체크 (5자 미만은 문맥 파악 불가로 판단)
+    if (clean.length < 5) {
+        return { valid: false, msg: `문서 내용이 너무 짧습니다. (현재 ${clean.length}자 / 최소 5자)\n의미 있는 검색을 위해 더 많은 내용이 필요합니다.` };
     }
 
     // 2. 인코딩 깨짐 감지 (깨진 문자 비율이 3% 이상이면 손상된 문서로 간주)
@@ -21,7 +19,7 @@ export const validateText = (text) => {
         return { valid: false, msg: "문서 텍스트가 깨져있거나 인코딩 오류가 감지되었습니다.\n(올바른 PDF/문서 형식인지 확인해주세요)" };
     }
 
-    // 3. 무의미한 반복 패턴 감지 (동일 문자 10회 이상 반복, 예: "..........")
+    // 3. 무의미한 반복 패턴 감지 (동일 문자 10자 이상 반복, 예: "..........")
     if (/(.)\1{9,}/.test(clean)) {
         return { valid: false, msg: "무의미한 반복 패턴이 감지되었습니다.\n(정상적인 텍스트 문서가 아닐 수 있습니다)" };
     }
@@ -77,7 +75,7 @@ export async function extractTextFromPptx(file) {
     const zip = await JSZip.loadAsync(arrayBuffer);
     let text = "";
 
-    // 슬라이드 파일들 찾기 (ppt/slides/slide1.xml 등)
+    // 슬라이드 파일 찾기 (ppt/slides/slide1.xml 등)
     const slideFiles = Object.keys(zip.files).filter(name => name.startsWith('ppt/slides/slide') && name.endsWith('.xml'));
 
     // 슬라이드 번호 순으로 정렬
@@ -121,14 +119,14 @@ export function filetypecheck(file) {
     ];
 
     if (!supportedTypes.includes(file.type)) {
-        alert("현재 doc 파일은 지원하지 않으며, docx로 저장하여 업로드해야 합니다.");
+        alert("현재 doc 파일은 지원하지 않으며 docx로 저장하여 업로드해야 합니다.");
         return false;
     }
     return true;
 }
 
 
-export async function fileUpload(file, userId = null, companyId = null, preExtractedText = null) {
+export async function fileUpload(file, user_id = null, companyId = null, preExtractedText = null, vectorNamespace = undefined) {
     // 1. 텍스트 추출
     let extractedText = preExtractedText;
 
@@ -148,7 +146,7 @@ export async function fileUpload(file, userId = null, companyId = null, preExtra
             console.log('Extracted text length:', extractedText.length);
             console.log('First 100 chars:', extractedText.substring(0, 100));
 
-            // 텍스트 추출 실패 시 로그 출력 (기본 메시지 생성 안 함 -> 검증 실패 유도)
+            // 텍스트 추출 실패 시 로그 출력 (기본 메시지 생성 보장 -> 검증 실패 유도)
             if (!extractedText || extractedText.trim().length === 0) {
                 console.warn('No text extracted from file');
             }
@@ -187,9 +185,9 @@ export async function fileUpload(file, userId = null, companyId = null, preExtra
                 content_type: file.type || 'application/octet-stream',
                 parsedText: fullText, // 검증된 텍스트
                 summary: previewText, // 미리보기용 요약
-                userId: userId,
+                user_id: user_id,
                 companyId: companyId,
-                vectorNamespace: companyId
+                vectorNamespace: vectorNamespace !== undefined ? vectorNamespace : (companyId || null)
             };
 
             console.log('Upload payload:', {
@@ -212,13 +210,13 @@ export async function fileUpload(file, userId = null, companyId = null, preExtra
     });
 }
 
-export async function fileDelete(fileId, fileName, userId, companyId = null) {
+export async function fileDelete(fileId, fileName, user_id, companyId = null) {
     const payload = {
         table: 'files',      // 추가
         action: 'delete',
         fileId: fileId,
         file_name: fileName,
-        userId: userId,
+        user_id: user_id,
         companyId: companyId // 선택 사항
     };
 
@@ -231,17 +229,7 @@ export async function fileDelete(fileId, fileName, userId, companyId = null) {
 }
 
 
-export function countTokens(text) {
-    if (!text) return 0;
-    try {
-        const enc = getEncoding("cl100k_base");
-        const tokens = enc.encode(text);
-        return tokens.length;
-    } catch (e) {
-        console.warn('tiktoken failed, falling back to heuristic:', e);
-        return Math.ceil(text.length * 1.1);
-    }
-}
+// countTokens 함수는 AI_Functions.js로 이동되었습니다.
 
 export function downloadTextFile(filename, content) {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });

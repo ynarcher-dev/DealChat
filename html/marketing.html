@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마케팅 및 홍보 활용 동의 - DealChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+
+        .terms-page-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .terms-card {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+            border: 1px solid #ebebeb;
+            padding: 60px;
+        }
+
+        .terms-header {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .terms-header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+
+        .terms-header p {
+            color: #64748b;
+            font-size: 15px;
+        }
+
+        .terms-content {
+            color: #334155;
+            line-height: 1.8;
+            font-size: 15px;
+        }
+
+        .terms-content section {
+            margin-bottom: 40px;
+        }
+
+        .terms-content h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 8px;
+        }
+
+        .terms-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .terms-table th, .terms-table td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .terms-table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .info-box {
+            background-color: #f8fafc;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin: 24px 0;
+            font-size: 14.5px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .btn-close-window {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+
+        .btn-close-window:hover {
+            background: #f8fafc;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .terms-card {
+                padding: 30px 20px;
+            }
+            .terms-header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="btn-close-window" onclick="window.close()">
+        <span class="material-symbols-outlined">close</span>
+        닫기
+    </button>
+
+    <div class="app-container">
+        <main class="main-content">
+            
+            <section class="page-content">
+                <div class="terms-page-container">
+                <div class="terms-card">
+                    <header class="terms-header">
+                        <h1>마케팅 및 홍보 활용 동의(선택)</h1>
+                        <p>다양한 혜택과 이벤트 정보를 받아보세요.</p>
+                    </header>
+
+            <div class="terms-content">
+                <section>
+                    <p>딜챗주식회사에서 제공하는 이벤트 및 서비스(제휴서비스 포함) 안내 등 광고성 정보를 받으시려면 마케팅 이용에 동의하여 주시기 바랍니다.</p>
+                    <p>동의를 거부할 권리가 있으며, 마케팅 등의 여부와 관계 없이 회원가입을 할 수 있습니다. 다만 거부시, 상기 목적에 명시된 서비스를 받으실 수 없습니다.</p>
+                </section>
+
+                <section>
+                    <h2>마케팅 활용 안내 및 수집 항목</h2>
+                    <table class="terms-table">
+                        <thead>
+                            <tr>
+                                <th>수집 목적</th>
+                                <th>수집 항목</th>
+                                <th>보유ㆍ이용기간</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>상품 안내, 이벤트 행사 관련 정보 안내</td>
+                                <td>이름, 핸드폰번호, 이메일</td>
+                                <td>회원탈퇴 또는 고객 삭제 요청시까지</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <div class="info-box">
+                    동의를 거부할 권리가 있으며, 마케팅 등의 여부와 관계 없이 회원가입을 할 수 있습니다. <br>
+                    다만 거부 시, 상품 안내 및 이벤트 행사 등 상기 목적에 명시된 관련 서비스를 받으실 수 없습니다.
+                </div> <!-- terms-content -->
+            </div> <!-- terms-card -->
+                </div> <!-- terms-page-container -->
+            </section>
+            <footer id="global-footer"></footer>
+    </main>
+</div>
+
+    <script src="../js/header_loader.js"></script>
+    <script src="../js/footer_loader.js"></script>
+</body>
+</html>

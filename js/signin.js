@@ -6,7 +6,7 @@ $(document).ready(function () {
   const $form = $('#signin-form');
   const $loginBtn = $('.btn-login');
 
-  $form.on('submit', function (e) {
+  $form.on('submit', async function (e) {
     e.preventDefault();
 
     const email = $('#user-email').val().trim();
@@ -21,52 +21,58 @@ $(document).ready(function () {
     const originalText = $loginBtn.text();
     $loginBtn.prop('disabled', true).text('로그인 중...');
 
-    // users 테이블에서 사용자 조회
-    APIcall({
-      table: 'users',
-      action: 'read',
-      email: email
-    }, SUPABASE_ENDPOINT, {
-      'Content-Type': 'application/json'
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.error) {
-          throw new Error(data.error);
-        }
+    try {
+      // 수파베이스 클라이언트 초기화
+      const _supabase = window.supabaseClient || supabase.createClient(window.config.supabase.url, window.config.supabase.anonKey);
+      window.supabaseClient = _supabase;
 
-        // 이메일로 사용자 찾기
-        const user = data.find(u => u.email === email);
-
-        if (!user) {
-          alert('등록되지 않은 이메일입니다.');
-          $loginBtn.prop('disabled', false).text(originalText);
-          return;
-        }
-
-        // 비밀번호 확인
-        if (user.password !== password) {
-          alert('비밀번호가 올바르지 않습니다.');
-          $loginBtn.prop('disabled', false).text(originalText);
-          return;
-        }
-
-        const userData = {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          company: user.company || '',
-          isLoggedIn: true
-        };
-
-        alert(`환영합니다, ${user.name}님!`);
-        localStorage.setItem('dealchat_users', JSON.stringify(userData));
-        location.href = './index.html';
-      })
-      .catch(err => {
-        console.error('Login Error:', err);
-        alert('로그인 처리 중 오류가 발생했습니다.');
-        $loginBtn.prop('disabled', false).text(originalText);
+      // 1. 수파베이스 인증 로그인
+      const { data, error } = await _supabase.auth.signInWithPassword({
+        email: email,
+        password: password
       });
+
+      if (error) throw error;
+
+      // 2. 로그인 성공 시 사용자 데이터 구성
+      const user = data.user;
+      
+      // public.users 테이블에서 상세 프로필 조회 (동기화 용도)
+      const { data: dbUser } = await _supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+      const userData = {
+        id: user.id,
+        email: user.email,
+        name: (dbUser && dbUser.name) || user.user_metadata.name || '사용자',
+        company: (dbUser && dbUser.company) || user.user_metadata.company || '',
+        avatar: (dbUser && dbUser.avatar_url) || user.user_metadata.avatar_url || user.user_metadata.avatar || null,
+        isLoggedIn: true
+      };
+
+      alert(`환영합니다, ${userData.name}님!`);
+      localStorage.setItem('dealchat_users', JSON.stringify(userData));
+      
+      // 페이지 이동
+      const currentPath = location.pathname;
+      if (currentPath.includes('/html/') || currentPath.endsWith('/html')) {
+        location.href = './index.html';
+      } else {
+        location.href = './html/index.html';
+      }
+
+    } catch (err) {
+      console.error('Login Error:', err);
+      if (err.message.includes('Invalid login credentials')) {
+        alert('이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else {
+        alert('로그인 처리 중 오류가 발생했습니다: ' + err.message);
+      }
+    } finally {
+      $loginBtn.prop('disabled', false).text(originalText);
+    }
   });
 });

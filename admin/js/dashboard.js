@@ -8,7 +8,7 @@ function checkAuth() {
     try {
         const adminUser = JSON.parse(localStorage.getItem('dealchat_admin_user') || '{}');
         if (!adminUser.isLoggedIn || adminUser.role !== 'admin') {
-            alert('접근 권한이 없습니다.');
+            alert('?�근 권한???�습?�다.');
             window.location.href = './admin_signin.html';
             return null;
         }
@@ -22,7 +22,7 @@ function checkAuth() {
 
 // [Logout]
 $('#logout-btn').on('click', function () {
-    if (confirm('로그아웃 하시겠습니까?')) {
+    if (confirm('로그?�웃 ?�시겠습?�까?')) {
         localStorage.removeItem('dealchat_admin_user');
         window.location.href = './admin_signin.html';
     }
@@ -50,25 +50,25 @@ async function loadPage(page) {
             renderDashboard($content);
             break;
         case 'users':
-            await renderGrid($content, 'users', '회원 관리');
+            await renderGrid($content, 'users', '?�원 관�?);
             break;
         case 'companies':
-            await renderGrid($content, 'companies', '기업 관리');
+            await renderGrid($content, 'companies', '기업 관�?);
             break;
         case 'files':
-            await renderGrid($content, 'files', '파일 관리');
+            await renderGrid($content, 'files', '?�일 관�?);
             break;
         case 'reports':
-            await renderGrid($content, 'reports', '보고서 설정');
+            await renderGrid($content, 'reports', '보고???�정');
             break;
         case 'qna':
-            await renderGrid($content, 'qna', '상담 문의');
+            await renderGrid($content, 'qna', '?�담 문의');
             break;
         case 'sellers':
             await renderGrid($content, 'sellers', '매도 매물');
             break;
         case 'buyers':
-            await renderGrid($content, 'buyers', '매수 희망');
+            await renderGrid($content, 'buyers', '매수 ?�망');
             break;
         default:
             renderDashboard($content);
@@ -266,8 +266,8 @@ async function renderGrid($container, tableName, title) {
             <div class="grid-header">
                 <div style="font-weight: 600;">${title} List</div>
                 <div class="actions-toolbar">
-                    <button class="btn-sm btn-outline" id="refresh-btn">새로고침</button>
-                    <button class="btn-sm btn-outline" style="color:red;" id="delete-btn">삭제 (Delete)</button>
+                    <button class="btn-sm btn-outline" id="refresh-btn">?�로고침</button>
+                    <button class="btn-sm btn-outline" style="color:red;" id="delete-btn">??�� (Delete)</button>
                 </div>
             </div>
             <div id="grid-wrapper" class="ag-theme-alpine"></div>
@@ -289,7 +289,7 @@ async function renderGrid($container, tableName, title) {
         }
     } catch (e) {
         console.error(`Fetch ${tableName} error:`, e);
-        alert('데이터 로드 실패');
+        alert('?�이??로드 ?�패');
     }
 
     // Define Columns based on table
@@ -386,11 +386,11 @@ function getColumnDefs(tableName) {
 async function deleteSelectedRows(gridOptions, tableName) {
     const selectedNodes = gridOptions.api.getSelectedNodes();
     if (selectedNodes.length === 0) {
-        alert('삭제할 항목을 선택해주세요.');
+        alert('??��????��???�택?�주?�요.');
         return;
     }
 
-    if (!confirm(`선택한 ${selectedNodes.length}개 항목을 정말 삭제하시겠습니까?`)) return;
+    if (!confirm(`?�택??${selectedNodes.length}�???��???�말 ??��?�시겠습?�까?`)) return;
 
     // Delete one by one for now (or batch if API supports)
     // Assuming backend supports delete by ID
@@ -423,7 +423,7 @@ async function deleteSelectedRows(gridOptions, tableName) {
         }
     }
 
-    alert(`${successCount}개 항목 삭제 처리 완료 (서버 지원 여부 확인 필요)`);
+    alert(`${successCount}�???�� ??�� 처리 ?�료 (?�버 지???��? ?�인 ?�요)`);
     loadPage(tableName);
 }
 

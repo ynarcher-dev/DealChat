@@ -3,7 +3,7 @@ const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 
 const columnDefs = [
     { field: "id", headerName: "ID", sortable: true, filter: true, width: 100, hide: true },
-    { field: "companyName", headerName: "기업명", sortable: true, filter: true, flex: 1 },
+    { field: "company_name", headerName: "기업명", sortable: true, filter: true, flex: 1 },
     { field: "industry", headerName: "산업", sortable: true, filter: true, flex: 1 },
     { field: "summary", headerName: "요약", sortable: true, filter: true, flex: 2.5 }
 ];
@@ -25,7 +25,7 @@ const gridOptions = {
     onRowClicked: (params) => {
         const id = params.data.id;
         if (id) {
-            window.location.href = `./html/dealbook.html?id=${encodeURIComponent(id)}`;
+            window.location.href = `./html/dealbook_companies.html?id=${encodeURIComponent(id)}`;
         }
     }
 };

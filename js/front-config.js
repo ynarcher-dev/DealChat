@@ -19,10 +19,10 @@ window.config = {
     cardColor: '#ffffff'
   },
   supabase: {
-    url: 'https://pqhqmvymssjtjhmiloga.supabase.co',
-    anonKey: 'sb_publishable_NSrXrC4dpsKnPBviNDl-7g_fcNZeH4I',
-    uploadHandlerUrl: 'https://pqhqmvymssjtjhmiloga.supabase.co/functions/v1/upload-handler',
-    aiHandlerUrl: 'https://pqhqmvymssjtjhmiloga.supabase.co/functions/v1/ai-handler'
+    url: 'https://afitwguexwihnepyutqw.supabase.co',
+    anonKey: 'sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5',
+    uploadHandlerUrl: 'https://afitwguexwihnepyutqw.supabase.co/functions/v1/upload-handler',
+    aiHandlerUrl: 'https://afitwguexwihnepyutqw.supabase.co/functions/v1/ai-handler'
   },
   ai: {
     model: 'gpt-5-mini', // Current model in use (best cost-performance)

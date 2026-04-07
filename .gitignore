@@ -1,0 +1,26 @@
+# Windows / Google Drive 자동 생성 파일
+desktop.ini
+Thumbs.db
+
+# macOS
+.DS_Store
+
+# 환경 변수 (비밀키 등 절대 커밋 금지)
+.env
+.env.local
+.env.*.local
+
+# Supabase 로컬 임시 파일
+supabase/.temp/
+
+# Node.js (향후 패키지 도입 시 대비)
+node_modules/
+npm-debug.log*
+
+# 에디터 설정
+.vscode/settings.json
+.idea/
+
+# 로그
+*.log
+output.txt
