@@ -1,0 +1,7 @@
+{
+  "presets": [
+    ["C:/DealChat-deps/node_modules/@babel/preset-env", {
+      "targets": { "node": "current" }
+    }]
+  ]
+}
