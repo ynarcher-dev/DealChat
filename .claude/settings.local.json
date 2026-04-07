@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(html|js\\)$\")",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

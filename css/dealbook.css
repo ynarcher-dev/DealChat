@@ -1,0 +1,150 @@
+/* =========================================================
+   dealbook.css
+   dealbook 3종 에디터(기업정보/매수자/매도자) 공통 스타일
+   ========================================================= */
+
+/* --- 레이아웃 기본 --- */
+body {
+    overflow: hidden;
+    height: 100vh;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.sidebar {
+    flex: 2;
+    min-width: 400px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-right: 1px solid var(--border-color);
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.right-panel {
+    flex: 1;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-left: 1px solid var(--border-color);
+}
+
+/* 공통 패널 마운트 포인트 - flex 레이아웃에 투명하게 동작 */
+#dealbook-panels-mount {
+    display: contents;
+}
+
+/* --- 로딩 잔상 방지 --- */
+body.is-loading .app-container {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.app-container {
+    transition: opacity 0.4s ease;
+}
+
+/* --- 스피너 애니메이션 --- */
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.spin-animation {
+    animation: rotate 1.5s linear infinite;
+    display: inline-block !important;
+}
+
+/* --- 상태 칩 버튼 --- */
+.btn-status-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-size: 13px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.btn-status-chip.active {
+    background: var(--page-theme-color);
+    border-color: var(--page-theme-color);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 2px 4px var(--page-theme-shadow);
+}
+
+/* --- AI 채팅 제안 프롬프트 --- */
+.suggested-prompts {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 600px;
+}
+
+/* --- contenteditable 플레이스홀더 --- */
+[contenteditable="true"]:empty::before,
+.notebook-title:empty::before {
+    content: attr(placeholder);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+/* --- 파일 드롭존 드래그앤드롭 --- */
+.file-list-card {
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.file-list-card.drag-over {
+    border: 2px dashed var(--page-theme-color) !important;
+    background-color: rgba(0, 0, 0, 0.02) !important;
+    box-shadow: 0 0 15px var(--page-theme-shadow) !important;
+}
+
+.file-list-card.drag-over::after {
+    content: "여기에 드롭하여 파일 업로드";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--page-theme-color);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid var(--page-theme-color);
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+}
+
+.file-list-card.drag-over * {
+    pointer-events: none;
+}
+
+/* --- AI 모델 드롭다운 --- */
+.model-option:hover {
+    background-color: #f1f5f9 !important;
+}
+
+.model-option.active {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}

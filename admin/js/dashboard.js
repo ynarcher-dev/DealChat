@@ -3,27 +3,53 @@ import { APIcall } from '../../js/APIcallFunction.js';
 
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 
+function getSupabase() {
+    if (!window.supabaseClient) {
+        window.supabaseClient = supabase.createClient(
+            window.config.supabase.url,
+            window.config.supabase.anonKey
+        );
+    }
+    return window.supabaseClient;
+}
+
 // [Admin Auth Check]
-function checkAuth() {
+async function checkAuth() {
     try {
-        const adminUser = JSON.parse(localStorage.getItem('dealchat_admin_user') || '{}');
-        if (!adminUser.isLoggedIn || adminUser.role !== 'admin') {
-            alert('?�근 권한???�습?�다.');
+        const _supabase = getSupabase();
+        const { data: { session } } = await _supabase.auth.getSession();
+
+        if (!session) {
             window.location.href = './admin_signin.html';
             return null;
         }
-        $('#admin-name').text(adminUser.name);
-        return adminUser;
+
+        const { data: dbUser, error } = await _supabase
+            .from('users')
+            .select('role, name')
+            .eq('id', session.user.id)
+            .single();
+
+        if (error || !dbUser || dbUser.role !== 'admin') {
+            await _supabase.auth.signOut();
+            alert('관리자 권한이 없습니다.');
+            window.location.href = './admin_signin.html';
+            return null;
+        }
+
+        $('#admin-name').text(dbUser.name || session.user.email);
+        return { id: session.user.id, email: session.user.email, name: dbUser.name, role: dbUser.role };
     } catch (e) {
+        console.error('Auth check error:', e);
         window.location.href = './admin_signin.html';
         return null;
     }
 }
 
 // [Logout]
-$('#logout-btn').on('click', function () {
-    if (confirm('로그?�웃 ?�시겠습?�까?')) {
-        localStorage.removeItem('dealchat_admin_user');
+$('#logout-btn').on('click', async function () {
+    if (confirm('로그아웃 하시겠습니까?')) {
+        await getSupabase().auth.signOut();
         window.location.href = './admin_signin.html';
     }
 });
@@ -50,25 +76,25 @@ async function loadPage(page) {
             renderDashboard($content);
             break;
         case 'users':
-            await renderGrid($content, 'users', '?�원 관�?);
+            await renderGrid($content, 'users', '회원 관리');
             break;
         case 'companies':
-            await renderGrid($content, 'companies', '기업 관�?);
+            await renderGrid($content, 'companies', '기업 관리');
             break;
         case 'files':
-            await renderGrid($content, 'files', '?�일 관�?);
+            await renderGrid($content, 'files', '파일 관리');
             break;
         case 'reports':
-            await renderGrid($content, 'reports', '보고???�정');
+            await renderGrid($content, 'reports', '보고서 설정');
             break;
         case 'qna':
-            await renderGrid($content, 'qna', '?�담 문의');
+            await renderGrid($content, 'qna', '상담 문의');
             break;
         case 'sellers':
             await renderGrid($content, 'sellers', '매도 매물');
             break;
         case 'buyers':
-            await renderGrid($content, 'buyers', '매수 ?�망');
+            await renderGrid($content, 'buyers', '매수 희망');
             break;
         default:
             renderDashboard($content);
@@ -266,8 +292,8 @@ async function renderGrid($container, tableName, title) {
             <div class="grid-header">
                 <div style="font-weight: 600;">${title} List</div>
                 <div class="actions-toolbar">
-                    <button class="btn-sm btn-outline" id="refresh-btn">?�로고침</button>
-                    <button class="btn-sm btn-outline" style="color:red;" id="delete-btn">??�� (Delete)</button>
+                    <button class="btn-sm btn-outline" id="refresh-btn">새로고침</button>
+                    <button class="btn-sm btn-outline" style="color:red;" id="delete-btn">삭제 (Delete)</button>
                 </div>
             </div>
             <div id="grid-wrapper" class="ag-theme-alpine"></div>
@@ -289,7 +315,7 @@ async function renderGrid($container, tableName, title) {
         }
     } catch (e) {
         console.error(`Fetch ${tableName} error:`, e);
-        alert('?�이??로드 ?�패');
+        alert('데이터 로드 실패');
     }
 
     // Define Columns based on table
@@ -386,11 +412,11 @@ function getColumnDefs(tableName) {
 async function deleteSelectedRows(gridOptions, tableName) {
     const selectedNodes = gridOptions.api.getSelectedNodes();
     if (selectedNodes.length === 0) {
-        alert('??��????��???�택?�주?�요.');
+        alert('행을 선택해주세요.');
         return;
     }
 
-    if (!confirm(`?�택??${selectedNodes.length}�???��???�말 ??��?�시겠습?�까?`)) return;
+    if (!confirm(`선택한 ${selectedNodes.length}건을 정말 삭제하시겠습니까?`)) return;
 
     // Delete one by one for now (or batch if API supports)
     // Assuming backend supports delete by ID
@@ -423,14 +449,14 @@ async function deleteSelectedRows(gridOptions, tableName) {
         }
     }
 
-    alert(`${successCount}�???�� ??�� 처리 ?�료 (?�버 지???��? ?�인 ?�요)`);
+    alert(`${successCount}건 삭제 처리 완료 (서버 지원 여부 확인 필요)`);
     loadPage(tableName);
 }
 
 
 // [Init]
-$(document).ready(function () {
-    if (checkAuth()) {
+$(document).ready(async function () {
+    if (await checkAuth()) {
         loadPage('dashboard');
     }
 });

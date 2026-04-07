@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>관리자 로그??- DealChat Admin</title>
+    <title>관리자 로그인 - DealChat Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -135,27 +135,28 @@
     <div class="admin-login-container">
         <div class="login-card">
             <div class="logo">:DEALCHAT <span class="admin-badge">ADMIN</span></div>
-            <p class="subtitle">관리자 계정?�로 로그?�하?�요.</p>
+            <p class="subtitle">관리자 계정으로 로그인하세요.</p>
 
             <form id="admin-signin-form">
                 <div class="form-group">
-                    <label>?�메??/label>
+                    <label>이메일</label>
                     <input type="email" id="admin-email" placeholder="admin@dealchat.net" required>
                 </div>
 
                 <div class="form-group">
-                    <label>비�?번호</label>
-                    <input type="password" id="admin-password" placeholder="비�?번호" required>
+                    <label>비밀번호</label>
+                    <input type="password" id="admin-password" placeholder="비밀번호" required>
                 </div>
 
-                <button type="submit" class="btn-login">로그??/button>
+                <button type="submit" class="btn-login">로그인</button>
             </form>
 
-            <a href="../../index.html" class="home-link">??메인?�로 ?�아가�?/a>
+            <a href="../../index.html" class="home-link">홈 메인으로 돌아가기</a>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../../js/helpers.js"></script>
     <script src="../../js/front-config.js"></script>
     <script src="../js/admin_signin.js" type="module"></script>

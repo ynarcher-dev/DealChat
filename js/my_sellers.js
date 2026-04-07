@@ -325,7 +325,11 @@ function renderSellers() {
 }
 
 window.showSellerDetail = function (id) {
-    location.href = `./dealbook_sellers.html?id=${id}`;
+    const $loader = $('#transition-loader');
+    $loader.css('display', 'flex');
+    setTimeout(() => {
+        location.href = `./dealbook_sellers.html?id=${encodeURIComponent(id)}`;
+    }, 600);
 };
 
 window.openShareModal = function (sellerId) {

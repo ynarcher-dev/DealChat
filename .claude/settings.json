@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find ./html -name \"*.html\" -type f -exec wc -l {} +)",
+      "Bash(find \"G:\\\\.shortcut-targets-by-id\\\\1rDq3ilZaYhKKwzY4dRHbmnDNYC0FvfR-\\\\서비스 및 개발 관理\\\\DealChat\" -type f -name \"*.html\" -exec grep -o \"src=[\\\\\"']\\\\./js/[^\\\\\"']*[\\\\\"']\" {} \\\\;)",
+      "Bash(find \"G:\\\\.shortcut-targets-by-id\\\\1rDq3ilZaYhKKwzY4dRHbmnDNYC0FvfR-\\\\서비스 및 개발 관리\\\\DealChat\" -type f -name \"*.html\" -exec grep -o \"href=[\\\\\"']\\\\.\\\\./css/[^\\\\\"']*[\\\\\"']\" {} \\\\;)",
+      "Bash(sed 's/href=[\"\\\\x27]//g')",
+      "Bash(find \"G:\\\\.shortcut-targets-by-id\\\\1rDq3ilZaYhKKwzY4dRHbmnDNYC0FvfR-\\\\서비스 및 개발 관리\\\\DealChat\" -type f -name \"*.html\" -exec grep -o \"href=[\\\\\"']css/[^\\\\\"']*[\\\\\"']\" {} \\\\;)",
+      "Bash(find \"G:\\\\.shortcut-targets-by-id\\\\1rDq3ilZaYhKKwzY4dRHbmnDNYC0FvfR-\\\\서비스 및 개발 관리\\\\DealChat\" -type f -name \"*.html\" -exec grep -o \"src=[\\\\\"']js/[^\\\\\"']*[\\\\\"']\" {} \\\\;)",
+      "Bash(ls -la html/*.html)",
+      "Bash(sed \"s/.*from ['\\\\\"]//g\")",
+      "Bash(sed \"s/['\\\\\"].*//g\")",
+      "Bash(grep -E \"\\\\.js$|\\\\.py$|\\\\.ps1$\")",
+      "Bash(grep -rh \"import.*from\" js/*.js)"
+    ]
+  }
+}

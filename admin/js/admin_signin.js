@@ -1,84 +1,62 @@
 
-import { APIcall } from '../../js/APIcallFunction.js';
-
 $(document).ready(function () {
-    const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
+    const $form = $('#admin-signin-form');
+    const $btn = $('.btn-login');
 
-    $('#admin-signin-form').on('submit', async function (e) {
+    $form.on('submit', async function (e) {
         e.preventDefault();
 
         const email = $('#admin-email').val().trim();
         const password = $('#admin-password').val().trim();
 
         if (!email || !password) {
-            alert('?�메?�과 비�?번호�?모두 ?�력?�주?�요.');
+            alert('이메일과 비밀번호를 모두 입력해주세요.');
             return;
         }
 
-        const $btn = $('.btn-login');
         const originalText = $btn.text();
-        $btn.prop('disabled', true).text('로그??�?..');
+        $btn.prop('disabled', true).text('로그인 중...');
 
         try {
-            // Admin auth logic here. 
-            // For now, using standard user login but checking for specific admin flag/role would be better.
-            // Or assuming a specific admin table.
-            // Reusing 'signin' action for now.
+            const _supabase = window.supabaseClient || supabase.createClient(
+                window.config.supabase.url,
+                window.config.supabase.anonKey
+            );
+            window.supabaseClient = _supabase;
 
-            const payload = {
-                action: 'read',
-                table: 'users',
-                email: email,
-                password: password
-            };
+            // 1. Supabase Auth로 로그인 (비밀번호 평문 비교 없음)
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
 
-            const response = await APIcall(payload, SUPABASE_ENDPOINT, {
-                'Content-Type': 'application/json'
-            });
-            const data = await response.json();
+            // 2. users 테이블에서 role 확인
+            const { data: dbUser, error: dbError } = await _supabase
+                .from('users')
+                .select('role, name')
+                .eq('id', data.user.id)
+                .single();
 
-            if (data.error) {
-                alert('로그???�패: ' + data.error);
+            if (dbError || !dbUser) {
+                await _supabase.auth.signOut();
+                alert('사용자 정보를 확인할 수 없습니다.');
                 return;
             }
 
-            // ?�메?�로 ?�용??찾기
-            // 'read' action returns an array of users matching the filter (email)
-            const user = (Array.isArray(data) ? data : []).find(u => u.email === email);
-
-            if (!user) {
-                alert('?�록?��? ?��? 관리자 계정?�니??');
+            if (dbUser.role !== 'admin') {
+                await _supabase.auth.signOut();
+                alert('관리자 권한이 없는 계정입니다.');
                 return;
             }
 
-            // 비�?번호 ?�인 (Simple check as in signin.js)
-            if (user.password !== password) {
-                alert('비�?번호가 ?�바르�? ?�습?�다.');
-                return;
-            }
-
-            // [Fix] Check for admin role
-            if (user.role !== 'admin') {
-                alert('관리자 권한???�는 계정?�니??');
-                return;
-            }
-
-            const userData = {
-                id: user.id,
-                email: user.email,
-                name: user.name || 'Admin',
-                // token: result.token, // Token logic removed as signin.js doesn't use it
-                role: user.role,
-                isLoggedIn: true
-            };
-
-            localStorage.setItem('dealchat_admin_user', JSON.stringify(userData));
-
-            // Redirect to admin dashboard
+            // 3. 대시보드로 이동 (세션은 Supabase가 자동 관리)
             window.location.href = './dashboard.html';
-        } catch (error) {
-            console.error('Admin Login Error:', error);
-            alert('?�스???�류가 발생?�습?�다.');
+
+        } catch (err) {
+            console.error('Admin Login Error:', err);
+            if (err.message && err.message.includes('Invalid login credentials')) {
+                alert('이메일 또는 비밀번호가 올바르지 않습니다.');
+            } else {
+                alert('로그인 처리 중 오류가 발생했습니다: ' + (err.message || err));
+            }
         } finally {
             $btn.prop('disabled', false).text(originalText);
         }

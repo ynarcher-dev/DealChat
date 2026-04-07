@@ -1,0 +1,163 @@
+/* =========================================
+   Terms / Privacy / Marketing Pages
+   Shared styles for html/terms.html,
+   html/privacy.html, html/marketing.html
+   ========================================= */
+
+body {
+    background-color: #f8fafc;
+}
+
+.terms-page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.terms-card {
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+    border: 1px solid #ebebeb;
+    padding: 60px;
+}
+
+/* Header */
+.terms-header {
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.terms-header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 12px;
+}
+
+.terms-header p {
+    color: #64748b;
+    font-size: 15px;
+}
+
+/* Content */
+.terms-content {
+    color: #334155;
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+.terms-content section {
+    margin-bottom: 40px;
+}
+
+.terms-content h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+}
+
+.terms-content h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 20px 0 10px 0;
+}
+
+.terms-content p {
+    margin-bottom: 12px;
+}
+
+.terms-content ul {
+    padding-left: 20px;
+    margin-bottom: 16px;
+}
+
+.terms-content li {
+    margin-bottom: 8px;
+}
+
+/* Table */
+.terms-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+}
+
+.terms-table th,
+.terms-table td {
+    border: 1px solid #e2e8f0;
+    padding: 12px;
+    text-align: left;
+}
+
+.terms-table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* Info box */
+.info-box {
+    background-color: #f1f5f9;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.6;
+}
+
+/* Footer note */
+.terms-footer {
+    margin-top: 60px;
+    padding-top: 30px;
+    border-top: 1px solid #f1f5f9;
+    color: #94a3b8;
+    font-size: 14px;
+    text-align: right;
+}
+
+/* Close button */
+.btn-close-window {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+    z-index: 1000;
+}
+
+.btn-close-window:hover {
+    background: #f8fafc;
+    transform: translateY(-2px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .terms-card {
+        padding: 30px 20px;
+    }
+
+    .terms-header h1 {
+        font-size: 24px;
+    }
+}

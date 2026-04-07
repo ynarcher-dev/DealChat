@@ -177,7 +177,7 @@ function renderBuyers() {
                     <span class="status-tag-td" style="background: ${isDraft ? '#f1f5f9' : '#f0fdfa'}; color: ${isDraft ? '#94a3b8' : '#0d9488'}; border: 1px solid ${isDraft ? '#e2e8f0' : '#ccfbf1'};">${escapeHtml(buyer.status || "대기")}</span>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
-                    <div class="summary-td" style="${isDraft ? 'color: #cbd5e1;' : ''}">${escapeHtml(buyer.summary || "")}</div>
+                    <div class="summary-td" style="color: #0d9488; font-weight: 500; ${isDraft ? 'color: #cbd5e1 !important;' : ''}">${escapeHtml(buyer.private_memo || "-")}</div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;" data-user-id="${buyer.user_id}" class="author-cell-clickable" onclick="event.stopPropagation(); if (window.showProfileModal) { window.showProfileModal('${buyer.user_id}'); }">
                     <div class="author-td">
@@ -200,7 +200,11 @@ function renderBuyers() {
 }
 
 window.showBuyerDetail = function (id) {
-    location.href = `./dealbook_buyers.html?id=${id}&from=mybuyer`;
+    const $loader = $('#transition-loader');
+    $loader.css('display', 'flex');
+    setTimeout(() => {
+        location.href = `./dealbook_buyers.html?id=${encodeURIComponent(id)}&from=mybuyer`;
+    }, 600);
 };
 
 window.openShareModal = function (buyerId) {
