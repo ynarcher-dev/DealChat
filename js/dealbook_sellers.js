@@ -5,7 +5,9 @@ import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatar
 import * as sharingUtils from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { autoResizeTextarea } from './textarea_utils.js';
+import { createSellerFinancialRow as createFinancialRow } from './financial_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -27,7 +29,9 @@ $(document).ready(function () {
     const urlParams = new URLSearchParams(window.location.search);
     let sellerId = urlParams.get('id');   // 'new' 또는 실제 ID
     const fromSource = urlParams.get('from'); // 'totalseller' 등 유입 경로
+    const viewMode = urlParams.get('mode');
     let isNew = sellerId === 'new';
+    window.isNew = isNew; // Expose to window for financial_utils.js
 
     // [New] 이전 페이지(목록)로 돌아갈 URL 설정
     let returnUrl = './my_sellers.html';
@@ -85,6 +89,7 @@ $(document).ready(function () {
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
     let currentSellerData = null;
+    window.currentSellerData = currentSellerData; // Expose to window for financial_utils.js
     let availableFiles = [];
     let pendingFiles = []; // [추가] 신규 생성 시 업로드된 파일 임시 보관용
     let conversationHistory = [];
@@ -218,6 +223,7 @@ $(document).ready(function () {
                 sellerId = sellerData.id;
                 isNew = false;
                 currentSellerData = sellerData;
+                window.currentSellerData = currentSellerData;
                 selectedCompanyId = sellerData.company_id;
                 $('#btn-delete-seller').show();
             } else {
@@ -417,6 +423,7 @@ $(document).ready(function () {
             }
 
             currentSellerData = seller;
+            window.currentSellerData = currentSellerData;
             $('#btn-delete-seller').show();
             blindKeywords = Array.isArray(seller.blind_keywords) ? seller.blind_keywords : [];
             blindPersonal = seller.blind_personal || { ceo: false, email: false, establishment: false, address: false };
@@ -482,7 +489,7 @@ $(document).ready(function () {
             }).attr('title', '이메일 복사');
 
             autoResizeAllTextareas();
-            if (fromSource === 'totalseller' || fromSource === 'shared') {
+            if (shouldEnterReportMode({ viewMode, fromSource, allowedSources: ['totalseller', 'total_sellers', 'shared'], isNew, isOwner })) {
                 applySellerReadOnlyMode();
                 applyBlindMasking();
             } else if (seller.companies) toggleCompanyFields(true);
@@ -972,12 +979,13 @@ $(document).ready(function () {
         applyReportMode({
             primaryColor: '#8b5cf6',
             cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save-seller, #btn-draft-seller, #btn-delete-seller, #add-financial-btn, .btn-remove-row, .delete-file, #blind-keywords-container',
+            hideSelectors: '#ai-auto-fill-btn, #btn-save-seller, #btn-draft-seller, #btn-delete-seller, #add-financial-btn, .btn-remove-row, .delete-file, #blind-keywords-container, #private-memo',
             textareaIds: ['seller-summary', 'seller-key-products', 'seller-fin-analysis', 'seller-memo', 'seller-manager-memo'],
             afterApply: () => {
                 reformatSellerFinancialTable();
                 injectSellerReportIcons();
                 if ($('#report-mode-css').length) applyBlindMasking();
+                $('#memo-author-info').css('display', 'flex');
             }
         });
     }
@@ -1021,11 +1029,7 @@ $(document).ready(function () {
     }
 
     // [New] 자동 높이 조절 함수 (표준화)
-    function autoResizeTextarea($el) {
-        if (!$el.length) return;
-        $el.css('height', 'auto');
-        $el.css('height', $el[0].scrollHeight + 'px');
-    }
+
 
     function autoResizeAllTextareas() {
         autoResizeTextarea($('#seller-summary'));
@@ -1041,22 +1045,7 @@ $(document).ready(function () {
         autoResizeTextarea($(this));
     });
 
-    function createFinancialRow(y='', r='', p='', n='', e='') {
-        const isEnabled = $('#seller-name-editor').attr('contenteditable') !== 'false' && (isNew || !!currentSellerData);
-        const statusClass = isEnabled ? 'field-active' : 'field-disabled';
 
-        const row = $(`<div class="financial-row" style="margin-bottom: 8px;">
-            <input type="text" class="fin-year ${statusClass}" placeholder="년도" value="${y}" style="flex:1;" ${isEnabled ? '' : 'readonly'}>
-            <input type="text" class="fin-revenue ${statusClass}" placeholder="매출" value="${r}" style="flex:2;" ${isEnabled ? '' : 'readonly'}>
-            <input type="text" class="fin-profit ${statusClass}" placeholder="영업익" value="${p}" style="flex:2;" ${isEnabled ? '' : 'readonly'}>
-            <input type="text" class="fin-net-profit ${statusClass}" placeholder="순익" value="${n}" style="flex:2;" ${isEnabled ? '' : 'readonly'}>
-            <input type="text" class="fin-ev-ebitda ${statusClass}" placeholder="EV/EB" value="${e}" style="flex:1;" ${isEnabled ? '' : 'readonly'}>
-            <button type="button" class="btn-remove-row" title="삭제" style="${isEnabled ? '' : 'display:none;'}">
-                <span class="material-symbols-outlined" style="font-size:18px;">close</span>
-            </button>
-        </div>`);
-        $('#financial-rows').append(row);
-    }
     
     $(document).on('click', '.btn-remove-row', function() { $(this).closest('.financial-row').remove(); });
     $('#add-financial-btn').on('click', () => createFinancialRow());

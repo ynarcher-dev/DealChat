@@ -5,7 +5,8 @@ import * as sharingUtils from './sharing_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { escapeForDisplay } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { addFileToSourceList } from './file_render_utils.js';
 
 
 
@@ -183,13 +184,7 @@ $(document).ready(function () {
 
             await loadAvailableFiles();
 
-            if (
-                viewMode === 'read' ||
-                fromSource === 'shared' ||
-                fromSource === 'totalbuyer' ||
-                fromSource === 'total_buyers' ||
-                (!isNew && !isOwner)
-            ) {
+            if (shouldEnterReportMode({ viewMode, fromSource, allowedSources: ['totalbuyer', 'total_buyers', 'shared'], isNew, isOwner })) {
                 switchMode('read');
             } else {
                 switchMode('edit');
@@ -275,47 +270,8 @@ $(document).ready(function () {
             const pText = file.parsed_text || file.parsedText;
             const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
             const status = isSearchable ? 'reflected' : 'failed';
-            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status);
+            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status, null, '#22c55e');
         });
-    }
-
-    function addFileToSourceList(fileName, fileId, storagePath, isTraining, isPending, status = null) {
-        const fileUrl = storagePath ? (storagePath.startsWith('http') ? storagePath : (SUPABASE_STORAGE_URL + storagePath)) : '#';
-        
-        let badgeHtml = '';
-        if (status === 'loading' || isPending) {
-            badgeHtml = `<span class="ai-status-badge badge-ai-loading" style="font-size: 10px; font-weight: 600; color: #475569; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #cbd5e1;">분석 중...</span>`;
-        } else if (status === 'reflected') {
-            // 전역 표준 (Green) 적용
-            badgeHtml = `<span class="ai-status-badge badge-ai-reflected" style="font-size: 10px; font-weight: 600; color: #22c55e; background: #f0fdf4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #bbf7d0;">AI 반영됨</span>`;
-        } else {
-            badgeHtml = `<span class="ai-status-badge badge-ai-failed" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fca5a5;">AI 불가</span>`;
-        }
-
-        const $li = $(`
-            <li class="list-group-item d-flex align-items-center justify-content-between bg-transparent" data-id="${fileId}" style="padding: 10px 16px; border-bottom: 1px solid #f1f5f9; border-top: none; border-left: none; border-right: none; margin: 0;">
-                <div class="d-flex align-items-center overflow-hidden" style="flex: 1; min-width: 0; gap: 8px;">
-                    ${badgeHtml}
-                    <a href="${fileUrl}" target="_blank" class="text-decoration-none small text-truncate" style="font-size: 13px; color: #334155 !important; flex: 1; min-width: 0; font-weight: 500;">${fileName}</a>
-                </div>
-                ${!isPending ? `<button class="btn-delete-file ms-2" style="background:none; border:none; color:#ef4444; cursor:pointer; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>` : ''}
-            </li>
-        `);
-
-        if (!isPending) {
-            $li.find('.btn-delete-file').on('mouseover', function() { $(this).css('opacity', '1'); })
-                                      .on('mouseout', function() { $(this).css('opacity', '0.7'); })
-                                      .on('click', async (e) => {
-                e.stopPropagation();
-                if (confirm('삭제하시겠습니까?')) {
-                    await _supabase.from('files').delete().eq('id', fileId);
-                    $li.remove();
-                    availableFiles = availableFiles.filter(f => f.id !== fileId);
-                }
-            });
-        }
-        $('#source-list-training').append($li);
-        return $li;
     }
 
     $('#ai-auto-fill-btn').on('click', async function() {
@@ -498,7 +454,7 @@ $(document).ready(function () {
             if (!filetypecheck(file)) continue;
             const tempId = `temp-${Date.now()}`;
             // 분석 중... (Loading) 항목 추가
-            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading');
+            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
             
             const res = await fileUpload(file, currentuser_id, isNew ? null : buyerId, null, isNew ? null : buyerId);
             
@@ -550,7 +506,7 @@ $(document).ready(function () {
         for (const file of files) {
             if (!filetypecheck(file)) continue;
             const tempId = `temp-${Date.now()}`;
-            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading');
+            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
             
             const res = await fileUpload(file, currentuser_id, isNew ? null : buyerId, null, isNew ? null : buyerId);
             
@@ -601,7 +557,24 @@ $(document).ready(function () {
             textareaIds: ['buyer-summary', 'buyer-interest-summary', 'buyer-memo'],
             afterApply: () => {
                 $('#memo-user-info-section').css('display', 'flex');
+                injectBuyerReportIcons();
+            }
+        });
+    }
+    function injectBuyerReportIcons() {
+        const icons = { 
+            'status-chip-group': 'account_tree', 
+            'buyer-summary': 'description', 
+            'buyer-interest-summary': 'business_center', 
+            'buyer-memo': 'lock' 
+        };
+        Object.entries(icons).forEach(([id, icon]) => {
+            const $el = $(`#${id}`), $p = $el.prev('p').length ? $el.prev('p') : $el.parent().prev('p');
+            if ($p.length) { 
+                $p.find('.material-symbols-outlined').remove(); 
+                $p.prepend(`<span class="material-symbols-outlined" style="font-size:18px;">${icon}</span> `); 
             }
         });
     }
 });
+

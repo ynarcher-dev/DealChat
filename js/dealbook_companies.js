@@ -5,7 +5,10 @@ import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, showLoader, r
 import { checkNdaStatus, initNdaGate } from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson, resolveIndustry, resolveMgmtStatus, buildFinancialString, buildInvestmentString, buildChatContext } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { autoResizeTextarea } from './textarea_utils.js';
+import { createFinancialRow } from './financial_utils.js';
+import { addFileToSourceList } from './file_render_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -302,7 +305,7 @@ $(document).ready(function () {
 
             const viewMode = urlParams.get('mode');
 
-            if (viewMode === 'read' || fromSource === 'totalstartup' || fromSource === 'total_companies' || fromSource === 'shared' || (!isNew && !isOwner)) {
+            if (shouldEnterReportMode({ viewMode, fromSource, allowedSources: ['totalstartup', 'total_companies', 'shared'], isNew, isOwner })) {
                 applyReadOnlyMode();
             }
 
@@ -395,11 +398,7 @@ $(document).ready(function () {
     });
 
 
-    function autoResizeTextarea($el) {
-        if (!$el.length) return;
-        $el.css('height', 'auto');
-        $el.css('height', $el[0].scrollHeight + 'px');
-    }
+
 
     function autoResizeAllTextareas() {
         autoResizeTextarea($summaryText);
@@ -415,25 +414,7 @@ $(document).ready(function () {
     });
 
     // 재무 정보 행 추가
-    function createFinancialRow(year = '', revenue = '', profit = '', net = '') {
-        const rowId = `fin-row-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const rowHtml = `
-            <div class="financial-row" id="${rowId}" style="display: flex; gap: 8px; align-items: center; padding: 0 36px 0 12px; box-sizing: border-box; width: 100%;">
-                <input type="text" class="fin-year" value="${year}" placeholder="연도"
-                    style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; text-align: center; background: #ffffff; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-                <input type="text" class="fin-revenue format-number" value="${revenue}" placeholder="매출액"
-                    style="flex: 2; min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; text-align: right; background: #ffffff; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-                <input type="text" class="fin-profit format-number" value="${profit}" placeholder="영업이익"
-                    style="flex: 2; min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; text-align: right; background: #ffffff; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-                <input type="text" class="fin-net format-number" value="${net}" placeholder="순이익"
-                    style="flex: 2; min-width: 0; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; text-align: right; background: #ffffff; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-                <button type="button" class="btn-remove-row" style="background: none; border: none; cursor: pointer; color: #cbd5e1; width: 24px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: border-box; margin-right: -30px; transition: color 0.2s;">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">do_not_disturb_on</span>
-                </button>
-            </div>
-        `;
-        $('#financial-rows').append(rowHtml);
-    }
+
 
     // 투자 정보 행 추가
     function createInvestmentRow(year = '', stage = '', valuation = '', amount = '', investor = '') {
@@ -894,50 +875,7 @@ $(document).ready(function () {
     // ==========================================
     let pendingFiles = [];
 
-    function addFileToSourceList(name, id, location, isTraining, isFinance, parsedTextValue = null, status = null) {
-        let target = '#source-list-training';
-        const fileUrl = location ? (location.startsWith('http') ? location : (SUPABASE_STORAGE_URL + location)) : '#';
-        
-        // AI 검색 반영 여부 판단
-        const isSearchable = parsedTextValue && !parsedTextValue.startsWith('[텍스트 미추출');
-        
-        // status가 없을 경우 parsedTextValue에 따라 자동 결정
-        if (!status) {
-            status = isSearchable ? 'reflected' : 'failed';
-        }
 
-        let badgeClass = '';
-        let badgeText = '';
-        let badgeTitle = '';
-
-        let badgeHtml = '';
-        if (status === 'loading') {
-            badgeHtml = `<span class="ai-status-badge badge-ai-loading" style="font-size: 10px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #e2e8f0;">분석 중...</span>`;
-        } else if (status === 'reflected') {
-            badgeHtml = `<span class="ai-status-badge badge-ai-reflected" style="font-size: 10px; font-weight: 600; color: #8b5cf6; background: #f5f3ff; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #ddd6fe;">AI 반영됨</span>`;
-        } else {
-            badgeHtml = `<span class="ai-status-badge badge-ai-failed" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fecaca;">AI 불가</span>`;
-        }
-
-        const item = $(`
-            <li class="list-group-item d-flex align-items-center justify-content-between bg-transparent" style="padding: 10px 16px !important; margin: 0 !important; border-bottom: 1px solid #f1f5f9 !important; border-top: none !important; border-left: none !important; border-right: none !important;">
-                <div class="d-flex align-items-center overflow-hidden" style="flex: 1; min-width: 0; gap: 8px;">
-                    ${badgeHtml}
-                    <a href="${fileUrl}" target="_blank" class="text-decoration-none text-dark small text-truncate file-link" style="font-size: 13px; color: #334155 !important; flex: 1; min-width: 0;">${name}</a>
-                </div>
-                <button class="delete-file ms-2" data-id="${id}" style="background: none; border: none; cursor: pointer; color: #ef4444; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;"><span class="material-symbols-outlined" style="font-size: 16px;">close</span></button>
-            </li>
-        `);
-        $(target).append(item);
-        
-        // 버튼 호버 효과 추가
-        item.find('.delete-file').hover(
-            function() { $(this).css('opacity', '1'); },
-            function() { $(this).css('opacity', '0.7'); }
-        );
-
-        return item;
-    }
 
     $(document).on('click', '.delete-file', async function() {
         const id = $(this).data('id');
@@ -1043,8 +981,6 @@ $(document).ready(function () {
     // 읽기 전용/리포트 모드 처리 (16차 전문 리포트 UI)
     // ==========================================
     function applyReadOnlyMode() {
-        console.log('Applying Professional Company Report Mode (Synced with Buyers - Blue Theme)');
-        
         applyReportMode({
             primaryColor: '#1A73E8',
             cardWidth: '900px',
@@ -1054,6 +990,7 @@ $(document).ready(function () {
             afterApply: () => {
                 reformatReportTables();
                 injectReportIcons();
+                $('#memo-user-info-section').css('display', 'flex');
             }
         });
 

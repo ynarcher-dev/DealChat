@@ -6,6 +6,11 @@
  * 2. removeReportMode(): 리포트 모드 해제 및 원래 상태 복구
  */
 
+
+export function shouldEnterReportMode({ viewMode, fromSource, allowedSources = [], isNew = false, isOwner = true }) {
+  return viewMode === 'read' || allowedSources.includes(fromSource) || (!isNew && !isOwner);
+}
+
 export function applyReportMode(config) {
   const {
     primaryColor = '#8b5cf6',

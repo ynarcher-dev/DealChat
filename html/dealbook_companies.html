@@ -21,9 +21,9 @@
         }
 
         /* 기업정보 전용 패널 비율 50:25:25 */
-        .sidebar      { flex: 0 0 50% !important; width: 50% !important; max-width: 50% !important; }
-        .main-content { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
-        .right-panel  { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
+        body:not(.report-mode) .sidebar      { flex: 0 0 50% !important; width: 50% !important; max-width: 50% !important; }
+        body:not(.report-mode) .main-content { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
+        body:not(.report-mode) .right-panel  { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
 
         /* 기업정보 전용 모달 스타일 */
         .modal-overlay {
