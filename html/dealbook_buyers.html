@@ -43,8 +43,7 @@
         ============================================================ -->
         <aside class="sidebar" id="buyer-sidebar">
             <!-- 헤더 -->
-            <div class="panel-header" style="height: 65px; border-bottom: 1px solid var(--border-color); padding: 0 20px;
-                       display: flex; align-items: center; justify-content: center; position: relative;">
+            <div class="panel-header db-panel-header">
                 <button class="btn-icon-only" onclick="location.href='./my_buyers.html'" title="목록으로"
                     style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
                     <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
@@ -57,27 +56,24 @@
             </div>
 
             <!-- 스크롤 가능한 폼 영역 -->
-            <nav class="sidebar-nav" id="sidebar-nav"
-                style="padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+            <nav class="sidebar-nav db-sidebar-nav" id="sidebar-nav">
 
                 <!-- AI 자동 입력 버튼 -->
-                <div style="margin-bottom: 24px;">
-                    <button id="ai-auto-fill-btn"
-                        style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                        <span class="material-symbols-outlined" style="font-size: 20px; color: var(--page-theme-color);">auto_awesome</span>
-                        <span style="font-size: 14px; font-weight: 600; color: #475569;">분석된 파일로 AI가 자동 입력하기</span>
+                <div class="db-ai-fill-section">
+                    <button id="ai-auto-fill-btn" class="db-ai-fill-btn">
+                        <span class="material-symbols-outlined">auto_awesome</span>
+                        <span>분석된 파일로 AI가 자동 입력하기</span>
                     </button>
-                    <p style="margin: 4px 0 0 4px; font-size: 11px; color: #94a3b8;">* 업로드된 파일 내용을 바탕으로 기본 정보를 추출합니다.</p>
+                    <p class="db-ai-fill-desc">* 업로드된 파일 내용을 바탕으로 기본 정보를 추출합니다.</p>
                 </div>
 
                 <!-- 진행 현황 -->
                 <div style="margin-bottom: 24px;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <p class="db-field-label">
                         <span class="material-symbols-outlined" style="font-size: 18px;">account_tree</span>
                         진행 현황<span style="color: #ef4444; margin-left: 2px;">*</span>
                     </p>
-                    <div id="status-chip-group" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #f8fafc;
-                                border: 1px solid var(--border-color); border-radius: 8px;">
+                    <div id="status-chip-group" class="db-status-chip-group">
                         <button type="button" class="btn-status-chip" data-value="대기">대기</button>
                         <button type="button" class="btn-status-chip" data-value="진행중">진행중</button>
                         <button type="button" class="btn-status-chip" data-value="완료">완료</button>
@@ -88,10 +84,10 @@
                 <!-- 매수자명 + 관심 산업 -->
                 <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
                     <div style="flex: 1;">
-                        <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <p class="db-field-label">
                             <span class="material-symbols-outlined" style="font-size: 18px;">person_search</span>
                             매수자명<span style="color: #ef4444; margin-left: 2px;">*</span></p>
-                        <div style="padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #ffffff; height: 42px; display: flex; align-items: center; position: relative;">
+                        <div class="db-field-wrapper">
                             <span class="notebook-title" id="buyer-name-editor" contenteditable="true"
                                 style="font-size: 14px; font-weight: 700; color: #1e293b; width: 100%; outline: none;" placeholder="매수자명"></span>
                             <!-- 매수자 기업명 추천 레이어 -->
@@ -99,10 +95,10 @@
                         </div>
                     </div>
                     <div style="flex: 1;">
-                        <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <p class="db-field-label">
                             <span class="material-symbols-outlined" style="font-size: 18px;">category</span>
                             관심 산업<span style="color: #ef4444; margin-left: 2px;">*</span></p>
-                        <select id="buyer-industry" style="width: 100%; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: #ffffff; color: #1e293b; height: 42px;">
+                        <select id="buyer-industry" class="db-field-input">
                             <option value="선택해주세요" selected>선택해주세요</option>
                             <option value="AI">AI</option>
                             <option value="IT·정보통신">IT·정보통신</option>
@@ -127,70 +123,55 @@
                             <option value="플랫폼·커뮤니티">플랫폼·커뮤니티</option>
                             <option value="기타">기타</option>
                         </select>
-                        <input type="text" id="buyer-industry-etc"
-                            style="width: 100%; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: #ffffff; color: #1e293b; height: 42px; display: none;"
-                            placeholder="산업 직접 입력">
+                        <input type="text" id="buyer-industry-etc" class="db-field-input" style="margin-top: 8px; display: none;" placeholder="산업 직접 입력">
                     </div>
                 </div>
 
                 <!-- 담당자 + 이메일 -->
                 <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
                     <div style="flex: 1;">
-                        <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <p class="db-field-label">
                             <span class="material-symbols-outlined" style="font-size: 18px;">person</span>
                             담당자</p>
-                        <input type="text" id="buyer-manager"
-                            style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: #ffffff; color: #1e293b; height: 42px;"
-                            placeholder="담당자 성명">
+                        <input type="text" id="buyer-manager" class="db-field-input" placeholder="담당자 성명">
                     </div>
                     <div style="flex: 1;">
-                        <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <p class="db-field-label">
                             <span class="material-symbols-outlined" style="font-size: 18px;">mail</span>
                             이메일</p>
-                        <input type="email" id="buyer-email"
-                            style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: #ffffff; color: #1e293b; height: 42px;"
-                            placeholder="example@email.com">
+                        <input type="email" id="buyer-email" class="db-field-input" placeholder="example@email.com">
                     </div>
                 </div>
 
                 <!-- 가용 자금 -->
-                <div style="margin-bottom: 16px;">
-                    <p style="margin: 0 0 6px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <p class="db-field-label">
                         <span class="material-symbols-outlined" style="font-size: 18px;">payments</span>
                         가용 자금 (억원)</p>
-                    <input type="text" id="buyer-investment"
-                        style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: #ffffff; color: #1e293b; height: 42px;"
-                        placeholder="숫자만 입력 (단위: 억원)">
+                    <input type="text" id="buyer-investment" class="db-field-input" placeholder="숫자만 입력 (단위: 억원)">
                 </div>
 
                 <!-- 상세 소개 및 요약 -->
                 <div style="margin-bottom: 24px;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <p class="db-field-label">
                         <span class="material-symbols-outlined" style="font-size: 18px;">description</span>
                         상세 소개 및 요약<span style="color: #ef4444; margin-left: 2px;">*</span></p>
-                    <textarea id="buyer-summary"
-                        style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: none; background: #ffffff; color: #334155; overflow: hidden;"
-                        placeholder="매수자에 대한 소개 및 요약을 입력하세요..."></textarea>
+                    <textarea id="buyer-summary" class="db-field-textarea" style="min-height: 120px;" placeholder="매수자에 대한 소개 및 요약을 입력하세요..."></textarea>
                 </div>
 
                 <!-- 매칭 희망 기업 및 요건 -->
                 <div style="margin-bottom: 24px;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <p class="db-field-label">
                         <span class="material-symbols-outlined" style="font-size: 18px;">business_center</span>
                         매칭 희망 기업 및 요건</p>
-                    <textarea id="buyer-interest-summary"
-                        style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: none; background: #ffffff; color: #334155; overflow: hidden;"
-                        placeholder="인수 희망 분야, 지역, 투자 규모 등 상세 요건을 입력하세요..."></textarea>
+                    <textarea id="buyer-interest-summary" class="db-field-textarea" style="min-height: 100px;" placeholder="인수 희망 분야, 지역, 투자 규모 등 상세 요건을 입력하세요..."></textarea>
                 </div>
 
                 <!-- 기타 사항 (메모) -->
                 <div style="margin-bottom: 24px;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <p class="db-field-label">
                         <span class="material-symbols-outlined" style="font-size: 18px;">lock</span>
                         기타 사항 (메모)</p>
-                    <textarea id="buyer-memo"
-                        style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.6; resize: none; background: #ffffff; color: #334155; overflow: hidden;"
-                        placeholder="기타 특이사항이나 내부 메모를 입력하세요..."></textarea>
+                    <textarea id="buyer-memo" class="db-field-textarea" style="min-height: 80px;" placeholder="기타 특이사항이나 내부 메모를 입력하세요..."></textarea>
 
                     <!-- 작성자/업데이트 정보 (리포트 모드에서만 표시) -->
                     <div id="memo-user-info-section" style="display: none; align-items: center; justify-content: space-between; margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
@@ -215,7 +196,7 @@
             </nav>
 
             <!-- 하단 고정 버튼 -->
-            <div style="padding: 16px 20px; border-top: 1px solid var(--border-color); background: #ffffff; display: flex; gap: 12px; margin-top: auto;">
+            <div class="db-footer-actions">
                 <button id="btn-delete-buyer" class="btn-secondary"
                     style="flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; border-color: #fecaca; color: #ef4444; white-space: nowrap;">
                     <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>

@@ -3,6 +3,16 @@ import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
 import { debounce, escapeHtml, applyKeywordsMasking } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
+import { 
+    getIndustryIcon, 
+    addSelectedUser, 
+    renderSelectedTags, 
+    initShareUserSearch, 
+    submitShareHandler, 
+    fetchFiles,
+    initUserMap
+} from './my_list_utils.js';
+import { getSignedNdas as utilsGetSignedNdas, saveSignedNda as utilsSaveSignedNda } from './nda_utils.js';
 
 // 프로필 모달 스크립트 로드
 const script = document.createElement('script');
@@ -28,24 +38,13 @@ let signedNdaIds = []; // Supabase에서 가져온 NDA 체결 ID 목록
 // ==========================================
 // NDA 체결 상태 관리
 // ==========================================
+// NDA 관련 함수는 nda_utils.js에서 제공하는 래퍼 함수로 대체
 function getSignedNdas() {
-    try {
-        const userId = currentuser_id || 'anonymous';
-        const stored = localStorage.getItem(`dealchat_signed_ndas_sellers_${userId}`);
-        return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-        return [];
-    }
+    return utilsGetSignedNdas('seller', currentuser_id);
 }
 
 function saveSignedNda(sellerId) {
-    const signed = getSignedNdas();
-    const strId = String(sellerId);
-    if (!signed.includes(strId)) {
-        signed.push(strId);
-        const userId = currentuser_id || 'anonymous';
-        localStorage.setItem(`dealchat_signed_ndas_sellers_${userId}`, JSON.stringify(signed));
-    }
+    utilsSaveSignedNda('seller', sellerId, currentuser_id);
 }
 
 $(document).ready(function () {
@@ -119,66 +118,30 @@ $(document).ready(function () {
     // 외부 공유 및 단순 URL 복사 초기화
     initExternalSharing('seller', '#8b5cf6');
 
-    // Share Search
-    $('#share-user-search').on('input', function () {
-        const keyword = $(this).val().toLowerCase().trim();
-        const $results = $('#user-search-results');
-        if (!keyword) { $results.hide(); return; }
-        const matches = Object.entries(userMap)
-            .filter(([id, u]) => u.name.toLowerCase().includes(keyword) || (u.affiliation && u.affiliation.toLowerCase().includes(keyword)))
-            .slice(0, 10);
-        if (matches.length === 0) { $results.hide(); return; }
-        $results.empty().show();
-        matches.forEach(([id, u]) => {
-            $results.append(`<div class="p-3 border-bottom user-search-item" style="cursor: pointer; transition: background 0.2s;" data-id="${id}" data-name="${u.name}">
-                <div class="fw-bold" style="font-size: 14px; color: #1e293b;">${escapeHtml(u.name)}</div>
-                <div style="font-size: 11px; color: #64748b;">${escapeHtml(u.affiliation)}</div>
-            </div>`);
-        });
+    // --- Share Search ---
+    initShareUserSearch({
+        inputSelector: '#share-user-search',
+        resultsSelector: '#user-search-results',
+        userMap: userMap,
+        getSelectedReceivers: () => selectedReceivers,
+        onSelect: (id, name) => {
+            selectedReceivers = addSelectedUser(selectedReceivers, id, name, () => localRenderSelectedTags());
+        }
     });
 
-    $(document).on('click', '.user-search-item', function () {
-        const user_id = $(this).data('id');
-        const userName = $(this).data('name');
-        addSelectedUser(user_id, userName);
-        $('#share-user-search').val('');
-        $('#user-search-results').hide();
-    });
-
-    $('#btn-submit-share').on('click', async function () {
-        if (selectedReceivers.length === 0) { alert('공유할 타인을 한 명 이상 선택해 주세요.'); return; }
-        const memo = $('#share-memo').val().trim();
-        const btn = this;
-        $(btn).prop('disabled', true).text('전송 중...');
-        const selectedFileIds = [];
-        $('.share-file-checkbox:checked').each(function() {
-            selectedFileIds.push($(this).val());
-        });
-
-        const sharePromises = selectedReceivers.map(uid => {
-            return APIcall({
-                table: 'shares',
-                action: 'create',
-                item_type: 'seller',
-                item_id: currentShareSellerId,
-                sender_id: currentuser_id,
-                receiver_id: uid,
-                memo: memo,
-                file_ids: selectedFileIds,
-                is_read: false
-            }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' }).then(res => res.json());
-        });
-        Promise.all(sharePromises).then(results => {
-            const errs = results.filter(r => r.error);
-            if (errs.length > 0) alert(`${errs.length}건의 공유 중 오류 발생.`);
-            else {
+    $('#btn-submit-share').on('click', function () {
+        submitShareHandler({
+            itemId: window.currentShareSellerId,
+            itemType: 'seller',
+            senderId: currentuser_id,
+            selectedReceivers: selectedReceivers,
+            btnElement: this,
+            supabaseEndpoint: SUPABASE_ENDPOINT,
+            onSuccess: () => {
                 alert(`${selectedReceivers.length}명의 팀원에게 공유되었습니다.`);
                 bootstrap.Modal.getInstance(document.getElementById('share-modal')).hide();
             }
-        }).catch(e => {
-            console.error('Share Error', e);
-            alert('공유 요청 실패: ' + (e.message || '알 수 없는 오류'));
-        }).finally(() => $(btn).prop('disabled', false).text('보내기'));
+        });
     });
 
     $('#btn-share-with-user-trigger').on('click', function () {
@@ -200,31 +163,13 @@ $(document).ready(function () {
 // Data Loading
 // ==========================================
 
-function loadInitialData() {
+async function loadInitialData() {
     $('#seller-list-container').html('<div class="col-12 text-center py-5"><div class="spinner-border" role="status" style="color: #8b5cf6 !important;"><span class="visually-hidden">Loading...</span></div></div>');
-    Promise.all([
-        _supabase.from('users').select('*'),
-        _supabase.from('sellers').select('*, companies(*)'),
-        _supabase.from('nda_logs').select('item_id').eq('user_id', currentuser_id).eq('item_type', 'seller')
-    ]).then(([usersRes, sellersRes, ndasRes]) => {
-        if (usersRes.error) throw usersRes.error;
-        if (sellersRes.error) throw sellersRes.error;
-        
-        // NDA 서명 목록 저장
-        signedNdaIds = (ndasRes.data || []).map(n => String(n.item_id));
-        const users = usersRes.data || [];
-        const sellers = sellersRes.data || [];
-        userMap = {};
-        if (Array.isArray(users)) {
-            users.forEach(u => {
-                userMap[u.id] = {
-                    name: u.name || "정보 없음",
-                    affiliation: u.company || 'DealChat',
-                    email: u.email || '',
-                    avatar: u.avatar_url || u.avatar || null
-                };
-            });
-        }
+    try {
+        userMap = await initUserMap(_supabase);
+        const { data: sellers, error: sError } = await _supabase.from('sellers').select('*, companies(*)');
+        if (sError) throw sError;
+
         allSellers = Array.isArray(sellers) ? sellers.map(parseSellerData).sort((a, b) => {
             const dateA = new Date(b.updated_at || b.created_at || 0);
             const dateB = new Date(a.updated_at || a.created_at || 0);
@@ -232,56 +177,21 @@ function loadInitialData() {
         }) : [];
         updateFilterOptions();
         applyFilters();
-    }).catch(error => {
+    } catch (error) {
         console.error('Initial Load Error:', error);
         $('#seller-list-container').html('<div class="col-12 text-center py-5 text-danger">데이터를 불러오는 중 오류가 발생했습니다.</div>');
-    }).finally(() => {
+    } finally {
         hideLoader();
-    });
+    }
 }
 
-function fetchUsers() {
-    return APIcall({ action: 'get', table: 'users' }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' })
-        .then(res => res.json());
-}
-
-function getIndustryIcon(industry) {
-    const iconMap = {
-        'AI': 'smart_toy',
-        'IT·정보통신': 'computer',
-        'SaaS·솔루션': 'cloud',
-        '게임': 'sports_esports',
-        '공공·국방': 'policy',
-        '관광·레저': 'beach_access',
-        '교육·에듀테크': 'school',
-        '금융·핀테크': 'payments',
-        '농축수산·어업': 'agriculture',
-        '라이프스타일': 'person',
-        '모빌리티': 'directions_car',
-        '문화예술·콘텐츠': 'movie',
-        '바이오·헬스케어': 'medical_services',
-        '부동산': 'real_estate_agent',
-        '뷰티·패션': 'content_cut',
-        '에너지·환경': 'eco',
-        '외식·음료·소상공인': 'restaurant',
-        '우주·항공': 'rocket',
-        '유통·물류': 'local_shipping',
-        '제조·건설': 'factory',
-        '플랫폼·커뮤니티': 'groups',
-        '기타': 'person_search'
-    };
-    return iconMap[industry] || 'person_search';
-}
-
-function fetchSellers() {
-    return _supabase.from('sellers').select('*, companies(*)');
-}
+// fetchUsers, getIndustryIcon, fetchSellers 중복 함수 제거
 
 function loadSellers() {
-    fetchSellers()
+    _supabase.from('sellers').select('*, companies(*)')
         .then(res => {
             const data = res?.data || res;
-            if (data.error) throw new Error(data.error);
+            if (res.error) throw res.error;
             allSellers = Array.isArray(data) ? data.map(parseSellerData).sort((a, b) => {
                 const dateA = new Date(b.updated_at || b.created_at || 0);
                 const dateB = new Date(a.updated_at || a.created_at || 0);
@@ -564,13 +474,7 @@ window.openShareModal = function (sellerId) {
 
     // 초기화
     selectedReceivers = [];
-    const $container = $('#selected-users-container');
-    const $input = $('#share-user-search');
-    const $results = $('#user-search-results');
-
-    $container.html('<span class="text-muted p-1" style="font-size: 13px;">이름으로 팀원을 검색하세요.</span>');
-    $input.val('');
-    $results.hide();
+    localRenderSelectedTags();
     $('#share-memo').val('');
 
     // 외부 공유용 입력 필드 초기화
@@ -580,127 +484,28 @@ window.openShareModal = function (sellerId) {
 
     // Fetch files associated with the seller's company and the seller itself
     const companyId = seller.company_id || (seller.companies && seller.companies.id);
-    fetchFiles(companyId, sellerId);
+    fetchFiles({
+        supabase: _supabase,
+        entityType: 'seller',
+        entityId: sellerId,
+        companyId: companyId
+    });
 
     const modalEl = document.getElementById('share-options-modal');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 };
 
-function submitShare(sellerId, btnElement) {
-    const memo = $('#share-memo').val().trim();
-    if (selectedReceivers.length === 0) {
-        alert('공유할 대상을 한 명 이상 선택해 주세요.');
-        return;
-    }
-    const $btn = $(btnElement);
-    const originalText = $btn.text();
-    $btn.prop('disabled', true).text('전송 중...');
-
-    const selectedFileIds = $('.share-file-checkbox:checked').map(function() {
-        return $(this).val();
-    }).get();
-
-    const sharePromises = selectedReceivers.map(uid => {
-        return APIcall({
-            table: 'shares',
-            action: 'create',
-            item_type: 'seller',
-            item_id: sellerId,
-            sender_id: currentuser_id,
-            receiver_id: uid,
-            memo: memo,
-            file_ids: selectedFileIds,
-            is_read: false
-        }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' }).then(res => res.json());
-    });
-
-    Promise.all(sharePromises).then(results => {
-        const errors = results.filter(r => r.error);
-        if (errors.length > 0) alert(`${errors.length}건의 공유 중 오류 발생.`);
-        else {
-            alert(`${selectedReceivers.length}명의 팀원에게 공유되었습니다.`);
-            bootstrap.Modal.getInstance(document.getElementById('share-modal')).hide();
+function localRenderSelectedTags() {
+    renderSelectedTags({
+        containerSelector: '#selected-users-container',
+        selectedReceivers: selectedReceivers,
+        userMap: userMap,
+        theme: { bgColor: '#eef2ff', textColor: '#8b5cf6', borderColor: '#8b5cf6' },
+        onRemove: (id) => {
+            selectedReceivers = selectedReceivers.filter(uid => uid !== id);
+            localRenderSelectedTags();
         }
-    }).catch(e => {
-        console.error('Share Error', e);
-        alert('공유 실패: ' + (e.message || '알 수 없는 오류'));
-    }).finally(() => $btn.prop('disabled', false).text(originalText));
-}
-
-$(document).on('click', '#btn-submit-share', function () {
-    submitShare(window.currentShareSellerId, this);
-});
-
-
-async function fetchFiles(companyId, sellerId) {
-    const $fileList = $('#share-file-selection-list');
-    $fileList.html('<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-primary" role="status"></div></div>');
-
-    try {
-        let query = _supabase.from('files').select('*');
-        
-        if (companyId && sellerId) {
-            query = query.or(`and(entity_type.eq.company,entity_id.eq.${companyId}),and(entity_type.eq.seller,entity_id.eq.${sellerId})`);
-        } else if (companyId) {
-            query = query.eq('entity_id', companyId).eq('entity_type', 'company');
-        } else if (sellerId) {
-            query = query.eq('entity_id', sellerId).eq('entity_type', 'seller');
-        } else {
-            $fileList.html('<div class="text-muted p-1" style="font-size: 13px;">선택할 수 있는 파일이 없습니다.</div>');
-            return;
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        $fileList.empty();
-        if (!data || data.length === 0) {
-            $fileList.html('<div class="text-muted p-1" style="font-size: 13px;">선택할 수 있는 파일이 없습니다.</div>');
-            return;
-        }
-
-        data.forEach(file => {
-            $fileList.append(`
-                <div class="form-check mb-1">
-                    <input class="form-check-input share-file-checkbox" type="checkbox" value="${file.id}" id="file-${file.id}">
-                    <label class="form-check-label d-flex align-items-center gap-2" for="file-${file.id}" style="font-size: 13px; cursor: pointer;">
-                        <span class="material-symbols-outlined" style="font-size: 16px; color: #64748b;">description</span>
-                        <span class="text-truncate" style="max-width: 250px;">${escapeHtml(file.file_name || file.name)}</span>
-                    </label>
-                </div>
-            `);
-        });
-    } catch (err) {
-        console.error('Fetch Files Error:', err);
-        $fileList.html('<div class="text-danger p-1" style="font-size: 13px;">파일을 불러오는 중 오류가 발생했습니다.</div>');
-    }
-}
-
-function addSelectedUser(id, name) {
-    if (selectedReceivers.includes(id)) return;
-    selectedReceivers.push(id);
-    renderSelectedTags();
-}
-
-function renderSelectedTags() {
-    const $container = $('#selected-users-container');
-    if (selectedReceivers.length === 0) {
-        $container.html('<span class="text-muted p-1" style="font-size: 13px;">이름으로 타인을 검색하세요.</span>');
-        return;
-    }
-    $container.empty();
-    selectedReceivers.forEach(uid => {
-        const u = userMap[uid] || { name: 'Unknown' };
-        const tag = $(`<span class="badge d-flex align-items-center gap-1 p-2" style="background: #eef2ff; color: #8b5cf6; border: 1px solid #8b5cf6; border-radius: 8px;">
-            ${escapeHtml(u.name)} <span class="material-symbols-outlined" style="font-size: 16px; cursor: pointer;">close</span>
-        </span>`);
-        tag.find('span').on('click', () => {
-            selectedReceivers = selectedReceivers.filter(x => x !== uid);
-            renderSelectedTags();
-        });
-        $container.append(tag);
     });
 }
 
