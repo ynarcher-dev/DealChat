@@ -346,7 +346,7 @@ $(document).ready(function () {
             if (val && !blindKeywords.includes(val)) {
                 blindKeywords.push(val);
                 renderBlindTags();
-                if ($('#report-mode-css').length) applyBlindMasking();
+                if (document.body.classList.contains('report-mode')) applyBlindMasking();
             }
             $(this).val('');
         }
@@ -982,17 +982,14 @@ $(document).ready(function () {
 
     function applySellerReadOnlyMode() {
         applyReportMode({
-            primaryColor: '#8b5cf6',
-            cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save-seller, #btn-draft-seller, #btn-delete-seller, #add-financial-btn, .btn-remove-row, .delete-file, #blind-keywords-container, #private-memo',
             textareaIds: ['seller-summary', 'seller-key-products', 'seller-fin-analysis', 'seller-memo', 'seller-manager-memo'],
             afterApply: () => {
                 reformatReportTable($('#financial-rows'), '.financial-row', [
-                    { header: '년도',   selector: '.fin-year',       flex: 1 },
-                    { header: '매출',   selector: '.fin-revenue',    flex: 2 },
-                    { header: '영업익', selector: '.fin-profit',     flex: 2 },
-                    { header: '순익',   selector: '.fin-net-profit', flex: 2 },
-                    { header: 'EV/EB', selector: '.fin-ev-ebitda',  flex: 1 }
+                    { header: '년도',   selector: '.fin-year',       flex: 1, align: 'center' },
+                    { header: '매출',   selector: '.fin-revenue',    flex: 2, align: 'right', format: 'number' },
+                    { header: '영업익', selector: '.fin-profit',     flex: 2, align: 'right', format: 'number' },
+                    { header: '순익',   selector: '.fin-net-profit', flex: 2, align: 'right', format: 'number' },
+                    { header: 'EV/EB', selector: '.fin-ev-ebitda',  flex: 1, align: 'right', format: 'number' }
                 ]);
                 injectReportSectionIcons({
                     'status-chip-group': 'account_tree',
@@ -1003,36 +1000,6 @@ $(document).ready(function () {
                     'seller-memo': 'sell',
                     'seller-manager-memo': 'chat_bubble'
                 });
-                if ($('#report-mode-css').length) applyBlindMasking();
-                $('#memo-user-info-section').css('display', 'flex');
-
-                // 산업 select → 텍스트 변환 (리포트 모드)
-                const $indSelect = $('#seller-industry');
-                const $indOther = $('#seller-industry-etc');
-                const selectedVal = $indSelect.val();
-                let industryText = '-';
-
-                if (selectedVal === '기타') {
-                    industryText = $indOther.val().trim() || '기타';
-                } else if (selectedVal && selectedVal !== '선택해주세요') {
-                    industryText = $indSelect.find('option:selected').text();
-                }
-
-                let $indDiv = $indSelect.next('.report-text-content-industry');
-                if (!$indDiv.length) {
-                    $indDiv = $('<div class="report-text-content-industry"></div>');
-                    $indSelect.after($indDiv);
-                }
-
-                $indDiv.text(industryText).css({
-                    'margin-top': '0',
-                    'height': '42px',
-                    'display': 'flex',
-                    'align-items': 'center'
-                });
-
-                $indSelect.hide();
-                $indOther.hide();
             }
         });
     }

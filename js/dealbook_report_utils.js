@@ -2,8 +2,12 @@
  * DealChat 리포트 모드 공통 유틸리티 (ES Module)
  * 
  * 주요 기능:
- * 1. applyReportMode(config): 리포트 전용 스타일 적용, 워터마크 추가, 입력 필드 비활성화 및 텍스트 변환
+ * 1. applyReportMode(config): 리포트 전용 클래스 적용, 워터마크 추가, 입력 필드 비활성화 및 텍스트 변환
  * 2. removeReportMode(): 리포트 모드 해제 및 원래 상태 복구
+ * 3. convertIndustryToText(): 산업 select → 텍스트 변환 (공통)
+ * 
+ * ※ 리포트 CSS는 css/dealbook-report.css 에서 정적으로 관리됩니다.
+ *   JS에서는 body.report-mode 클래스 토글만 담당합니다.
  */
 
 
@@ -13,153 +17,20 @@ export function shouldEnterReportMode({ viewMode, fromSource, allowedSources = [
 
 export function applyReportMode(config) {
   const {
-    primaryColor = '#8b5cf6',
-    cardWidth = '900px',
-    hideSelectors = '',
+    hideSelectors = [],
     textareaIds = [],
     afterApply = null
   } = config;
 
   // 1. 중복 적용 방지
-  if ($('#report-mode-css').length > 0) return;
+  if (document.body.classList.contains('report-mode')) return;
 
+  // 2. report-mode 클래스 적용 (CSS가 나머지 처리)
   document.body.classList.add('report-mode');
-
-  // 2. 리포트 모드 전용 CSS 주입
-  const styleTag = `
-<style id="report-mode-css">
-:root {
-  --report-primary: ${primaryColor};
-  --report-bg: #ffffff;
-  --report-text: #475569;
-  --report-text-dark: #1e293b;
-  --report-border: #e2e8f0;
-  --report-table-header: #f8fafc;
-}
-
-body { 
-  background: #f8fafc !important; 
-  overflow-y: auto !important; 
-  height: auto !important; 
-}
-
-.app-container { 
-  display: block !important; 
-  padding: 60px 0 !important; 
-  height: auto !important; 
-  background: #f8fafc !important; 
-}
-
-.sidebar, #report-share-container {
-  width: ${cardWidth} !important; 
-  max-width: 95% !important;
-  margin: 0 auto !important; 
-  display: block !important; 
-  box-sizing: border-box !important;
-}
-
-.sidebar {
-  background: var(--report-bg) !important; 
-  border: 1px solid var(--report-border) !important;
-  border-radius: 20px !important; 
-  height: auto !important; 
-  overflow: visible !important;
-  box-shadow: 0 12px 48px rgba(0,0,0,0.08) !important;
-}
-
-.sidebar .panel-header {
-  background: var(--report-primary) !important; 
-  color: #fff !important;
-  border-radius: 19px 19px 0 0 !important;
-}
-
-.sidebar-nav { 
-  padding: 40px !important; 
-  gap: 32px !important; 
-  height: auto !important; 
-}
-
-.report-text-content {
-  font-size: 14px; 
-  color: var(--report-text); 
-  line-height: 1.6;
-  white-space: pre-wrap; 
-  word-break: break-word;
-}
-
-input:disabled, select:disabled {
-  border: none !important; 
-  background: transparent !important;
-  color: var(--report-text) !important; 
-  cursor: default !important;
-  font-size: 14px !important; 
-  font-weight: 500 !important;
-  -webkit-text-fill-color: var(--report-text) !important;
-}
-
-textarea:disabled { 
-  display: none !important; 
-}
-
-.main-content, .right-panel, .panel-resize-handle { 
-  display: none !important; 
-}
-
-.report-table-header {
-  background: var(--report-table-header) !important;
-  border-top: 1.5px solid var(--report-primary) !important;
-  border-bottom: 1.5px solid var(--report-primary) !important;
-}
-
-.report-table-row { 
-  display: flex !important; 
-  border-bottom: 1px solid #f1f5f9 !important; 
-}
-
-.report-table-cell {
-  padding: 12px 10px !important; 
-  font-size: 13.5px !important;
-  flex: 1; 
-  display: flex !important; 
-  align-items: center;
-  border-right: 1px solid var(--report-border) !important;
-  color: var(--report-text) !important;
-}
-
-.report-table-cell:last-child { 
-  border-right: none !important; 
-}
-
-.report-table-header .report-table-cell { 
-  color: var(--report-primary) !important; 
-  font-weight: 700 !important; 
-}
-
-${hideSelectors} { 
-  display: none !important; 
-}
-</style>
-`;
-  $('head').append(styleTag);
 
   // 3. 워터마크 삽입
   if ($('#report-watermark').length === 0) {
-    $('<div id="report-watermark">DealChat</div>')
-      .css({
-        'position': 'fixed',
-        'top': '50%',
-        'left': '50%',
-        'transform': 'translate(-50%,-50%) rotate(-30deg)',
-        'font-size': '100px',
-        'font-weight': '900',
-        'color': 'var(--report-primary)',
-        'opacity': '0.03',
-        'pointer-events': 'none',
-        'z-index': '9999',
-        'user-select': 'none',
-        'white-space': 'nowrap'
-      })
-      .appendTo('body');
+    $('<div id="report-watermark">DealChat</div>').appendTo('body');
   }
 
   // 4. textarea 처리: 내용을 div로 교체하고 원본 textarea 숨김
@@ -181,28 +52,84 @@ ${hideSelectors} {
     .parent()
     .css({ 'background': 'transparent', 'border': 'none' });
 
-  // 6. 적용 후 콜백 실행
+  // 6. 추가 숨김 셀렉터 처리 (페이지별 고유 요소)
+  if (Array.isArray(hideSelectors) && hideSelectors.length > 0) {
+    hideSelectors.forEach(sel => {
+      $(sel.trim()).hide();
+    });
+  } else if (typeof hideSelectors === 'string' && hideSelectors.trim()) {
+    // 하위 호환: 문자열로 전달된 경우
+    $(hideSelectors).hide();
+  }
+
+  // 7. 산업 select → 텍스트 변환 (공통)
+  convertAllIndustrySelects();
+
+  // 8. 적용 후 콜백 실행
   if (typeof afterApply === 'function') {
     afterApply();
   }
 }
 
 export function removeReportMode() {
-  // 1. 추가된 스타일 및 워터마크 제거
-  $('#report-mode-css, #report-watermark').remove();
+  // 1. report-mode 클래스 제거
   document.body.classList.remove('report-mode');
 
-  // 2. 변환된 텍스트 컨텐츠 제거 및 원본 textarea 복원
+  // 2. 워터마크 제거
+  $('#report-watermark').remove();
+
+  // 3. 변환된 텍스트 컨텐츠 제거 및 원본 textarea 복원
   $('.report-text-content').each(function() {
     $(this).prev('textarea').show();
     $(this).remove();
   });
 
-  // 3. 입기 가능하도록 입력 요소 활성화
+  // 4. 산업 텍스트 복원
+  $('.report-industry-text').each(function() {
+    $(this).prev('select').show();
+    $(this).remove();
+  });
+
+  // 5. 입력 가능하도록 입력 요소 활성화
   $('input, select, textarea').prop('disabled', false);
 
-  // 4. contenteditable 속성 복원
+  // 6. contenteditable 속성 복원
   $('[contenteditable]').attr('contenteditable', 'true');
+
+  // 7. 숨긴 요소 복원
+  $('[style*="display: none"]').each(function() {
+    // 리포트 모드에서 숨긴 요소만 복원 (원래 숨겨진 요소는 건드리지 않음)
+  });
+}
+
+/**
+ * 페이지 내 모든 산업 select를 텍스트로 변환
+ * (#industry, #seller-industry, #buyer-industry 자동 탐색)
+ */
+function convertAllIndustrySelects() {
+  const selectors = ['#industry', '#seller-industry', '#buyer-industry'];
+  
+  selectors.forEach(sel => {
+    const $select = $(sel);
+    if (!$select.length || $select.next('.report-industry-text').length) return;
+
+    const selectedVal = $select.val();
+    let industryText = '-';
+
+    // 기타 처리 (각 페이지별 기타 입력 필드 탐색)
+    const $otherInput = $select.parent().find('input[id$="-other"], input[id$="-etc"]');
+    
+    if (selectedVal === '기타') {
+      industryText = ($otherInput.val() || '').trim() || '기타';
+    } else if (selectedVal && selectedVal !== '선택해주세요' && selectedVal !== '') {
+      industryText = $select.find('option:selected').text();
+    }
+
+    const $div = $('<div class="report-industry-text">').text(industryText);
+    $select.after($div);
+    $select.hide();
+    if ($otherInput.length) $otherInput.hide();
+  });
 }
 
 export function injectReportSectionIcons(iconMap) {
@@ -215,7 +142,7 @@ export function injectReportSectionIcons(iconMap) {
     if (!$p.length) $p = $el.closest('div').parent().find('p').first();
     if ($p.length) {
       $p.find('span.material-symbols-outlined').remove();
-      $p.prepend(`<span class="material-symbols-outlined" style="font-size: 18px;">${icon}</span>`);
+      $p.prepend(`<span class="material-symbols-outlined report-section-icon">${icon}</span>`);
     }
   });
 }
@@ -223,24 +150,40 @@ export function injectReportSectionIcons(iconMap) {
 /**
  * $rows: 행들을 담은 컨테이너 jQuery 객체 (예: $('#financial-rows'))
  * rowSelector: 개별 행 클래스 (예: '.financial-row')
- * columns: [{ header: '년도', selector: '.fin-year', flex: 1 }, ...]
+ * columns: [{ header: '년도', selector: '.fin-year', flex: 1, align: 'center', format: 'number' }, ...]
+ *   - align: 'center' | 'right' | 'left' (기본: 'center')
+ *   - format: 'number' 지정 시 쉼표 구분 포맷 적용
  */
 export function reformatReportTable($rows, rowSelector, columns) {
     if (!$rows.length || $rows.parent('.report-table-wrapper').length) return;
+
+    // 숫자 포맷 헬퍼 (쉼표 구분)
+    function formatNumber(val) {
+        if (!val || val === '-') return '-';
+        // 숫자만 추출 (기존 쉼표 제거 후 재포맷)
+        const cleaned = val.replace(/,/g, '');
+        const num = parseFloat(cleaned);
+        if (isNaN(num)) return val; // 숫자가 아닌 경우 원본 반환
+        return num.toLocaleString('ko-KR');
+    }
 
     // 1. 데이터 수집
     const data = [];
     $rows.find(rowSelector).each(function() {
         const row = {};
         columns.forEach(col => {
-            row[col.selector] = $(this).find(col.selector).val() || '-';
+            let val = $(this).find(col.selector).val() || '-';
+            if (col.format === 'number') {
+                val = formatNumber(val);
+            }
+            row[col.selector] = val;
         });
         data.push(row);
     });
 
-    // 2. 헤더 생성
+    // 2. 헤더 생성 (항상 가운데 정렬)
     const headerCells = columns.map(col =>
-        `<div class="report-table-cell" style="flex: ${col.flex};">${col.header}</div>`
+        `<div class="report-table-cell" style="flex: ${col.flex}; justify-content: center; text-align: center;">${col.header}</div>`
     ).join('');
     const $header = $(`<div class="report-table-row report-table-header">${headerCells}</div>`);
 
@@ -249,12 +192,14 @@ export function reformatReportTable($rows, rowSelector, columns) {
     $rows.before($wrapper);
     $wrapper.append($header).append($rows);
 
-    // 4. 행 교체
+    // 4. 행 교체 (컬럼별 정렬 적용)
     let rowsHtml = '';
     data.forEach(d => {
-        const cells = columns.map(col =>
-            `<div class="report-table-cell" style="flex: ${col.flex};">${d[col.selector]}</div>`
-        ).join('');
+        const cells = columns.map(col => {
+            const align = col.align || 'center';
+            const justify = align === 'right' ? 'flex-end' : align === 'left' ? 'flex-start' : 'center';
+            return `<div class="report-table-cell" style="flex: ${col.flex}; justify-content: ${justify}; text-align: ${align};">${d[col.selector]}</div>`;
+        }).join('');
         rowsHtml += `<div class="report-table-row">${cells}</div>`;
     });
     $rows.html(rowsHtml);

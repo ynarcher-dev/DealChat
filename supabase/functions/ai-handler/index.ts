@@ -15,7 +15,7 @@ serve(async (req) => {
     try {
         const body = await req.json();
         // 동적 모델 선택 지원: body.model이 있으면 사용, 없으면 기본값 설정
-        const model = body.model || "gemini-1.5-flash";
+        const model = body.model || "gemini-2.5-flash";
         const prompts = body.body || body.prompts;
         const action = body.action;
 

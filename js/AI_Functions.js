@@ -1,14 +1,14 @@
 import { APIcall } from './APIcallFunction.js';
 
 // window.config 안전 참조를 위한 헬퍼
-const getConfig = () => window.config || { 
-    supabase: { uploadHandlerUrl: '', aiHandlerUrl: '' }, 
-    ai: { 
-        model: 'gemini-1.5-flash', 
-        tokenLimits: { 
-            'gemini-1.5-flash': { maxContextTokens: 1000000, maxOutputTokens: 8192, safetyMargin: 10000 } 
-        } 
-    } 
+const getConfig = () => window.config || {
+    supabase: { uploadHandlerUrl: '', aiHandlerUrl: '' },
+    ai: {
+        model: 'gemini-2.5-flash',
+        tokenLimits: {
+            'gemini-2.5-flash': { maxContextTokens: 1000000, maxOutputTokens: 8192, safetyMargin: 10000 }
+        }
+    }
 };
 
 // countTokens 함수 (Gemini의 넓은 컨텍스트를 고려한 글자 수 기반 근사치)
@@ -22,13 +22,13 @@ export function countTokens(text) {
 export function addAiResponse(userInput, sourceTexts, overrideModel = null) {
     const config = getConfig();
     const AI_ENDPOINT = config.supabase.aiHandlerUrl;
-    const modelName = overrideModel || config.ai.model || 'gemini-2.0-flash';
-    let modelConfig = config.ai.tokenLimits[modelName] || config.ai.tokenLimits['gemini-1.5-flash'];
+    const modelName = overrideModel || config.ai.model || 'gemini-2.5-flash';
+    let modelConfig = config.ai.tokenLimits[modelName] || config.ai.tokenLimits['gemini-2.5-flash'];
 
     const MAX_TOKEN = modelConfig.maxContextTokens;
     const SAFETY_MARGIN = modelConfig.safetyMargin;
 
-    console.log(`🤖 Using Gemini Model: ${modelName} (Max: ${MAX_TOKEN} tokens)`);
+    console.log(`Using Gemini Model: ${modelName} (Max: ${MAX_TOKEN} tokens)`);
 
     let truncatedSource = sourceTexts || "";
     // Gemini는 100만 토큰까지 수용 가능하므로, 50만자(약 20~30만 토큰 이상) 이하일 경우 자를 필요가 없음

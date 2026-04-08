@@ -1,0 +1,262 @@
+/* =========================================================
+   dealbook-report.css
+   dealbook 3종 에디터 리포트 모드 공통 스타일
+   - body.report-mode 클래스가 적용될 때만 활성화
+   - --page-theme-color 변수를 활용하여 각 페이지 테마에 자동 대응
+   ========================================================= */
+
+/* ── 리포트 모드 CSS 변수 ─────────────────────────────── */
+body.report-mode {
+    --report-bg: #ffffff;
+    --report-text: #475569;
+    --report-text-dark: #1e293b;
+    --report-border: #e2e8f0;
+    --report-table-header: #f8fafc;
+}
+
+/* ── 1. 전체 레이아웃 전환 ──────────────────────────── */
+body.report-mode {
+    background: #f8fafc !important;
+    overflow-y: auto !important;
+    height: auto !important;
+}
+
+body.report-mode .app-container {
+    display: block !important;
+    padding: 60px 0 !important;
+    height: auto !important;
+    background: #f8fafc !important;
+}
+
+/* 사이드바 → 센터 카드 */
+body.report-mode .sidebar,
+body.report-mode #report-share-container {
+    width: 900px !important;
+    max-width: 95% !important;
+    margin: 0 auto !important;
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+body.report-mode .sidebar {
+    background: var(--report-bg) !important;
+    border: 1px solid var(--report-border) !important;
+    border-radius: 20px !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.08) !important;
+    flex: none !important;
+    min-width: 0 !important;
+    max-width: 95% !important;
+}
+
+/* 헤더 → 테마 색상 */
+body.report-mode .sidebar .panel-header,
+body.report-mode .sidebar .db-panel-header {
+    background: var(--page-theme-color) !important;
+    color: #fff !important;
+    border-radius: 19px 19px 0 0 !important;
+}
+
+body.report-mode .sidebar .panel-header h2,
+body.report-mode .sidebar .panel-header span {
+    color: #fff !important;
+}
+
+/* sidebar-nav 리포트 모드 패딩 & 간격 */
+body.report-mode .sidebar-nav,
+body.report-mode .db-sidebar-nav {
+    padding: 40px !important;
+    gap: 32px !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* 나머지 패널 숨김 */
+body.report-mode .main-content,
+body.report-mode .right-panel,
+body.report-mode .panel-resize-handle {
+    display: none !important;
+}
+
+/* 하단 버튼 영역 숨김 */
+body.report-mode .db-footer-actions {
+    display: none !important;
+}
+
+/* ── 2. 입력 요소 스타일 ── 읽기 전용 변환 ─────────── */
+body.report-mode input:disabled,
+body.report-mode select:disabled {
+    border: none !important;
+    background: transparent !important;
+    color: var(--report-text) !important;
+    cursor: default !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    -webkit-text-fill-color: var(--report-text) !important;
+}
+
+body.report-mode textarea:disabled {
+    display: none !important;
+}
+
+body.report-mode [contenteditable="false"] {
+    cursor: default !important;
+}
+
+body.report-mode [contenteditable="false"]:empty::before {
+    display: none !important;
+}
+
+/* 필드 래퍼 배경/보더 제거 */
+body.report-mode .db-field-wrapper {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* ── 3. 텍스트 컨텐츠 (textarea → div 변환) ─────── */
+body.report-mode .report-text-content {
+    font-size: 14px;
+    color: var(--report-text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 0;
+    margin: 0;
+}
+
+/* 산업 텍스트 변환 */
+body.report-mode .report-industry-text {
+    margin-top: 0;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: var(--report-text);
+    font-weight: 500;
+}
+
+/* ── 4. 테이블 스타일 ────────────────────────────── */
+body.report-mode .report-table-header {
+    background: var(--report-table-header) !important;
+    border-top: 1.5px solid var(--page-theme-color) !important;
+    border-bottom: 1.5px solid var(--page-theme-color) !important;
+}
+
+body.report-mode .report-table-row {
+    display: flex !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+body.report-mode .report-table-cell {
+    padding: 12px 10px !important;
+    font-size: 13.5px !important;
+    flex: 1;
+    display: flex !important;
+    align-items: center;
+    border-right: 1px solid var(--report-border) !important;
+    color: var(--report-text) !important;
+}
+
+body.report-mode .report-table-cell:last-child {
+    border-right: none !important;
+}
+
+body.report-mode .report-table-header .report-table-cell {
+    color: var(--page-theme-color) !important;
+    font-weight: 700 !important;
+}
+
+/* 기존 테이블 헤더 숨김 (리포트용 테이블로 교체됨) */
+body.report-mode .table-header-row {
+    display: none !important;
+}
+
+/* ── 5. 섹션 아이콘 ────────────────────────────── */
+body.report-mode .report-section-icon {
+    font-size: 18px;
+    color: var(--page-theme-color);
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* ── 6. 상태 칩 ────────────────────────────────── */
+body.report-mode .btn-status-chip:not(.active) {
+    display: none !important;
+}
+
+body.report-mode .btn-status-chip.active {
+    pointer-events: none;
+    box-shadow: none;
+    cursor: default;
+}
+
+/* ── 7. 숨김 대상 요소들 ──────────────────────── */
+body.report-mode .db-ai-fill-section,
+body.report-mode .db-add-row-btn,
+body.report-mode .btn-remove-row,
+body.report-mode .delete-file,
+body.report-mode .btn-icon-only[title="이전으로"],
+body.report-mode .btn-icon-only[title="목록으로"],
+body.report-mode .private-memo-section,
+body.report-mode #blind-config-section,
+body.report-mode #blind-keywords-container,
+body.report-mode #private-memo,
+body.report-mode #add-financial-btn,
+body.report-mode #add-investment-btn,
+body.report-mode .blind-check,
+body.report-mode label:has(.blind-check) {
+    display: none !important;
+}
+
+/* ── 8. 워터마크 ─────────────────────────────── */
+body.report-mode #report-watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 100px;
+    font-weight: 900;
+    color: var(--page-theme-color);
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 9999;
+    user-select: none;
+    white-space: nowrap;
+}
+
+/* ── 9. 작성자 정보 섹션 ──────────────────────── */
+body.report-mode #memo-user-info-section {
+    display: flex !important;
+}
+
+/* ── 10. 필드 라벨 아이콘 색상 통일 ─────────── */
+body.report-mode .db-field-label .material-symbols-outlined {
+    color: var(--page-theme-color) !important;
+}
+
+/* ── 11. 컨테이너 간격 일원화 ────────────────── */
+body.report-mode .sidebar-nav > div,
+body.report-mode .db-sidebar-nav > div {
+    margin-bottom: 0;
+}
+
+/* ── 12. 매도자 전용: 재무 정보 헤더 (인라인) 숨김 */
+body.report-mode #financial-section > div[style*="font-size: 11px"],
+body.report-mode #financial-section > div:has(> div[style*="font-size: 11px"]) {
+    display: none !important;
+}
+
+/* ── 13. 인쇄 최적화 ────────────────────────── */
+@media print {
+    body.report-mode {
+        background: #fff !important;
+    }
+    body.report-mode .sidebar {
+        box-shadow: none !important;
+        border: none !important;
+    }
+    body.report-mode #report-watermark {
+        opacity: 0.02;
+    }
+}

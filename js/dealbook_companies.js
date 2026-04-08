@@ -982,23 +982,20 @@ $(document).ready(function () {
     // ==========================================
     function applyReadOnlyMode() {
         applyReportMode({
-            primaryColor: '#1A73E8',
-            cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save, #btn-draft, #btn-delete-company, .btn-remove-row, .delete-file, #add-financial-btn, #add-investment-btn, #private-memo',
             textareaIds: ['summary', 'key-products', 'financial-analysis', 'manager-memo'],
             afterApply: () => {
                 reformatReportTable($('#investment-rows'), '.investment-row', [
-                    { header: '년도',      selector: '.inv-year',       flex: 1   },
-                    { header: '단계',      selector: '.inv-stage',      flex: 1.5 },
-                    { header: '벨류(원)',   selector: '.inv-valuation',  flex: 2   },
-                    { header: '금액(원)',   selector: '.inv-amount',     flex: 2   },
-                    { header: '투자자',    selector: '.inv-investor',   flex: 2.5 }
+                    { header: '년도',      selector: '.inv-year',       flex: 1,   align: 'center' },
+                    { header: '단계',      selector: '.inv-stage',      flex: 1.5, align: 'center' },
+                    { header: '벨류(원)',   selector: '.inv-valuation',  flex: 2,   align: 'right', format: 'number' },
+                    { header: '금액(원)',   selector: '.inv-amount',     flex: 2,   align: 'right', format: 'number' },
+                    { header: '투자자',    selector: '.inv-investor',   flex: 2.5, align: 'center' }
                 ]);
                 reformatReportTable($('#financial-rows'), '.financial-row', [
-                    { header: '년도',        selector: '.fin-year',    flex: 1 },
-                    { header: '매출액(원)',   selector: '.fin-revenue', flex: 2 },
-                    { header: '영업이익(원)', selector: '.fin-profit',  flex: 2 },
-                    { header: '당기순익(원)', selector: '.fin-net',     flex: 2 }
+                    { header: '년도',        selector: '.fin-year',    flex: 1, align: 'center' },
+                    { header: '매출액(원)',   selector: '.fin-revenue', flex: 2, align: 'right', format: 'number' },
+                    { header: '영업이익(원)', selector: '.fin-profit',  flex: 2, align: 'right', format: 'number' },
+                    { header: '당기순익(원)', selector: '.fin-net',     flex: 2, align: 'right', format: 'number' }
                 ]);
                 injectReportSectionIcons({
                     'notebook-title-editor': 'business',
@@ -1015,32 +1012,9 @@ $(document).ready(function () {
                     'financial-analysis': 'query_stats',
                     'manager-memo': 'chat_bubble'
                 });
-                $('#memo-user-info-section').css('display', 'flex');
-
-                // 산업 분야 텍스트화 (기타 일 경우 상세 입력값 반영)
-                const $indSelect = $('#industry');
-                const $indOther = $('#industry-other');
-                const selectedVal = $indSelect.val();
-                let industryText = '-';
-                
-                if (selectedVal === '기타') {
-                    industryText = $indOther.val().trim() || '기타';
-                } else if (selectedVal) {
-                    industryText = $indSelect.find('option:selected').text();
-                }
-
-                let $indDiv = $indSelect.next('.report-text-content-industry');
-                if (!$indDiv.length) {
-                    $indDiv = $('<div class="report-text-content-industry report-text-content" style="background: transparent; border: none; padding: 0; margin-bottom: 0;">');
-                    $indSelect.after($indDiv);
-                }
-                $indDiv.text(industryText).css({ 'margin-top': '0', 'height': '42px', 'display': 'flex', 'align-items': 'center' });
-                $indSelect.hide();
-                $indOther.hide();
             }
         });
 
-        $('#sidebar-header-title').text('기업 정보');
         document.title = (currentCompanyData?.name || '기업') + ' 리포트 - DealChat';
     }
 

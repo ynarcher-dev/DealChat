@@ -551,12 +551,9 @@ $(document).ready(function () {
 
     function applyBuyerReadOnlyMode() {
         applyReportMode({
-            primaryColor: '#0d9488',
-            cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save-buyer, #btn-draft-buyer, #btn-delete-buyer, #buyer-memo',
-            textareaIds: ['buyer-summary', 'buyer-interest-summary', 'buyer-memo'],
+            hideSelectors: ['#buyer-memo'],
+            textareaIds: ['buyer-summary', 'buyer-interest-summary'],
             afterApply: () => {
-                $('#memo-user-info-section').css('display', 'flex');
                 injectReportSectionIcons({
                     'status-chip-group': 'account_tree',
                     'buyer-summary': 'description',
