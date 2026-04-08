@@ -23,6 +23,8 @@ export function applyReportMode(config) {
   // 1. 중복 적용 방지
   if ($('#report-mode-css').length > 0) return;
 
+  document.body.classList.add('report-mode');
+
   // 2. 리포트 모드 전용 CSS 주입
   const styleTag = `
 <style id="report-mode-css">
@@ -188,6 +190,7 @@ ${hideSelectors} {
 export function removeReportMode() {
   // 1. 추가된 스타일 및 워터마크 제거
   $('#report-mode-css, #report-watermark').remove();
+  document.body.classList.remove('report-mode');
 
   // 2. 변환된 텍스트 컨텐츠 제거 및 원본 textarea 복원
   $('.report-text-content').each(function() {
@@ -200,4 +203,59 @@ export function removeReportMode() {
 
   // 4. contenteditable 속성 복원
   $('[contenteditable]').attr('contenteditable', 'true');
+}
+
+export function injectReportSectionIcons(iconMap) {
+  Object.entries(iconMap).forEach(([id, icon]) => {
+    const $el = $(`#${id}`);
+    if (!$el.length) return;
+    let $p = $el.prev('p');
+    if (!$p.length) $p = $el.parent().prev('p');
+    if (!$p.length) $p = $el.closest('div').find('p').first();
+    if (!$p.length) $p = $el.closest('div').parent().find('p').first();
+    if ($p.length) {
+      $p.find('span.material-symbols-outlined').remove();
+      $p.prepend(`<span class="material-symbols-outlined" style="font-size: 18px;">${icon}</span>`);
+    }
+  });
+}
+
+/**
+ * $rows: 행들을 담은 컨테이너 jQuery 객체 (예: $('#financial-rows'))
+ * rowSelector: 개별 행 클래스 (예: '.financial-row')
+ * columns: [{ header: '년도', selector: '.fin-year', flex: 1 }, ...]
+ */
+export function reformatReportTable($rows, rowSelector, columns) {
+    if (!$rows.length || $rows.parent('.report-table-wrapper').length) return;
+
+    // 1. 데이터 수집
+    const data = [];
+    $rows.find(rowSelector).each(function() {
+        const row = {};
+        columns.forEach(col => {
+            row[col.selector] = $(this).find(col.selector).val() || '-';
+        });
+        data.push(row);
+    });
+
+    // 2. 헤더 생성
+    const headerCells = columns.map(col =>
+        `<div class="report-table-cell" style="flex: ${col.flex};">${col.header}</div>`
+    ).join('');
+    const $header = $(`<div class="report-table-row report-table-header">${headerCells}</div>`);
+
+    // 3. 래퍼 구성
+    const $wrapper = $('<div class="report-table-wrapper">');
+    $rows.before($wrapper);
+    $wrapper.append($header).append($rows);
+
+    // 4. 행 교체
+    let rowsHtml = '';
+    data.forEach(d => {
+        const cells = columns.map(col =>
+            `<div class="report-table-cell" style="flex: ${col.flex};">${d[col.selector]}</div>`
+        ).join('');
+        rowsHtml += `<div class="report-table-row">${cells}</div>`;
+    });
+    $rows.html(rowsHtml);
 }

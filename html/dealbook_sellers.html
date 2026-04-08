@@ -320,23 +320,20 @@
                 </div>
 
                 <!-- 작성자 정보 (리포트 모드에서만 표시) -->
-                <div style="margin-bottom: 24px; width: 100%;">
-                    <div id="memo-author-info" style="display: none; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px;">
-                        <div id="memo-update-date" style="font-size: 11px; color: #94a3b8; font-weight: 500; margin-top: 10px; padding-left: 4px;"></div>
-                        <div id="memo-author-info-box"
-                            style="display: flex; align-items: center; gap: 12px; background: #ffffff; padding: 4px 16px 4px 6px; border-radius: 40px; border: 1.5px solid #e2e8f0; margin-top: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                            <img id="memo-author-avatar" src="../img/avatars/default-avatar.png" alt="Avatar"
-                                style="width: 36px; height: 36px; border-radius: 50%; background: #f1f5f9; border: 1px solid #e2e8f0; flex-shrink: 0;">
-                            <div style="display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden;">
-                                <div style="display: flex; align-items: center; font-size: 13px; line-height: 1.4; white-space: nowrap;">
-                                    <span id="memo-author-company" style="color: #64748b; font-weight: 500;">-</span>
-                                    <span style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
-                                    <span id="memo-author-affiliation" style="color: #64748b; font-weight: 500;">-</span>
-                                    <span style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
-                                    <span id="memo-author-name" style="font-weight: 700; color: #1e293b;">-</span>
-                                    <span style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
-                                    <span id="memo-author-email" style="color: #64748b; font-weight: 400;">-</span>
-                                </div>
+                <div id="memo-user-info-section" style="display: none; align-items: center; justify-content: space-between; margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
+                    <div id="memo-update-date" style="font-size: 11px; color: #94a3b8; font-weight: 500; white-space: nowrap;"></div>
+                    <div id="memo-author-card" class="user-profile-card-oval"
+                        style="display: flex; align-items: center; gap: 16px; background: #ffffff; padding: 10px 24px 10px 10px; border-radius: 40px; border: 1.5px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: all 0.2s;">
+                        <img class="user-avatar" src="" alt="Avatar" style="width: 36px; height: 36px; border-radius: 50%; background: #f1f5f9; border: 1px solid #e2e8f0; flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden;">
+                            <div style="display: flex; align-items: center; font-size: 13px; line-height: 1.4; white-space: nowrap;">
+                                <span class="user-company" style="color: #64748b; font-weight: 500;">-</span>
+                                <span class="user-separator" style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
+                                <span class="user-affiliation" style="color: #64748b; font-weight: 500;">-</span>
+                                <span class="user-separator" style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
+                                <span class="user-name" style="font-weight: 700; color: #1e293b;">-</span>
+                                <span class="user-separator user-email-sep" style="color: #e2e8f0; margin: 0 6px; font-weight: 300;">/</span>
+                                <span class="user-email" style="color: #64748b; font-weight: 400;">-</span>
                             </div>
                         </div>
                     </div>

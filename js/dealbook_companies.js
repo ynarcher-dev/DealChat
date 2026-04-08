@@ -5,7 +5,7 @@ import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, showLoader, r
 import { checkNdaStatus, initNdaGate } from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson, resolveIndustry, resolveMgmtStatus, buildFinancialString, buildInvestmentString, buildChatContext } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
 import { createFinancialRow } from './financial_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
@@ -984,175 +984,68 @@ $(document).ready(function () {
         applyReportMode({
             primaryColor: '#1A73E8',
             cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save-company, #btn-draft-company, #btn-delete-company, .btn-remove-row, .delete-file',
-            textareaIds: ['company-summary', 'company-key-products', 'company-fin-analysis',
-                          'company-investment-analysis', 'company-memo', 'company-manager-memo'],
+            hideSelectors: '#ai-auto-fill-btn, #btn-save, #btn-draft, #btn-delete-company, .btn-remove-row, .delete-file, #add-financial-btn, #add-investment-btn, #private-memo',
+            textareaIds: ['summary', 'key-products', 'financial-analysis', 'manager-memo'],
             afterApply: () => {
-                reformatReportTables();
-                injectReportIcons();
+                reformatReportTable($('#investment-rows'), '.investment-row', [
+                    { header: '년도',      selector: '.inv-year',       flex: 1   },
+                    { header: '단계',      selector: '.inv-stage',      flex: 1.5 },
+                    { header: '벨류(원)',   selector: '.inv-valuation',  flex: 2   },
+                    { header: '금액(원)',   selector: '.inv-amount',     flex: 2   },
+                    { header: '투자자',    selector: '.inv-investor',   flex: 2.5 }
+                ]);
+                reformatReportTable($('#financial-rows'), '.financial-row', [
+                    { header: '년도',        selector: '.fin-year',    flex: 1 },
+                    { header: '매출액(원)',   selector: '.fin-revenue', flex: 2 },
+                    { header: '영업이익(원)', selector: '.fin-profit',  flex: 2 },
+                    { header: '당기순익(원)', selector: '.fin-net',     flex: 2 }
+                ]);
+                injectReportSectionIcons({
+                    'notebook-title-editor': 'business',
+                    'industry': 'category',
+                    'ceo-name': 'person',
+                    'company-email': 'mail',
+                    'establishment-date': 'calendar_month',
+                    'company-address': 'location_on',
+                    'mgmt-status-group': 'account_tree',
+                    'summary': 'description',
+                    'key-products': 'inventory_2',
+                    'investment-section': 'payments',
+                    'financial-section': 'analytics',
+                    'financial-analysis': 'query_stats',
+                    'manager-memo': 'chat_bubble'
+                });
                 $('#memo-user-info-section').css('display', 'flex');
+
+                // 산업 분야 텍스트화 (기타 일 경우 상세 입력값 반영)
+                const $indSelect = $('#industry');
+                const $indOther = $('#industry-other');
+                const selectedVal = $indSelect.val();
+                let industryText = '-';
+                
+                if (selectedVal === '기타') {
+                    industryText = $indOther.val().trim() || '기타';
+                } else if (selectedVal) {
+                    industryText = $indSelect.find('option:selected').text();
+                }
+
+                let $indDiv = $indSelect.next('.report-text-content-industry');
+                if (!$indDiv.length) {
+                    $indDiv = $('<div class="report-text-content-industry report-text-content" style="background: transparent; border: none; padding: 0; margin-bottom: 0;">');
+                    $indSelect.after($indDiv);
+                }
+                $indDiv.text(industryText).css({ 'margin-top': '0', 'height': '42px', 'display': 'flex', 'align-items': 'center' });
+                $indSelect.hide();
+                $indOther.hide();
             }
         });
-
-        // 산업 분야 텍스트화 (기타 일 경우 상세 입력값 반영)
-        const $indSelect = $('#industry');
-        const $indOther = $('#industry-other');
-        const selectedVal = $indSelect.val();
-        let industryText = '-';
-        
-        if (selectedVal === '기타') {
-            industryText = $indOther.val().trim() || '기타';
-        } else if (selectedVal) {
-            industryText = $indSelect.find('option:selected').text();
-        }
-
-        let $indDiv = $indSelect.next('.report-text-content-industry');
-        if (!$indDiv.length) {
-            $indDiv = $('<div class="report-text-content-industry report-text-content" style="background: transparent; border: none; padding: 0; margin-bottom: 0;">');
-            $indSelect.after($indDiv);
-        }
-        $indDiv.text(industryText).css({ 'margin-top': '0', 'height': '42px', 'display': 'flex', 'align-items': 'center' });
-        $indSelect.hide();
-        $indOther.hide();
-
-            // (삭제됨: 기업 정보 URL 공유하기 버튼 로직)
-
-            // (삭제됨: URL 복사 이벤트 핸들러)
 
         $('#sidebar-header-title').text('기업 정보');
         document.title = (currentCompanyData?.name || '기업') + ' 리포트 - DealChat';
     }
 
-    function injectReportIcons() {
-        const sections = [
-            { id: 'notebook-title-editor', label: '기업명', icon: 'business' },
-            { id: 'industry', label: '산업', icon: 'category' },
-            { id: 'ceo-name', label: '대표자명', icon: 'person' },
-            { id: 'company-email', label: '이메일', icon: 'mail' },
-            { id: 'establishment-date', label: '설립일자', icon: 'calendar_month' },
-            { id: 'company-address', label: '주소', icon: 'location_on' },
-            { id: 'mgmt-status-group', label: '진행 상황', icon: 'account_tree' },
-            { id: 'summary', parent: true, label: '상세 소개 및 요약', icon: 'description' },
-            { id: 'key-products', parent: true, label: '주요 제품/서비스', icon: 'inventory_2' },
-            { id: 'investment-section', label: '투자 정보', icon: 'payments' },
-            { id: 'financial-section', label: '재무 정보', icon: 'analytics' },
-            { id: 'financial-analysis', parent: true, label: '재무 분석', icon: 'query_stats' },
-            { id: 'manager-memo', parent: true, label: '담당자 의견', icon: 'chat_bubble' }
-        ];
 
-        sections.forEach(sec => {
-            let $p;
-            const $el = $(`#${sec.id}`);
-            if (!$el.length) return;
 
-            // 라벨(p태그) 찾기: 바로 앞 형제거나, 부모의 형제거나, 부모 안의 첫번째 p거나
-            $p = $el.prev('p');
-            if (!$p.length) $p = $el.parent().prev('p');
-            if (!$p.length) $p = $el.closest('div').find('p').first();
-            if (!$p.length && sec.parent) $p = $el.closest('div').parent().find('p').first();
-
-            if ($p.length) {
-                $p.find('span.material-symbols-outlined').remove(); // 중복 방지
-                $p.prepend(`<span class="material-symbols-outlined" style="font-size: 18px;">${sec.icon}</span>`);
-            }
-        });
-    }
-
-    // 테이블 레이아웃 정교화
-    function reformatReportTables() {
-
-        // 투자 정보 테이블
-        const $invRows = $('#investment-rows');
-        if ($invRows.length && !$invRows.parent('.report-table-wrapper').length) {
-            // 1. 데이터 먼저 수집
-            const invData = [];
-            $invRows.find('.investment-row').each(function() {
-                const stageText = $(this).find('.inv-stage option:selected').text();
-                invData.push({
-                    year:      $(this).find('.inv-year').val() || '-',
-                    stage:     (stageText === '단계 선택' || !stageText) ? '-' : stageText,
-                    valuation: $(this).find('.inv-valuation').val() || '-',
-                    amount:    $(this).find('.inv-amount').val() || '-',
-                    investor:  $(this).find('.inv-investor').val() || '-'
-                });
-            });
-
-            // 2. 헤더 생성 및 래퍼 구성
-            const headerHtml = `
-                <div class="report-table-row report-table-header">
-                    <div class="report-table-cell" style="flex: 1;">년도</div>
-                    <div class="report-table-cell" style="flex: 1.5;">단계</div>
-                    <div class="report-table-cell" style="flex: 2;">벨류(원)</div>
-                    <div class="report-table-cell" style="flex: 2;">금액(원)</div>
-                    <div class="report-table-cell" style="flex: 2.5;">투자자</div>
-                </div>
-            `;
-            $invRows.before(headerHtml);
-            const $invHeader = $invRows.prev('.report-table-header');
-            const $invWrapper = $('<div class="report-table-wrapper">');
-            $invHeader.before($invWrapper);
-            $invWrapper.append($invHeader).append($invRows);
-
-            // 3. 컨테이너 내용을 div 행으로 완전 교체
-            let invRowsHtml = '';
-            invData.forEach(function(d) {
-                invRowsHtml += `
-                    <div class="report-table-row">
-                        <div class="report-table-cell cell-center" style="flex: 1;">${d.year}</div>
-                        <div class="report-table-cell cell-center" style="flex: 1.5;">${d.stage}</div>
-                        <div class="report-table-cell cell-right"  style="flex: 2;">${d.valuation}</div>
-                        <div class="report-table-cell cell-right"  style="flex: 2;">${d.amount}</div>
-                        <div class="report-table-cell cell-center"  style="flex: 2.5;">${d.investor}</div>
-                    </div>
-                `;
-            });
-            $invRows.html(invRowsHtml);
-        }
-
-        // 재무 정보 테이블
-        const $finRows = $('#financial-rows');
-        if ($finRows.length && !$finRows.parent('.report-table-wrapper').length) {
-            // 1. 데이터 먼저 수집
-            const finData = [];
-            $finRows.find('.financial-row').each(function() {
-                finData.push({
-                    year:    $(this).find('.fin-year').val() || '-',
-                    revenue: $(this).find('.fin-revenue').val() || '-',
-                    profit:  $(this).find('.fin-profit').val() || '-',
-                    net:     $(this).find('.fin-net').val() || '-'
-                });
-            });
-
-            // 2. 헤더 생성 및 래퍼 구성
-            const headerHtml = `
-                <div class="report-table-row report-table-header">
-                    <div class="report-table-cell" style="flex: 1;">년도</div>
-                    <div class="report-table-cell" style="flex: 2;">매출액(원)</div>
-                    <div class="report-table-cell" style="flex: 2;">영업이익(원)</div>
-                    <div class="report-table-cell" style="flex: 2;">당기순익(원)</div>
-                </div>
-            `;
-            $finRows.before(headerHtml);
-            const $finHeader = $finRows.prev('.report-table-header');
-            const $finWrapper = $('<div class="report-table-wrapper">');
-            $finHeader.before($finWrapper);
-            $finWrapper.append($finHeader).append($finRows);
-
-            // 3. 컨테이너 내용을 div 행으로 완전 교체
-            let finRowsHtml = '';
-            finData.forEach(function(d) {
-                finRowsHtml += `
-                    <div class="report-table-row">
-                        <div class="report-table-cell cell-center" style="flex: 1;">${d.year}</div>
-                        <div class="report-table-cell cell-right"  style="flex: 2;">${d.revenue}</div>
-                        <div class="report-table-cell cell-right"  style="flex: 2;">${d.profit}</div>
-                        <div class="report-table-cell cell-right"  style="flex: 2;">${d.net}</div>
-                    </div>
-                `;
-            });
-            $finRows.html(finRowsHtml);
-        }
-    }
 
 
     // 초기 데이터 로드 시작

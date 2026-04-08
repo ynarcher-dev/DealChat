@@ -5,7 +5,7 @@ import * as sharingUtils from './sharing_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { escapeForDisplay } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons } from './dealbook_report_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 
 
@@ -553,28 +553,19 @@ $(document).ready(function () {
         applyReportMode({
             primaryColor: '#0d9488',
             cardWidth: '900px',
-            hideSelectors: '#ai-auto-fill-btn, #btn-save-buyer, #btn-draft-buyer, #btn-delete-buyer',
+            hideSelectors: '#ai-auto-fill-btn, #btn-save-buyer, #btn-draft-buyer, #btn-delete-buyer, #buyer-memo',
             textareaIds: ['buyer-summary', 'buyer-interest-summary', 'buyer-memo'],
             afterApply: () => {
                 $('#memo-user-info-section').css('display', 'flex');
-                injectBuyerReportIcons();
+                injectReportSectionIcons({
+                    'status-chip-group': 'account_tree',
+                    'buyer-summary': 'description',
+                    'buyer-interest-summary': 'business_center',
+                    'buyer-memo': 'lock'
+                });
             }
         });
     }
-    function injectBuyerReportIcons() {
-        const icons = { 
-            'status-chip-group': 'account_tree', 
-            'buyer-summary': 'description', 
-            'buyer-interest-summary': 'business_center', 
-            'buyer-memo': 'lock' 
-        };
-        Object.entries(icons).forEach(([id, icon]) => {
-            const $el = $(`#${id}`), $p = $el.prev('p').length ? $el.prev('p') : $el.parent().prev('p');
-            if ($p.length) { 
-                $p.find('.material-symbols-outlined').remove(); 
-                $p.prepend(`<span class="material-symbols-outlined" style="font-size:18px;">${icon}</span> `); 
-            }
-        });
-    }
+
 });
 

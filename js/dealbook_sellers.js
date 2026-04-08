@@ -5,7 +5,7 @@ import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatar
 import * as sharingUtils from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode, shouldEnterReportMode } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
 import { createSellerFinancialRow as createFinancialRow } from './financial_utils.js';
 
@@ -470,13 +470,18 @@ $(document).ready(function () {
             const authorId = seller.user_id;
             const { data: authorData } = authorId ? await _supabase.from('users').select('*').eq('id', authorId).maybeSingle() : { data: null };
             const author = authorData || DEFAULT_MANAGER;
-            $('#memo-author-name').text(author.name).css({'color':'#000','font-weight':'700'});
-            $('#memo-author-company').text(author.company || 'DealChat');
-            $('#memo-author-affiliation').text(author.department || author.affiliation || '-');
-            $('#memo-author-email').text(author.email || '');
-            $('#memo-author-avatar').attr('src', resolveAvatarUrl(author.avatar || author.avatar_url, 1));
-            
-            $('#memo-author-info-box').css('cursor', 'pointer').off('click').on('click', () => {
+            const $card = $('#memo-author-card');
+            $card.find('.user-name').text(author.name || DEFAULT_MANAGER.name).css({'color':'#000','font-weight':'700'});
+            $card.find('.user-company').text(author.company || 'DealChat');
+            $card.find('.user-affiliation').text(author.department || author.affiliation || '-');
+            $card.find('.user-avatar').attr('src', resolveAvatarUrl(author.avatar || author.avatar_url, 1));
+            if (!author.email) {
+                $card.find('.user-email-sep, .user-email').hide();
+            } else {
+                $card.find('.user-email').text(author.email);
+                $card.find('.user-email-sep, .user-email').show();
+            }
+            $card.css('cursor', 'pointer').off('click').on('click', () => {
                 if (author.email) {
                     navigator.clipboard.writeText(author.email).then(() => {
                         const $toast = $('#share-toast');
@@ -982,42 +987,59 @@ $(document).ready(function () {
             hideSelectors: '#ai-auto-fill-btn, #btn-save-seller, #btn-draft-seller, #btn-delete-seller, #add-financial-btn, .btn-remove-row, .delete-file, #blind-keywords-container, #private-memo',
             textareaIds: ['seller-summary', 'seller-key-products', 'seller-fin-analysis', 'seller-memo', 'seller-manager-memo'],
             afterApply: () => {
-                reformatSellerFinancialTable();
-                injectSellerReportIcons();
+                reformatReportTable($('#financial-rows'), '.financial-row', [
+                    { header: '년도',   selector: '.fin-year',       flex: 1 },
+                    { header: '매출',   selector: '.fin-revenue',    flex: 2 },
+                    { header: '영업익', selector: '.fin-profit',     flex: 2 },
+                    { header: '순익',   selector: '.fin-net-profit', flex: 2 },
+                    { header: 'EV/EB', selector: '.fin-ev-ebitda',  flex: 1 }
+                ]);
+                injectReportSectionIcons({
+                    'status-chip-group': 'account_tree',
+                    'seller-summary': 'description',
+                    'seller-key-products': 'inventory_2',
+                    'financial-section': 'analytics',
+                    'seller-fin-analysis': 'query_stats',
+                    'seller-memo': 'sell',
+                    'seller-manager-memo': 'chat_bubble'
+                });
                 if ($('#report-mode-css').length) applyBlindMasking();
-                $('#memo-author-info').css('display', 'flex');
+                $('#memo-user-info-section').css('display', 'flex');
+
+                // 산업 select → 텍스트 변환 (리포트 모드)
+                const $indSelect = $('#seller-industry');
+                const $indOther = $('#seller-industry-etc');
+                const selectedVal = $indSelect.val();
+                let industryText = '-';
+
+                if (selectedVal === '기타') {
+                    industryText = $indOther.val().trim() || '기타';
+                } else if (selectedVal && selectedVal !== '선택해주세요') {
+                    industryText = $indSelect.find('option:selected').text();
+                }
+
+                let $indDiv = $indSelect.next('.report-text-content-industry');
+                if (!$indDiv.length) {
+                    $indDiv = $('<div class="report-text-content-industry"></div>');
+                    $indSelect.after($indDiv);
+                }
+
+                $indDiv.text(industryText).css({
+                    'margin-top': '0',
+                    'height': '42px',
+                    'display': 'flex',
+                    'align-items': 'center'
+                });
+
+                $indSelect.hide();
+                $indOther.hide();
             }
         });
     }
 
-    function reformatSellerFinancialTable() {
-        const $rows = $('#financial-rows'); if (!$rows.length || $rows.parent('.report-table-wrapper').length) return;
-        $rows.before(`<div class="report-table-row report-table-header">
-            <div class="report-table-cell" style="flex:1;">년도</div>
-            <div class="report-table-cell" style="flex:2;">매출</div>
-            <div class="report-table-cell" style="flex:2;">영업익</div>
-            <div class="report-table-cell" style="flex:2;">순익</div>
-            <div class="report-table-cell" style="flex:1;">EV/EB</div>
-        </div>`);
-        $rows.find('.financial-row').each(function() {
-            const v = (c) => $(this).find(c).val() || '-';
-            $(this).after(`<div class="report-table-row">
-                <div class="report-table-cell" style="flex:1;">${v('.fin-year')}</div>
-                <div class="report-table-cell" style="flex:2;">${v('.fin-revenue')}</div>
-                <div class="report-table-cell" style="flex:2;">${v('.fin-profit')}</div>
-                <div class="report-table-cell" style="flex:2;">${v('.fin-net-profit')}</div>
-                <div class="report-table-cell" style="flex:1;">${v('.fin-ev-ebitda')}</div>
-            </div>`).remove();
-        });
-    }
 
-    function injectSellerReportIcons() {
-        const icons = { 'status-chip-group': 'account_tree', 'seller-summary': 'description', 'seller-key-products': 'inventory_2', 'financial-section': 'analytics', 'seller-fin-analysis': 'query_stats', 'seller-memo': 'sell', 'seller-manager-memo': 'chat_bubble' };
-        Object.entries(icons).forEach(([id, icon]) => {
-            const $el = $(`#${id}`), $p = $el.prev('p').length ? $el.prev('p') : $el.parent().prev('p');
-            if ($p.length) { $p.find('.material-symbols-outlined').remove(); $p.prepend(`<span class="material-symbols-outlined" style="font-size:18px;">${icon}</span> `); }
-        });
-    }
+
+
 
     // 초기 데이터 로드 시작
     loadSellerData();
