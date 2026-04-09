@@ -42,13 +42,20 @@ CREATE TABLE IF NOT EXISTS companies (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. 질의응답(QNA) 테이블
+-- 3. 질의응답(QNA) 및 상담문의 테이블
 CREATE TABLE IF NOT EXISTS qna (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- 작성자 ID
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- 작성자 ID (회원인 경우)
     entity_type TEXT, -- 대상 유형 ('company', 'seller', 'buyer' 등)
     entity_id UUID, -- 대상 ID
-    question TEXT NOT NULL, -- 질문 내용
+    inquiry_type TEXT, -- 문의 유형 (인수자, 에이전트 등)
+    name TEXT, -- 문의자 이름
+    contact TEXT, -- 연락처
+    email TEXT, -- 이메일
+    company_name TEXT, -- 업체명/소속
+    subject TEXT, -- 문의 제목
+    content TEXT, -- 문의 내용
+    question TEXT, -- 질문 내용 (기존 하위 호환성 유지)
     answer TEXT, -- 답변 내용
     status TEXT DEFAULT '대기', -- 처리 상태 (대기, 완료)
     created_at TIMESTAMPTZ DEFAULT NOW(),

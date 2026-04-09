@@ -676,10 +676,12 @@ function getColumnDefs(tableName, editMode = false) {
 
         case 'qna':
             return [
-                { field: 'subject', headerName: '제목', width: 300, editable: editMode },
-                { field: 'inquiry_type', headerName: '문의 유형', editable: editMode },
-                { field: 'name', headerName: '문의자', editable: editMode },
-                { field: 'email', headerName: '이메일', editable: editMode },
+                { field: 'subject', headerName: '제목', width: 250, editable: editMode },
+                { field: 'inquiry_type', headerName: '문의 유형', width: 120, editable: editMode },
+                { field: 'name', headerName: '문의자', width: 100, editable: editMode },
+                { field: 'company_name', headerName: '업체명', width: 150, editable: editMode },
+                { field: 'contact', headerName: '연락처', width: 150, editable: editMode },
+                { field: 'email', headerName: '이메일', width: 180, editable: editMode },
                 { field: 'content', headerName: '내용', hide: true }
             ].concat(common);
 

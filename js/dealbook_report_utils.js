@@ -66,8 +66,11 @@ export function reformatFinancialTableTransposed(containerId = 'financial-table-
         return `<div class="report-table-row">${cells}</div>`;
     }).join('');
 
+    // 구분 고정 120px + 년도별 최소 80px → overflow-x: auto 발동 조건
+    const minWidth = 120 + years.length * 80;
+
     $container.html(`
-        <div class="report-table-wrapper" style="margin-top:4px;">
+        <div class="report-table-wrapper" style="margin-top:4px; min-width:${minWidth}px;">
             <div class="report-table-row report-table-header">${headerCells}</div>
             ${rowsHtml}
         </div>

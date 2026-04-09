@@ -62,7 +62,7 @@ $(document).ready(function () {
             created_at: new Date().toISOString()
         };
 
-        const $btn = $('.btn-submit');
+        const $btn = $('.btn-qna-submit');
         const originalText = $btn.text();
         $btn.prop('disabled', true).text('제출 중...');
 
@@ -86,9 +86,8 @@ $(document).ready(function () {
                     alert('제출 중 오류가 발생했습니다: ' + result.error);
                 } else {
                     alert("상담 문의가 성공적으로 접수되었습니다.\n담당자 확인 후 기재하신 연락처로 회신드리겠습니다.");
-                    $('#qna-form')[0].reset();
-                    // 제출 후 다시 로그인 정보 채우기 (연락처/내용만 비워짐)
-                    loadUserData();
+                    // 제출 후 이전 페이지로 이동
+                    window.history.back();
                 }
             })
             .catch(error => {
