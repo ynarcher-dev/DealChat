@@ -21,11 +21,6 @@
             --page-theme-light: #f0f7ff;
         }
 
-        /* 기업정보 전용 패널 비율 50:25:25 */
-        body:not(.report-mode) .sidebar      { flex: 0 0 50% !important; width: 50% !important; max-width: 50% !important; }
-        body:not(.report-mode) .main-content { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
-        body:not(.report-mode) .right-panel  { flex: 0 0 25% !important; width: 25% !important; max-width: 25% !important; }
-
         /* 기업정보 전용 모달 스타일 */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -62,11 +57,11 @@
         .sidebar-section {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
             margin-bottom: 32px;
         }
         .section-title {
-            margin: 0 !important;
+            margin: 0 0 12px 0 !important;
             font-weight: 600;
             font-size: 13px;
             color: var(--text-secondary);
@@ -88,6 +83,7 @@
             border: 1px solid #e2e8f0;
             align-items: center;
             width: 100%;
+            margin-bottom: 12px;
         }
         .table-header-cell {
             min-width: 0;
@@ -262,37 +258,29 @@
                         <span class="material-symbols-outlined">payments</span>
                         투자 정보
                     </p>
-                    <div class="table-header-row">
-                        <div class="table-header-cell" style="flex: 1;">년도</div>
-                        <div class="table-header-cell" style="flex: 1.5;">단계</div>
-                        <div class="table-header-cell" style="flex: 2;">벨류(원)</div>
-                        <div class="table-header-cell" style="flex: 2;">금액(원)</div>
-                        <div class="table-header-cell" style="flex: 2.5;">투자자</div>
+                    <div style="overflow-x: auto; padding-bottom: 10px;">
+                        <div class="table-header-row">
+                            <div class="table-header-cell" style="flex: 1;">년도</div>
+                            <div class="table-header-cell" style="flex: 1.5;">단계</div>
+                            <div class="table-header-cell" style="flex: 2;">벨류(원)</div>
+                            <div class="table-header-cell" style="flex: 2;">금액(원)</div>
+                            <div class="table-header-cell" style="flex: 2.5;">투자자</div>
+                        </div>
+                        <div id="investment-rows" style="display: flex; flex-direction: column; gap: 8px; min-width: 450px;"></div>
                     </div>
-                    <div id="investment-rows" style="display: flex; flex-direction: column; gap: 8px;"></div>
                     <button type="button" id="add-investment-btn" class="db-add-row-btn" style="margin-top: 4px;">
                         <span class="material-symbols-outlined" style="font-size: 18px;">add_circle</span>
                         투자 정보 추가
                     </button>
                 </div>
 
-                <!-- 재무 정보 동적 폼 -->
+                <!-- 재무 정보 전치 테이블 -->
                 <div class="sidebar-section" id="financial-section">
                     <p class="section-title">
                         <span class="material-symbols-outlined">analytics</span>
                         재무 정보
                     </p>
-                    <div class="table-header-row">
-                        <div class="table-header-cell" style="flex: 1;">년도</div>
-                        <div class="table-header-cell" style="flex: 2;">매출액(원)</div>
-                        <div class="table-header-cell" style="flex: 2;">영업이익(원)</div>
-                        <div class="table-header-cell" style="flex: 2;">당기순익(원)</div>
-                    </div>
-                    <div id="financial-rows" style="display: flex; flex-direction: column; gap: 8px;"></div>
-                    <button type="button" id="add-financial-btn" class="db-add-row-btn">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">add_circle</span>
-                        재무 정보 추가
-                    </button>
+                    <div id="financial-table-container" style="display:flex; flex-direction:column; gap:0; overflow-x: auto; padding-bottom: 10px;"></div>
                 </div>
 
                 <!-- 재무분석 -->

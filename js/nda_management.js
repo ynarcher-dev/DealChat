@@ -1,5 +1,6 @@
 import { hideLoader, resolveAvatarUrl, DEFAULT_MANAGER as AUTH_DEFAULT_MANAGER } from './auth_utils.js';
 import { renderPagination } from './pagination_utils.js';
+import { applyKeywordsMasking, maskWithCircles, escapeHtml } from './utils.js';
 
 let supabase;
 
@@ -160,20 +161,59 @@ async function loadNdaLogs() {
         // 3. Process logs
         allLogs = logs.map(log => {
             let itemName = '-';
+            let rawItemName = '';
             let itemSummary = '';
             let itemIndustry = '기타';
+            let isBlindActive = false;
+            let blindKeywords = [];
+            let blindPersonal = {};
+            let itemStatus = '대기';
+
             const targetId = log.item_id || log.seller_id;
 
             if (log.item_type === 'buyer') {
-                const entry = buyerMap.get(targetId) || buyerMap.get(String(targetId));
-                itemName = entry?.name || '삭제된 항목';
-                itemSummary = entry?.summary || '';
-                itemIndustry = entry?.industry || '기타';
+                const b = buyers?.find(x => String(x.id) === String(targetId));
+                rawItemName = b?.company_name || b?.companyName || b?.name || b?.Name || '삭제된 항목';
+                itemSummary = b?.summary || '';
+                itemIndustry = b?.industry || b?.interest_industry || '기타';
+                itemStatus = b?.status || '대기';
             } else if (log.item_type === 'seller' || !log.item_type || log.seller_id) {
-                const entry = sellerMap.get(targetId) || sellerMap.get(String(targetId));
-                itemName = entry?.name || '삭제된 항목';
-                itemSummary = entry?.summary || '';
-                itemIndustry = entry?.industry || '기타';
+                const s = sellers?.find(x => String(x.id) === String(targetId));
+                rawItemName = s?.name || s?.company_name || s?.companyName || (s?.companies && s?.companies.name) || '삭제된 항목';
+                itemSummary = s?.summary || (s?.companies && s?.companies.summary) || '';
+                itemIndustry = s?.industry || (s?.companies && s?.companies.industry) || '기타';
+                itemStatus = s?.status || '대기';
+                // Seller-specific blind settings
+                isBlindActive = s?.is_blind_active || false;
+                blindKeywords = s?.blind_keywords || [];
+                blindPersonal = s?.blind_personal || {};
+            }
+
+            // Apply Masking Logic (Matching total_sellers.js and total_buyers.js)
+            const isNameBlinded = (isBlindActive && blindPersonal?.name);
+            itemName = rawItemName;
+
+            if (rawItemName === '삭제된 항목') {
+                itemName = '삭제된 항목';
+            } else if (itemStatus === '완료') {
+                itemName = '완료';
+            } else if (itemStatus === '진행중') {
+                itemName = '진행중';
+            } else if (isNameBlinded) {
+                itemName = 'Blind';
+            }
+
+            // Apply Summary Masking
+            let displaySummary = itemSummary;
+            if (rawItemName !== '삭제된 항목') {
+                if (isBlindActive && blindKeywords.length > 0) {
+                    displaySummary = applyKeywordsMasking(displaySummary, blindKeywords);
+                }
+                if (isNameBlinded && rawItemName && rawItemName !== '정보 없음') {
+                    const escapedName = rawItemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const nameRegex = new RegExp(escapedName, 'gi');
+                    displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
+                }
             }
 
             const profileMatch = profileMap.get(log.user_id) || profileMap.get(String(log.user_id));
@@ -186,8 +226,9 @@ async function loadNdaLogs() {
             return {
                 ...log,
                 itemName,
-                itemSummary,
+                itemSummary: displaySummary,
                 itemIndustry,
+                itemStatus,
                 signerProfile: profile,
                 displayType: isBuyer ? '매수' : '매도',
                 typeClass: isBuyer ? 'type-buyer' : 'type-seller'
@@ -230,9 +271,6 @@ function renderCurrentPage() {
         const itemLink = log.item_type === 'buyer'
             ? `./dealbook_buyers.html?id=${targetId}&from=total_buyers`
             : `./dealbook_sellers.html?id=${targetId}&from=totalseller`;
-        const summaryText = log.itemSummary
-            ? (log.itemSummary.length > 60 ? log.itemSummary.slice(0, 60) + '...' : log.itemSummary)
-            : '-';
 
         const signer = log.signerProfile;
         let avatarUrl = resolveAvatarUrl(signer.avatar, 1);
@@ -241,40 +279,42 @@ function renderCurrentPage() {
         }
 
         const typeCfg = TYPE_CONFIG[log.item_type] || TYPE_CONFIG.seller;
+        const isRestricted = (log.itemStatus === '진행중' || log.itemStatus === '완료');
+        
         const shortIndustry = getIndustryShortName(log.itemIndustry);
         const industryHtml = log.itemIndustry
-            ? `<span class="industry-tag-td" style="background:${typeCfg.bg}; color:${typeCfg.color}; border:1px solid ${typeCfg.color}33;">${shortIndustry}</span>`
+            ? `<span class="industry-tag-td" style="background:${isRestricted ? '#f1f5f9' : typeCfg.bg}; color:${isRestricted ? '#94a3b8' : typeCfg.color}; border:1px solid ${isRestricted ? '#e2e8f0' : typeCfg.color + '33'};">${shortIndustry}</span>`
             : `<span style="color:#cbd5e1; font-size:12px;">-</span>`;
 
         const $row = $(`
-            <tr class="table-row-clickable" style="cursor: pointer;" onclick="window.location.href='${itemLink}'">
+            <tr class="${isRestricted ? '' : 'table-row-clickable'}" style="${isRestricted ? 'background-color: #fbfcfd; cursor: default;' : 'cursor: pointer;'}" ${isRestricted ? '' : `onclick="window.location.href='${itemLink}'"`}>
                 <td>
                     <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                        <div style="width:36px; height:36px; background:${typeCfg.color}; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <div style="width:36px; height:36px; background:${isRestricted ? '#cbd5e1' : typeCfg.color}; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                             <span class="material-symbols-outlined" style="color:#fff; font-size:20px;">${getIndustryIcon(log.itemIndustry)}</span>
                         </div>
-                        <span style="font-size:14px; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${log.itemName}</span>
+                        <span style="font-size:14px; font-weight:700; ${isRestricted ? 'color: #94a3b8;' : 'color:#1e293b;'} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(log.itemName)}</span>
                     </div>
                 </td>
                 <td>${industryHtml}</td>
                 <td>
-                    <span class="type-tag-td" style="background:${typeCfg.bg}; color:${typeCfg.color}; border:1px solid ${typeCfg.color}33;">${log.displayType}</span>
+                    <span class="type-tag-td" style="background:${isRestricted ? '#f1f5f9' : typeCfg.bg}; color:${isRestricted ? '#94a3b8' : typeCfg.color}; border:1px solid ${isRestricted ? '#e2e8f0' : typeCfg.color + '33'};">${log.displayType}</span>
                 </td>
                 <td>
-                    <div style="font-size:13px; color:#334155; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5;">${summaryText}</div>
+                    <div style="font-size:13px; ${isRestricted ? 'color: #94a3b8;' : 'color:#334155;'} display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5;">${log.itemSummary}</div>
                 </td>
                 <td>
-                    <div class="author-td">
-                        <img src="${avatarUrl}" alt="Avatar" class="author-avatar-sm" style="width: 28px; height: 28px;">
+                    <div class="author-td" style="${isRestricted ? 'opacity: 0.6;' : ''}">
+                        <img src="${avatarUrl}" alt="Avatar" class="author-avatar-sm" style="width: 28px; height: 28px; ${isRestricted ? 'filter: grayscale(1);' : ''}">
                         <div class="author-info-wrap">
-                            <div class="author-name-td" style="font-weight: 700;">${signer.name}</div>
-                            <div class="author-affiliation-td">${signer.affiliation}</div>
+                            <div class="author-name-td" style="font-weight: 700; ${isRestricted ? 'color: #94a3b8;' : ''}">${signer.name}</div>
+                            <div class="author-affiliation-td" style="${isRestricted ? 'color: #cbd5e1;' : ''}">${signer.affiliation}</div>
                         </div>
                     </div>
                 </td>
                 <td class="text-center" style="font-size:13px; color:#94a3b8; font-family:'Outfit', sans-serif;">${formattedDate}</td>
                 <td class="text-center" onclick="event.stopPropagation();">
-                    <button class="btn-download btn-download-pdf" data-id="${log.id}">
+                    <button class="btn-download btn-download-pdf" data-id="${log.id}" ${isRestricted ? 'disabled style="background: #f1f5f9; color: #cbd5e1; border-color: #e2e8f0; cursor: not-allowed;"' : ''}>
                         <span class="material-symbols-outlined">download</span>
                         PDF
                     </button>
@@ -282,9 +322,11 @@ function renderCurrentPage() {
             </tr>
         `);
 
-        $row.find('.btn-download-pdf').on('click', function() {
-            downloadPdf(log);
-        });
+        if (!isRestricted) {
+            $row.find('.btn-download-pdf').on('click', function() {
+                downloadPdf(log);
+            });
+        }
 
         $container.append($row);
     });

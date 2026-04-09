@@ -19,7 +19,7 @@
     --dc-gray-text: #475569;
     --dc-gray-accent: #1E293B;
 
-    /* ── Module Theme Colors ── */
+    /* ???? Module Theme Colors ???? */
     --color-companies:       #1a73e8;
     --color-companies-hover: #1557b0;
     --color-companies-light: #e7f1ff;
@@ -107,7 +107,7 @@ body.is-loading .app-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    height: 100vh; /* 내부 스크롤을 위한 고정 높이 */
+    height: 100vh; /* ??? ??쎄쾿嚥▲끉???袁る립 ?⑥쥙???誘れ뵠 */
     overflow-y: auto;
     position: relative;
     background-color: #ffffff;
@@ -648,7 +648,7 @@ body.is-loading .app-container {
     font-size: 14px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .guide-section p {
@@ -694,7 +694,7 @@ body.is-loading .app-container {
     width: 100%;
     margin-bottom: 24px;
     display: flex;
-    align-items: flex-start; /* 세로 중앙 정렬에서 상단 정렬로 변경 */
+    align-items: flex-start; /* ?紐껋쨮 餓λ쵐釉??類ｌ졊?癒?퐣 ?怨룸뼊 ?類ｌ졊嚥?癰궰野?*/
     gap: 12px;
     animation: fadeIn 0.3s ease-out;
 }
@@ -722,7 +722,7 @@ body.is-loading .app-container {
     background-color: #f1f5f9;
     color: var(--primary-color);
     border: 1px solid #e2e8f0;
-    margin-top: 4px; /* 말풍선 첫 줄과 높이를 맞추기 위한 여백 */
+    margin-top: 4px; /* 筌띾?萸??筌?餓κ쑨???誘れ뵠??筌띿쉸?쎿묾??袁る립 ??媛?*/
 }
 
 .user .message-avatar {
@@ -755,7 +755,7 @@ body.is-loading .app-container {
 
 /* Typing Animation (No Bubble) */
 .message.ai.typing-indicator {
-    gap: 8px; /* 일반 메시지보다 좁은 간격 */
+    gap: 8px; /* ??곗뺘 筌롫뗄?놅쭪?癰귣????リ낯? 揶쏄쑨爰?*/
 }
 
 .message.ai.typing-indicator .message-content {
@@ -770,7 +770,7 @@ body.is-loading .app-container {
 .typing-dots {
     display: flex;
     gap: 4px;
-    padding: 0; /* 패딩 제거 */
+    padding: 0; /* ??ㅻ뎃 ??볤탢 */
 }
 
 .typing-dots span {
@@ -789,12 +789,12 @@ body.is-loading .app-container {
     40% { transform: scale(1.0); }
 }
 
-/* AI 상태 배지 스타일 표준화 */
+/* AI ?怨밴묶 獄쏄퀣? ??????????*/
 .badge-ai-loading { color: #475569 !important; background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; }
 .badge-ai-reflected { color: #22c55e !important; background: #f0fdf4 !important; border: 1px solid #bbf7d0 !important; }
 .badge-ai-failed { color: #ef4444 !important; background: #fee2e2 !important; border: 1px solid #fca5a5 !important; }
 
-/* AI 자동입력 버튼 표준화 */
+/* AI ?癒?짗??낆젾 甕곌쑵???????*/
 #ai-auto-fill-btn {
     transition: all 0.3s ease-in-out !important;
     position: relative;
@@ -822,12 +822,12 @@ body.is-loading .app-container {
     transform: translateY(0);
 }
 
-/* AI 모델 선택기 스타일 */
+/* AI 筌뤴뫀???醫뤾문疫??????*/
 .model-selector-container {
-    display: inline-block; /* 너비에 맞게 조절 */
+    display: inline-block; /* ??덊돩??筌띿쉳苡?鈺곌퀣??*/
     position: relative;
     z-index: 10;
-    margin-bottom: 8px; /* 입력창과의 간격 */
+    margin-bottom: 8px; /* ??낆젾筌≪럡???揶쏄쑨爰?*/
 }
 
 .btn-model-selector {
@@ -854,7 +854,7 @@ body.is-loading .app-container {
 .model-dropdown {
     display: none;
     position: absolute;
-    bottom: calc(100% + 8px); /* 위로 열리도록 수정 (입력창 하단 배치 때문) */
+    bottom: calc(100% + 8px); /* ?袁⑥쨮 ????袁⑥쨯 ??륁젟 (??낆젾筌???롫뼊 獄쏄퀣?????? */
     left: 0;
     width: 240px;
     background: #ffffff;
@@ -918,7 +918,7 @@ body.is-loading .app-container {
 .status-text-available { color: #1A73E8; }
 .status-text-exceeded { color: #ef4444; }
 
-/* 파일 드래그 앤 드롭 하이라이트 */
+/* ???뵬 ??뺤삋域?????뺚댘 ??륁뵠??깆뵠??*/
 .right-panel.drag-over {
     background-color: #f0f7ff !important;
     border-left: 2px dashed #1A73E8 !important;
@@ -964,7 +964,7 @@ body.is-loading .app-container {
     padding: 40px 0;
 }
 
-/* NDA 전용 불투명 흰색 배경 */
+/* NDA ?袁⑹뒠 ?븍뜇?억쭗??怨쀪퉳 獄쏄퀗瑗?*/
 .modal-backdrop.nda-backdrop {
     opacity: 1 !important;
     background-color: #ffffff !important;
@@ -1260,7 +1260,7 @@ body.is-loading .app-container {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-main);
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .gen-select {
@@ -1332,7 +1332,7 @@ body.is-loading .app-container {
     font-size: clamp(28px, 5vw, 40px);
     font-weight: 800;
     color: #1e293b;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .welcome-header p {
@@ -1353,7 +1353,7 @@ body.is-loading .app-container {
     background: #ffffff;
     border-radius: var(--dc-radius-large);
     padding: 30px 24px;
-    border: 1.5px solid #ebebeb; /* 더 잘 보이도록 진하게 변경 */
+    border: 1.5px solid #ebebeb; /* ????癰귣똻??袁⑥쨯 筌욊쑵釉?칰?癰궰野?*/
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -1365,7 +1365,7 @@ body.is-loading .app-container {
 .menu-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
-    border-color: #d1d5db; /* 호버 시 더욱 뚜렷한 대비 */
+    border-color: #d1d5db; /* ?紐껋쒔 ???遺우뒮 ??뺤죫??????*/
 }
 
 .primary-card {
@@ -1392,12 +1392,12 @@ body.is-loading .app-container {
     transition: color 0.2s;
 }
 
-/* Hover Effects — Primary cards (removed BG inversion on hover) */
+/* Hover Effects ??Primary cards (removed BG inversion on hover) */
 /* .group-ma-companies:hover.primary-card, .group-startup:hover.primary-card { background-color: #1557b0 !important; border-color: #1557b0 !important; } */
 /* .group-ma-seller:hover.primary-card { background-color: #7c3aed !important; border-color: #7c3aed !important; } */
 /* .group-ma-buyer:hover.primary-card { background-color: #0f766e !important; border-color: #0f766e !important; } */
 
-/* Hover Effects — My_ cards (outline + text color, BG stays white) */
+/* Hover Effects ??My_ cards (outline + text color, BG stays white) */
 .card-companies:hover {
     border-color: #1a73e8 !important;
     border-width: 2px !important;
@@ -1472,7 +1472,7 @@ body.is-loading .app-container {
     padding: 30px 0;
     margin-top: auto;
     width: 100%;
-    flex-shrink: 0; /* 푸터가 압축되지 않도록 설정 */
+    flex-shrink: 0; /* ?紐낃숲揶쎛 ?類ㅽ뀧??? ??낅즲嚥???쇱젟 */
 }
 
 .footer-container {
@@ -1486,7 +1486,7 @@ body.is-loading .app-container {
     color: #94a3b8;
     display: flex;
     flex-direction: column;
-    gap: 5px; /* 줄 간격을 약간 넓혀 여유 부여 */
+    gap: 5px; /* 餓?揶쏄쑨爰????꾩퍢 ?蹂? ??? ?봔??*/
 }
 
 .footer-top-row {
@@ -1771,12 +1771,12 @@ body.is-loading .app-container {
 }
 
 .report-mode .input-with-unit .unit {
-    display: none; /* 유닛은 텍스트에 포함시켜 동적으로 삽입함 */
+    display: none; /* ?醫딅뻺?? ??용뮞?紐꾨퓠 ??釉??뽱룖 ??덉읅??곗쨮 ??뚯뿯??*/
 }
 
-/* 관리현황 버튼 리포트 스타일 */
+/* ?온?귐뗭겱??甕곌쑵???귐뗫７???????*/
 .report-mode .btn-status-chip {
-    display: none; /* 기본적으로 모두 숨김 */
+    display: none; /* 疫꿸퀡??怨몄몵嚥?筌뤴뫀紐???? */
     pointer-events: none;
     padding: 2px 10px !important;
     font-size: 11px !important;
@@ -1784,7 +1784,7 @@ body.is-loading .app-container {
 }
 
 .report-mode .btn-status-chip.active {
-    display: inline-flex !important; /* 활성화된 것만 배지 형태로 표시 */
+    display: inline-flex !important; /* ??뽮쉐?遺얜쭆 野껉퍓彛?獄쏄퀣? ?類κ묶嚥???뽯뻻 */
     border: 1px solid #e2e8f0 !important;
     background: #f8fafc !important;
     color: #64748b !important;
@@ -1793,20 +1793,18 @@ body.is-loading .app-container {
 
 /* 리포트 모드용 동적 아이콘 박스 */
 .report-section-icon {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: #eef2ff;
-    border-radius: 8px;
-    margin-right: 8px;
+    vertical-align: middle;
+    margin-right: 6px;
     flex-shrink: 0;
 }
 
+.report-section-icon.material-symbols-outlined,
 .report-section-icon .material-symbols-outlined {
     color: #1A73E8;
-    font-size: 16px;
+    font-size: 18px;
 }
 
 .report-mode .section-title-row {
@@ -1816,7 +1814,7 @@ body.is-loading .app-container {
     margin-top: 16px;    /* 섹션 간 간격 확대 */
 }
 
-/* 리포트 모드 테이블 헤더 하단 라인 스타일 */
+/* ?귐뗫７??筌뤴뫀諭????뵠????삳쐭 ??롫뼊 ??깆뵥 ?????*/
 .report-mode #financial-section > div[style*="background: #f1f5f9"],
 .report-mode #investment-section > div[style*="background: #f1f5f9"] {
     background: transparent !important;
@@ -1828,7 +1826,7 @@ body.is-loading .app-container {
     margin-bottom: 8px !important;
 }
 
-/* 리포트 모드 데이터 행 패딩 동기화 */
+/* ?귐뗫７??筌뤴뫀諭??怨쀬뵠??????ㅻ뎃 ??녿┛??*/
 .report-mode .financial-row,
 .report-mode .investment-row {
     padding: 4px 12px !important;
@@ -1836,10 +1834,10 @@ body.is-loading .app-container {
 }
 
 .report-mode .btn-remove-row {
-    display: none !important; /* 리포트 모드에서 삭제 버튼 완전 제거 */
+    display: none !important; /* ?귐뗫７??筌뤴뫀諭?癒?퐣 ????甕곌쑵???袁⑹읈 ??볤탢 */
 }
 
-/* 리포트 모드 입력 필드 텍스트 컬러 강화 */
+/* ?귐뗫７??筌뤴뫀諭???낆젾 ?袁⑤굡 ??용뮞???뚎됱쑎 揶쏅벤??*/
 .report-mode input::placeholder,
 .report-mode textarea::placeholder {
     color: transparent !important;
@@ -1853,10 +1851,10 @@ body.is-loading .app-container {
 }
 
 /* ==========================================================================
-   Filter Toggle Button — Active / Inactive States
+   Filter Toggle Button ??Active / Inactive States
    ========================================================================== */
 
-/* Inactive (기본): 흰 배경, 회색 아이콘, 테두리 */
+/* Inactive (疫꿸퀡??: ??獄쏄퀗瑗? ???퉳 ?袁⑹뵠?? ???あ??*/
 #filter-toggle-btn {
     background: #FFFFFF !important;
     border: 1px solid #e2e8f0 !important;
@@ -1870,7 +1868,7 @@ body.is-loading .app-container {
     transition: color 0.2s ease !important;
 }
 
-/* Active (활성): 파란 배경, 흰 아이콘 */
+/* Active (??뽮쉐): ??? 獄쏄퀗瑗? ???袁⑹뵠??*/
 #filter-toggle-btn.active {
     background: #1A73E8 !important;
     border-color: #1A73E8 !important;
@@ -1881,7 +1879,7 @@ body.is-loading .app-container {
     color: #FFFFFF !important;
 }
 
-/* Search bar rounding — 리스트 페이지 공통 */
+/* Search bar rounding ???귐딅뮞????륁뵠筌왖 ?⑤벏??*/
 .search-centered-wrap .input-wrapper {
     border-radius: 10px !important;
 }
@@ -1889,10 +1887,10 @@ body.is-loading .app-container {
 
 /* ==========================================================================
    Shared List Page Components
-   (my_companies / my_sellers / my_buyers / total_* 공통)
+   (my_companies / my_sellers / my_buyers / total_* ?⑤벏??
    ========================================================================== */
 
-/* ── Page Toolbar (search bar + action buttons row) ── */
+/* ???? Page Toolbar (search bar + action buttons row) ???? */
 .page-toolbar {
     display: flex;
     align-items: center;
@@ -1933,7 +1931,7 @@ body.is-loading .app-container {
     flex-shrink: 0;
 }
 
-/* ── Filter Panel ── */
+/* ???? Filter Panel ???? */
 .filter-panel {
     display: block;
     background: #ffffff;
@@ -1948,7 +1946,7 @@ body.is-loading .app-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .filter-group-label {
@@ -1969,7 +1967,7 @@ body.is-loading .app-container {
 }
 .btn-filter-reset:hover { text-decoration: underline; }
 
-/* ── List Table Container ── */
+/* ???? List Table Container ???? */
 .list-table-wrap {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -2016,7 +2014,7 @@ body.is-loading .app-container {
     text-align: center;
 }
 
-/* ── Pagination Bar ── */
+/* ???? Pagination Bar ???? */
 .pagination-bar {
     display: flex;
     align-items: center;
@@ -2060,10 +2058,10 @@ body.is-loading .app-container {
 
 /* ==========================================================================
    Shared Modal Components
-   (detail modal, share modal 공통)
+   (detail modal, share modal ?⑤벏??
    ========================================================================== */
 
-/* ── Detail Modal Dialog ── */
+/* ???? Detail Modal Dialog ???? */
 .detail-modal-dialog {
     border-radius: 16px;
     background: #ffffff;
@@ -2080,7 +2078,7 @@ body.is-loading .app-container {
     padding: 32px 28px;
 }
 
-/* ── Detail Header Icon (large square at top) ── */
+/* ???? Detail Header Icon (large square at top) ???? */
 .detail-header-icon {
     width: 84px;
     height: 84px;
@@ -2098,7 +2096,7 @@ body.is-loading .app-container {
     color: #ffffff;
 }
 
-/* ── Detail Section Row (icon + title + content) ── */
+/* ???? Detail Section Row (icon + title + content) ???? */
 .detail-section {
     margin-bottom: 28px;
 }
@@ -2107,7 +2105,7 @@ body.is-loading .app-container {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .detail-section-icon {
@@ -2140,7 +2138,7 @@ body.is-loading .app-container {
     padding-left: 4px;
 }
 
-/* ── Share Options Modal ── */
+/* ???? Share Options Modal ???? */
 .share-option-btn {
     display: flex;
     align-items: center;
@@ -2153,7 +2151,7 @@ body.is-loading .app-container {
     cursor: pointer;
     text-align: left;
     transition: all 0.2s;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .share-option-btn:last-child { margin-bottom: 0; }
@@ -2191,7 +2189,7 @@ body.is-loading .app-container {
     color: #64748b;
 }
 
-/* ── External Share Guide Box ── */
+/* ???? External Share Guide Box ???? */
 .ext-share-guide {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -2200,7 +2198,7 @@ body.is-loading .app-container {
     font-size: 12px;
     color: #64748b;
     line-height: 1.7;
-    margin-top: 16px;
+    margin-top: 16px;    /* 섹션 간 간격 확대 */
 }
 
 .ext-share-guide strong {
@@ -2209,7 +2207,7 @@ body.is-loading .app-container {
 
 
 /* ==========================================================================
-   Page-level Theme Mode — applied as class on <body>
+   Page-level Theme Mode ??applied as class on <body>
    Sets --page-theme-* custom properties used by shared modal components
    ========================================================================== */
 
@@ -2262,7 +2260,7 @@ body.theme-mode-buyers {
 
 
 /* ==========================================================================
-   List Page — Page Header
+   List Page ??Page Header
    ========================================================================== */
 
 .page-title {
@@ -2281,7 +2279,7 @@ body.theme-mode-buyers {
 
 
 /* ==========================================================================
-   List Page — Search & Actions Toolbar
+   List Page ??Search & Actions Toolbar
    ========================================================================== */
 
 .search-and-actions {
@@ -2380,7 +2378,7 @@ body.theme-mode-buyers {
 
 
 /* ==========================================================================
-   List Page — Filter Panel internals
+   List Page ??Filter Panel internals
    ========================================================================== */
 
 .filter-group-label {
@@ -2451,7 +2449,7 @@ body.theme-mode-buyers {
 
 
 /* ==========================================================================
-   List Page — Table
+   List Page ??Table
    ========================================================================== */
 
 .list-section-title {
@@ -2514,7 +2512,7 @@ body.theme-mode-buyers {
     color: #ffffff !important;
 }
 
-/* Share option hover — themed */
+/* Share option hover ??themed */
 .share-option-btn {
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
@@ -2578,7 +2576,7 @@ body.theme-mode-buyers {
 
 
 /* ==========================================================================
-   List Page — Detail Modal
+   List Page ??Detail Modal
    ========================================================================== */
 
 .detail-header-name {
@@ -2588,7 +2586,7 @@ body.theme-mode-buyers {
 }
 
 /* ==========================================================================
-   List Page — New / Edit Modal Forms
+   List Page ??New / Edit Modal Forms
    ========================================================================== */
 
 .modal-form-label {
@@ -2739,7 +2737,7 @@ body.theme-mode-buyers {
     display: none !important;
 }
 
-/* Primary Card — Companies (Blue) */
+/* Primary Card ??Companies (Blue) */
 .card-grid .menu-card.primary-card.group-startup {
     background: var(--color-companies) !important;
     border-color: var(--color-companies) !important;
@@ -2757,7 +2755,7 @@ body.theme-mode-buyers {
     color: var(--color-companies) !important;
 }
 
-/* Primary Card — Sellers (Purple) */
+/* Primary Card ??Sellers (Purple) */
 .card-grid .menu-card.primary-card.group-ma-seller {
     background: var(--color-sellers) !important;
     border-color: var(--color-sellers) !important;
@@ -2775,7 +2773,7 @@ body.theme-mode-buyers {
     color: var(--color-sellers) !important;
 }
 
-/* Primary Card — Buyers (Teal) */
+/* Primary Card ??Buyers (Teal) */
 .card-grid .menu-card.primary-card.group-ma-buyer {
     background: var(--color-buyers) !important;
     border-color: var(--color-buyers) !important;
@@ -2887,7 +2885,7 @@ body.theme-mode-buyers {
 
 .auth-page .login-box .page-title {
     font-size: 24px;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
     color: #000000 !important;
 }
 
@@ -3139,7 +3137,7 @@ body.theme-mode-buyers {
 .auth-page .checkbox-group {
     display: flex;
     align-items: flex-start;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
 }
 
 .auth-page .checkbox-group input[type="checkbox"] {
@@ -3175,7 +3173,7 @@ body.theme-mode-buyers {
     }
 }
 
-/* ── Shared Components ── */
+/* ???? Shared Components ???? */
 
 /* Empty State */
 .dc-empty-state {
@@ -3238,9 +3236,9 @@ body.theme-mode-buyers {
     font-size: 15px;
 }
 
-/* ── Shared Items ── */
+/* ???? Shared Items ???? */
 
-/* ── Unread Toggle Button ── */
+/* ???? Unread Toggle Button ???? */
 .unread-toggle-btn {
     height: 40px;
     padding: 0 18px;
@@ -3276,7 +3274,7 @@ body.theme-mode-buyers {
     font-variation-settings: 'FILL' 1, 'wght' 600;
 }
 
-/* ── List Header Row ── */
+/* ???? List Header Row ???? */
 .list-header {
     display: flex;
     align-items: center;
@@ -3290,14 +3288,14 @@ body.theme-mode-buyers {
     white-space: nowrap;
 }
 
-/* ── Center-aligned th override ── */
+/* ???? Center-aligned th override ???? */
 .list-th-c { text-align: center !important; }
 
-/* ── Pagination ── */
+/* ???? Pagination ???? */
 
-/* ══════════════════════════════════════
+/* ?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름
    ITEM SUMMARY MODAL (Refined)
-══════════════════════════════════════ */
+?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름?癒λ름 */
 .summary-modal-backdrop {
     display: none;
     position: fixed;
@@ -3330,7 +3328,7 @@ body.theme-mode-buyers {
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ── Header ── */
+/* ???? Header ???? */
 .summary-modal-header {
     flex: 0 0 auto;
     display: flex;
@@ -3361,7 +3359,7 @@ body.theme-mode-buyers {
     font-size: 22px;
     font-weight: 800;
     color: #0f172a;
-    margin-bottom: 12px;
+    margin-bottom: 12px; /* 섹션 타이틀 하단 여백 확대 */
     font-family: 'Outfit', sans-serif;
     letter-spacing: -0.02em;
     line-height: 1.2;
@@ -3377,7 +3375,7 @@ body.theme-mode-buyers {
     letter-spacing: 0.05em;
 }
 
-/* ── Body ── */
+/* ???? Body ???? */
 .summary-modal-body {
     flex: 1 1 auto;
     padding: 0 32px 32px;
@@ -3419,7 +3417,7 @@ body.theme-mode-buyers {
 }
 .summary-empty-text { color: #94a3b8; font-style: italic; font-size: 13px; }
 
-/* 파일 리스트 */
+/* ???뵬 ?귐딅뮞??*/
 .summary-files-box {
     display: flex;
     flex-direction: column;
@@ -3484,7 +3482,7 @@ body.theme-mode-buyers {
     color: #f59e0b;
 }
 
-/* 발신자 정보 카드 */
+/* 獄쏆뮇????類ｋ궖 燁삳?諭?*/
 .summary-sender-card {
     background: #f1f5f9;
     color: #1e293b;
@@ -3511,7 +3509,7 @@ body.theme-mode-buyers {
 .date-label { font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 2px; text-transform: uppercase; }
 .date-value { font-size: 11.5px; font-weight: 600; color: #475569; font-family: 'Outfit', sans-serif; }
 
-/* ── Footer ── */
+/* ???? Footer ???? */
 .summary-modal-footer {
     flex: 0 0 auto;
     padding: 24px 32px;
@@ -3537,13 +3535,13 @@ body.theme-mode-buyers {
 .btn-summary-action { background: #0f172a; color: #fff; box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.2); }
 .btn-summary-action:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(15, 23, 42, 0.3); }
 
-/* ── Animation ── */
+/* ???? Animation ???? */
 @keyframes modalFadeIn {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Dealbook Sellers ── */
+/* ???? Dealbook Sellers ???? */
 
 @keyframes rotate {
     from { transform: rotate(0deg); }
@@ -3564,7 +3562,7 @@ body.theme-mode-buyers {
     transform: scale(1.1);
 }
 
-/* 드롭다운 표시 제어 */
+/* ??뺚댘??쇱뒲 ??뽯뻻 ??뽯선 */
 .model-dropdown.show {
     display: block !important;
 }
@@ -3588,7 +3586,7 @@ body.theme-mode-buyers {
     box-shadow: 0 4px 10px var(--page-theme-shadow);
 }
 
-/* sidebar는 보라색 primary 테마 */
+/* sidebar??癰귣????primary ???춳 */
 .sidebar .panel-header {
     border-bottom: 1px solid var(--border-color);
 }
@@ -3598,14 +3596,14 @@ body.theme-mode-buyers {
     box-shadow: 0 4px 12px var(--page-theme-shadow);
 }
 
-/* notebook-title placeholder 스타일 */
+/* notebook-title placeholder ?????*/
 [contenteditable="true"]:empty::before {
     content: attr(placeholder);
     color: #94a3b8;
     pointer-events: none;
 }
 
-/* 드래그 앤 드롭 스타일 */
+/* ??뺤삋域?????뺚댘 ?????*/
 .file-list-card {
     transition: all 0.2s ease;
     position: relative;
@@ -3618,7 +3616,7 @@ body.theme-mode-buyers {
 }
 
 .file-list-card.drag-over::after {
-    content: "여기에 드롭하여 파일 업로드";
+    content: "??由????뺚댘??뤿연 ???뵬 ??낆쨮??;
     position: absolute;
     top: 50%;
     left: 50%;

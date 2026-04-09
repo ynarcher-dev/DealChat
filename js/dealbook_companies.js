@@ -5,9 +5,9 @@ import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, showLoader, r
 import { checkNdaStatus, initNdaGate } from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson, resolveIndustry, resolveMgmtStatus, buildFinancialString, buildInvestmentString, buildChatContext } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable, reformatFinancialTableTransposed } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
-import { createFinancialRow } from './financial_utils.js';
+import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 
 
@@ -177,6 +177,9 @@ $(document).ready(function () {
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
                 $('#memo-update-date').text(`작성 일시: ${d.getFullYear()}.${mm}.${dd}`);
+
+                // 신규 시에도 기본 재무 정보 표 렌더링 (금융 유틸리티 사용)
+                renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
                 
                 hideLoader();
                 $('body').removeClass('is-loading');
@@ -226,16 +229,8 @@ $(document).ready(function () {
             const status = company.mgmt_status || '대기';
             setMgmtStatusChip(status);
 
-            // 재무 정보 행 생성
-            $('#financial-rows').empty();
-            if (company.financial_info && Array.isArray(company.financial_info)) {
-                // 최신 연도가 상단에 오도록 내림차순 정렬
-                const sortedFin = [...company.financial_info].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
-                sortedFin.forEach(f => {
-                    createFinancialRow(f.year, f.revenue, f.profit, f.net_profit);
-                });
-            }
-            if ($('#financial-rows').children().length === 0) createFinancialRow();
+            // 재무 정보 전치 테이블 렌더링
+            renderFinancialTable(migrateFinancialInfo(company.financial_info), 'financial-table-container');
 
             // 투자 정보 행 생성
             $('#investment-rows').empty();
@@ -449,7 +444,6 @@ $(document).ready(function () {
 
 
     $(document).on('click', '.btn-remove-row', function() { $(this).parent().remove(); });
-    $('#add-financial-btn').on('click', () => createFinancialRow());
     $('#add-investment-btn').on('click', () => createInvestmentRow());
 
     // 숫지 포맷팅
@@ -491,16 +485,8 @@ $(document).ready(function () {
         }
         const status = statusResult.value;
 
-        // 재무 정보 수집
-        const financial_info = [];
-        $('.financial-row').each(function() {
-            financial_info.push({
-                year: $(this).find('.fin-year').val(),
-                revenue: $(this).find('.fin-revenue').val(),
-                profit: $(this).find('.fin-profit').val(),
-                net_profit: $(this).find('.fin-net').val()
-            });
-        });
+        // 재무 정보 수집 (전치 테이블)
+        const financial_info = collectFinancialData('financial-table-container');
 
         // 투자 정보 수집
         const investment_info = [];
@@ -603,7 +589,7 @@ $(document).ready(function () {
 - address: 주소
 - summary: 회사소개 (300자 내외 요약)
 - key_products: 주요 제품/서비스 (핵심 기술 및 제품 라인업)
-- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "순이익(숫자만)" }]
+- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
 - investment_info: [{ "year": "연도", "stage": "단계", "valuation": "벨류(숫자만)", "amount": "금액(숫자만)", "investor": "투자자" }]
 - financial_analysis: 재무제표 성장성 및 수익성 분석 코멘트 (매출 증가 추이, 영업이익률 변화 등을 포함하여 상세히 기술)
 
@@ -677,12 +663,9 @@ $(document).ready(function () {
             if (jsonData.key_products) $('#key-products').val(jsonData.key_products);
             if (jsonData.financial_analysis) $('#financial-analysis').val(jsonData.financial_analysis);
 
-            // 재무 정보 (기존 행이 비어있으면 교체, 데이터 있으면 추가)
+            // 재무 정보 (전치 테이블 갱신)
             if (jsonData.financial_info && Array.isArray(jsonData.financial_info) && jsonData.financial_info.length > 0) {
-                $('#financial-rows').empty();
-                jsonData.financial_info.forEach(f => {
-                    createFinancialRow(f.year, f.revenue, f.profit, f.net_profit);
-                });
+                renderFinancialTable(migrateFinancialInfo(jsonData.financial_info), 'financial-table-container');
             }
 
             // 투자 정보
@@ -787,16 +770,18 @@ $(document).ready(function () {
                 }
             }
 
-            // UI 데이터(재무/투자)를 배열로 수집 후 순수 함수로 텍스트 변환
+            // UI 데이터(재무/투자)를 수집 후 순수 함수로 텍스트 변환
+            const finData = collectFinancialData('financial-table-container');
             const financialRows = [];
-            $('.financial-row').each(function() {
-                financialRows.push({
-                    year:    $(this).find('.fin-year').val(),
-                    revenue: $(this).find('.fin-revenue').val(),
-                    profit:  $(this).find('.fin-profit').val(),
-                    net:     $(this).find('.fin-net').val(),
+            if (finData && finData.years && finData.items) {
+                finData.years.forEach(year => {
+                    const row = { year };
+                    finData.items.forEach(item => {
+                        row[item.key] = item.values[year] || '';
+                    });
+                    financialRows.push(row);
                 });
-            });
+            }
 
             const investmentRows = [];
             $('.investment-row').each(function() {
@@ -982,6 +967,8 @@ $(document).ready(function () {
     // ==========================================
     function applyReadOnlyMode() {
         applyReportMode({
+            reportTitle: '기업 정보 - DealChat',
+            titleSelector: '#notebook-title-editor',
             textareaIds: ['summary', 'key-products', 'financial-analysis', 'manager-memo'],
             afterApply: () => {
                 reformatReportTable($('#investment-rows'), '.investment-row', [
@@ -991,12 +978,7 @@ $(document).ready(function () {
                     { header: '금액(원)',   selector: '.inv-amount',     flex: 2,   align: 'right', format: 'number' },
                     { header: '투자자',    selector: '.inv-investor',   flex: 2.5, align: 'center' }
                 ]);
-                reformatReportTable($('#financial-rows'), '.financial-row', [
-                    { header: '년도',        selector: '.fin-year',    flex: 1, align: 'center' },
-                    { header: '매출액(원)',   selector: '.fin-revenue', flex: 2, align: 'right', format: 'number' },
-                    { header: '영업이익(원)', selector: '.fin-profit',  flex: 2, align: 'right', format: 'number' },
-                    { header: '당기순익(원)', selector: '.fin-net',     flex: 2, align: 'right', format: 'number' }
-                ]);
+                reformatFinancialTableTransposed('financial-table-container');
                 injectReportSectionIcons({
                     'notebook-title-editor': 'business',
                     'industry': 'category',
@@ -1014,8 +996,6 @@ $(document).ready(function () {
                 });
             }
         });
-
-        document.title = (currentCompanyData?.name || '기업') + ' 리포트 - DealChat';
     }
 
 

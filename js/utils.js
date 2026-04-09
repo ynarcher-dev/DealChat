@@ -90,8 +90,8 @@ export function tryRepairJson(str) {
 }
 
 /**
- * 텍스트에서 식별 키워드를 ○○○으로 마스킹합니다.
- * 비밀유지 의무가 있는 정보를 표시할 때 사용합니다.
+ * 텍스트에서 식별 키워드를 글자 수에 맞춰 ○ 문자로 마스킹합니다.
+ * 비밀유지 의무가 있는 정보를 표시할 때 사용하며, 공백과 줄바꿈은 유지합니다.
  *
  * @param {string} text - 원본 텍스트
  * @param {string[]} keywords - 마스킹할 키워드 배열
@@ -104,10 +104,22 @@ export function applyKeywordsMasking(text, keywords) {
         if (!kw) return;
         const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(escapedKw, 'gi');
-        result = result.replace(regex, '○○○');
+        result = result.replace(regex, (match) => maskWithCircles(match));
     });
     return result;
 }
+
+/**
+ * 텍스트를 원문의 글자 수와 공백을 유지하며 ○ 문자로 치환합니다.
+ *
+ * @param {string} text - 치환할 텍스트
+ * @returns {string}
+ */
+export function maskWithCircles(text) {
+    if (!text) return "";
+    return text.split('').map(char => (char === ' ' || char === '\n') ? char : '○').join('');
+}
+
 
 /**
  * 산업군 select 값을 최종 저장 문자열로 변환합니다.

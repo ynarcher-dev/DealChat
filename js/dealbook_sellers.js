@@ -3,11 +3,11 @@ import { APIcall } from './APIcallFunction.js';
 import { filetypecheck, fileUpload, downloadTextFile } from './File_Functions.js';
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER, showLoader } from './auth_utils.js';
 import * as sharingUtils from './sharing_utils.js';
-import { escapeForDisplay, tryRepairJson } from './utils.js';
+import { escapeForDisplay, tryRepairJson, applyKeywordsMasking, maskWithCircles } from './utils.js';
 import { initModelSelector } from './model_selector.js';
-import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable } from './dealbook_report_utils.js';
+import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatFinancialTableTransposed } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
-import { createSellerFinancialRow as createFinancialRow } from './financial_utils.js';
+import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -84,7 +84,7 @@ $(document).ready(function () {
     // 블라인드 설정 전역 변수
     let isBlindActive = true;
     let blindKeywords = [];
-    let blindPersonal = { ceo: false, email: false, establishment: false, address: false };
+    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false };
     
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
@@ -200,13 +200,8 @@ $(document).ready(function () {
         $('#seller-key-products').val(company.key_products || '');
         $('#seller-fin-analysis').val(company.financialAnalysis || '');
         
-        $('#financial-rows').empty();
         const finSource = company.financialDataArr || company.financial_info || company.financial_data;
-        if (finSource && Array.isArray(finSource) && finSource.length > 0) {
-            finSource.forEach(fin => {
-                createFinancialRow(fin.year || '', fin.revenue || '', fin.profit || fin.operating_profit || '', fin.net_profit || fin.net_income || '', fin.ev_ebitda || '');
-            });
-        }
+        renderFinancialTable(migrateFinancialInfo(finSource), 'financial-table-container');
         toggleCompanyFields(true);
         
         try {
@@ -276,14 +271,11 @@ $(document).ready(function () {
 
         // 버튼들 처리
         $('#ai-auto-fill-btn').prop('disabled', !isEnabled).css({ 'opacity': isEnabled ? '1' : '0.5', 'cursor': isEnabled ? 'pointer' : 'not-allowed' });
-        $('#add-financial-btn').prop('disabled', !isEnabled).css({ 'opacity': isEnabled ? '1' : '0.6', 'cursor': isEnabled ? 'pointer' : 'not-allowed' });
-        
-        $('.financial-row input').each(function() {
+        // 재무 전치 테이블 입력 필드 활성화/비활성화
+        $('#financial-table-container input').each(function() {
             $(this).prop('readonly', !isEnabled);
-            $(this).removeClass('field-active field-disabled').addClass(isEnabled ? 'field-active' : 'field-disabled');
         });
-        
-        $('.btn-remove-row').toggle(isEnabled);
+        $('#financial-table-container button').toggle(isEnabled);
         $('#blind-tag-input').prop('readonly', !isEnabled).removeClass('field-active field-disabled').addClass(isEnabled ? 'field-active' : 'field-disabled');
         $('.btn-status-chip').css({ 'pointer-events': isEnabled ? 'auto' : 'none', 'opacity': isEnabled ? '1' : '0.7' });
     }
@@ -380,7 +372,9 @@ $(document).ready(function () {
     async function loadSellerData() {
         if (isNew) {
             setChip('대기');
-            $('#financial-rows').empty();
+            // 신규 시에도 기본 재무 정보 표 렌더링 (금융 유틸리티 사용)
+            renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
+            
             toggleCompanyFields(false); // Initial State: Disable all fields
             $('#btn-delete-seller').hide();
             hideLoader();
@@ -426,8 +420,10 @@ $(document).ready(function () {
             window.currentSellerData = currentSellerData;
             $('#btn-delete-seller').show();
             blindKeywords = Array.isArray(seller.blind_keywords) ? seller.blind_keywords : [];
-            blindPersonal = seller.blind_personal || { ceo: false, email: false, establishment: false, address: false };
+            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false };
+            blindPersonal = { ...defaultBlind, ...(seller.blind_personal || {}) };
             renderBlindTags();
+            $('#blind-check-name').prop('checked', blindPersonal.name);
             $('#blind-check-ceo').prop('checked', blindPersonal.ceo);
             $('#blind-check-email').prop('checked', blindPersonal.email);
             $('#blind-check-establishment').prop('checked', blindPersonal.establishment);
@@ -462,10 +458,8 @@ $(document).ready(function () {
             setChip(seller.status || '대기');
             $('#seller-method').val((['대기', '진행중', '완료'].includes(seller.sale_method)) ? '' : (seller.sale_method || ''));
 
-            $('#financial-rows').empty();
-            const finData = (seller.financial_info && Array.isArray(seller.financial_info)) ? seller.financial_info : (company.financial_info || []);
-            if (finData.length > 0) finData.forEach(f => createFinancialRow(f.year, f.revenue, f.profit, f.net_profit, f.ev_ebitda));
-            else createFinancialRow();
+            const finData = seller.financial_info || company.financial_info || null;
+            renderFinancialTable(migrateFinancialInfo(finData), 'financial-table-container');
 
             const authorId = seller.user_id;
             const { data: authorData } = authorId ? await _supabase.from('users').select('*').eq('id', authorId).maybeSingle() : { data: null };
@@ -525,15 +519,7 @@ $(document).ready(function () {
         const key_products = $('#seller-key-products').val().trim();
         const private_memo = $('#private-memo').val().trim();
 
-        const financial_data = [];
-        $('.financial-row').each(function() {
-            const year = $(this).find('.fin-year').val().trim();
-            const revenue = $(this).find('.fin-revenue').val().replace(/,/g, '').trim();
-            const profit = $(this).find('.fin-profit').val().replace(/,/g, '').trim();
-            const net_profit = $(this).find('.fin-net-profit').val().replace(/,/g, '').trim();
-            const ev_ebitda = $(this).find('.fin-ev-ebitda').val().trim();
-            if (year || revenue || profit || net_profit || ev_ebitda) financial_data.push({ year, revenue, profit, net_profit, ev_ebitda });
-        });
+        const financial_data = collectFinancialData('financial-table-container');
 
         if (!name || industry === '선택해주세요' || !summary) { alert('기업명, 산업, 소개는 필수입니다.'); return null; }
 
@@ -829,49 +815,35 @@ $(document).ready(function () {
 
     // AI 자동 입력 추출
     $('#ai-auto-fill-btn').on('click', async function() {
-        // [수정] 신규 작성이어도 기업 연동 파일이 있거나, 기존 작성이면서 파일이 있는 경우 모두 허용
         const totalFiles = availableFiles.length + companyLinkedFiles.length;
         if (totalFiles === 0) { alert('분석할 파일이 없습니다. 파일을 먼저 추가하거나 기업을 선택하세요.'); return; }
         
         const $btn = $(this), orig = $btn.html();
         
-        // [수정] 분석 중 테마 활성화 모드 (Companies와 동일하게 변경)
         $btn.prop('disabled', true)
             .addClass('analyzing')
             .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
 
         try {
-            // [수정] 매도자 ID와 기업 ID 두 곳 모두 검색
             let ragContexts = [];
-            
-            // 1. 매도자 소유 파일 검색 (추가 학습 데이터)
             if (!isNew && sellerId) {
                 const sellerRag = await searchVectorDB("기업 주요 정보 추출", sellerId);
                 if (sellerRag) ragContexts.push(sellerRag);
             }
-            
-            // 2. [추가] 신규 작성 중 업로드된 파일(pendingFiles) 내용 포함
             if (pendingFiles.length > 0) {
                 pendingFiles.forEach(f => {
                     const txt = f.parsed_text || f.parsedText;
                     if (txt) ragContexts.push(txt);
                 });
             }
-            
-            // 3. 연동된 기업 소유 파일 검색 (기본 학습 데이터)
             const tid = (currentSellerData?.company_id) || selectedCompanyId;
             if (tid) {
                 const companyRag = await searchVectorDB("기업 주요 정보 추출", tid);
                 if (companyRag) ragContexts.push(companyRag);
             }
-            
             const ctx = ragContexts.join("\n\n---\n\n");
-            if (!ctx) { 
-                alert('파일에서 분석할 수 있는 텍스트를 찾을 수 없습니다.'); 
-                return; 
-            }
+            if (!ctx) { alert('파일에서 분석할 수 있는 텍스트를 찾을 수 없습니다.'); return; }
 
-            // [수정] Companies 수준의 고도화된 프롬프트 적용
             const prompt = `
 업로드된 기업 관련 문서 내용을 바탕으로 다음 정보를 추출하여 정확한 JSON 형식으로 답변해주세요.
 - companyName: 기업명(매도자)
@@ -882,10 +854,7 @@ $(document).ready(function () {
 - address: 주소
 - summary: 회사소개 (300자 내외 요약)
 - keyProducts: 주요 제품/서비스 (핵심 기술 및 제품 라인업)
-- revenue: 매출액 (숫자만 추출, 예: 1000000)
-- operatingProfit: 영업이익 (숫자만 추출, 예: 500000)
-- netProfit: 당기순이익 (숫자만 추출, 예: 400000)
-- evEbitda: EV/EBITDA 배수 (숫자만 추출)
+- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
 
 **주의사항**:
 1. "담당자 의견"이나 매도 방식 등은 분석 결과가 확실한 경우에만 포함하세요.
@@ -896,29 +865,19 @@ $(document).ready(function () {
 
             const res = await addAiResponse(prompt, ctx, getCurrentModelId());
             const data = await res.json();
-            
             let resultText = data.answer || data.text || "";
             let jsonString = '';
             const markdownMatch = resultText.match(/```json\n?([\s\S]*?)\n?```/);
-            if (markdownMatch) {
-                jsonString = markdownMatch[1].trim();
-            } else {
+            if (markdownMatch) jsonString = markdownMatch[1].trim();
+            else {
                 const curlyMatch = resultText.match(/\{[\s\S]*\}/);
                 if (curlyMatch) jsonString = curlyMatch[0].trim();
             }
-
             if (!jsonString) throw new Error('유효한 데이터 추출에 실패했습니다.');
 
             let json;
-            try {
-                json = JSON.parse(jsonString);
-            } catch (pErr) {
-                try {
-                    const repairedJson = tryRepairJson(jsonString);
-                    json = JSON.parse(repairedJson);
-                } catch (rErr) {
-                    throw new Error('AI 응답이 끊겼거나 형식이 올바르지 않습니다.');
-                }
+            try { json = JSON.parse(jsonString); } catch (pErr) {
+                try { json = JSON.parse(tryRepairJson(jsonString)); } catch (rErr) { throw new Error('AI 응답이 끊겼거나 형식이 올바르지 않습니다.'); }
             }
 
             if (json) {
@@ -927,10 +886,7 @@ $(document).ready(function () {
                     const $ind = $('#seller-industry');
                     const options = $ind.find('option').map(function() { return $(this).val(); }).get();
                     if (options.includes(json.industry)) $ind.val(json.industry).trigger('change');
-                    else {
-                        $ind.val('기타').trigger('change');
-                        $('#seller-industry-etc').val(json.industry).show();
-                    }
+                    else { $ind.val('기타').trigger('change'); $('#seller-industry-etc').val(json.industry).show(); }
                 }
                 if (json.ceoName) $('#seller-ceo').val(json.ceoName);
                 if (json.email) $('#seller-email').val(json.email);
@@ -938,59 +894,64 @@ $(document).ready(function () {
                 if (json.address) $('#seller-address').val(json.address);
                 if (json.summary) $('#seller-summary').val(json.summary);
                 if (json.keyProducts) $('#seller-key-products').val(json.keyProducts);
-                
-                const $f = $('.financial-row').first();
-                if (json.revenue) $f.find('.fin-revenue').val(json.revenue).trigger('input');
-                if (json.operatingProfit) $f.find('.fin-profit').val(json.operatingProfit).trigger('input');
-                if (json.netProfit) $f.find('.fin-net-profit').val(json.netProfit).trigger('input');
-                if (json.evEbitda) $f.find('.fin-ev-ebitda').val(json.evEbitda);
-                
+                if (json.financial_info && Array.isArray(json.financial_info) && json.financial_info.length > 0) {
+                    renderFinancialTable(migrateFinancialInfo(json.financial_info), 'financial-table-container');
+                }
                 autoResizeAllTextareas();
                 alert('AI가 파일 내용을 분석하여 정보를 자동으로 입력했습니다.');
             }
-        } catch (e) { 
-            console.error('AI Auto-fill Error:', e);
-            alert('정보 추출 중 오류가 발생했습니다.'); 
-        } finally { 
-            $btn.prop('disabled', false).removeClass('analyzing').html(orig); 
-        }
+        } catch (e) { console.error('AI Auto-fill Error:', e); alert('정보 추출 중 오류가 발생했습니다.'); }
+        finally { $btn.prop('disabled', false).removeClass('analyzing').html(orig); }
     });
+
 
     // 블라인드 마스킹 실제 수행
     function applyBlindMasking() {
         const anyPersonal = Object.values(blindPersonal).some(v => v);
         if (!isBlindActive && !anyPersonal) return;
+        
+        const blindBadge = '<span class="badge-blind">blind</span>';
         const regex = (isBlindActive && blindKeywords.length) ? new RegExp(blindKeywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi') : null;
         
-        ['seller-ceo', 'seller-email', 'seller-establishment', 'seller-address'].forEach(id => {
-            const key = id.split('-')[1];
-            if (blindPersonal[key === 'ceo' ? 'ceo' : key]) {
+        // 1. 개별 필드 블라인드 (체크박스) -> 뱃지로 표시
+        ['seller-name-editor', 'seller-ceo', 'seller-email', 'seller-establishment', 'seller-address'].forEach(id => {
+            const fieldMap = { 'name-editor': 'name', 'ceo': 'ceo', 'email': 'email', 'establishment': 'establishment', 'address': 'address' };
+            const key = fieldMap[id.split('-')[1] + (id.includes('name') ? '-editor' : '')] || id.split('-')[1];
+            
+            if (blindPersonal[key]) {
                 const $el = $(`#${id}`), $rep = $el.next('.report-text-field');
-                if ($rep.length) $rep.text('○○○'); else if ($el.length) $el.val('○○○');
+                if ($rep.length) $rep.html(blindBadge); 
+                else if ($el.length) {
+                    if (id === 'seller-name-editor') $el.html(blindBadge);
+                    else $el.val('blind');
+                }
             }
         });
 
+        // 2. 키워드 블라인드 (본문 및 블라인드 체크 안 된 개별 필드) -> ○로 표시
         if (regex) {
             ['#seller-summary', '#seller-key-products', '#seller-fin-analysis', '#seller-memo', '#seller-manager-memo'].forEach(sel => {
                 const $el = $(sel), $rep = $el.next('.report-text-content');
-                if ($rep.length) $rep.text($rep.text().replace(regex, '○○○'));
-                else if ($el.length) $el.val($el.val().replace(regex, '○○○'));
+                if ($rep.length) $rep.html($rep.text().replace(regex, (match) => maskWithCircles(match)));
+                else if ($el.length) $el.val($el.val().replace(regex, (match) => maskWithCircles(match)));
             });
-            const $name = $('#seller-name-editor'); $name.text($name.text().replace(regex, '○○○'));
+            
+            // 키워드 블라인드: 이름 필드 (이름 자체가 블라인드 체크 안 된 경우에만 수행)
+            if (!blindPersonal.name) {
+                const $name = $('#seller-name-editor'); 
+                $name.html($name.text().replace(regex, (match) => maskWithCircles(match)));
+            }
         }
     }
 
     function applySellerReadOnlyMode() {
         applyReportMode({
+            reportTitle: '매도자 정보 - DealChat',
+            titleSelector: '#seller-name-editor',
             textareaIds: ['seller-summary', 'seller-key-products', 'seller-fin-analysis', 'seller-memo', 'seller-manager-memo'],
+            inputIds: ['seller-name-editor', 'seller-ceo', 'seller-email', 'seller-establishment', 'seller-address', 'seller-price', 'seller-method'],
             afterApply: () => {
-                reformatReportTable($('#financial-rows'), '.financial-row', [
-                    { header: '년도',   selector: '.fin-year',       flex: 1, align: 'center' },
-                    { header: '매출',   selector: '.fin-revenue',    flex: 2, align: 'right', format: 'number' },
-                    { header: '영업익', selector: '.fin-profit',     flex: 2, align: 'right', format: 'number' },
-                    { header: '순익',   selector: '.fin-net-profit', flex: 2, align: 'right', format: 'number' },
-                    { header: 'EV/EB', selector: '.fin-ev-ebitda',  flex: 1, align: 'right', format: 'number' }
-                ]);
+                reformatFinancialTableTransposed('financial-table-container');
                 injectReportSectionIcons({
                     'status-chip-group': 'account_tree',
                     'seller-summary': 'description',
@@ -1036,13 +997,5 @@ $(document).ready(function () {
 
 
     
-    $(document).on('click', '.btn-remove-row', function() { $(this).closest('.financial-row').remove(); });
-    $('#add-financial-btn').on('click', () => createFinancialRow());
     $('.btn-status-chip').on('click', function() { $('.btn-status-chip').removeClass('active'); $(this).addClass('active'); });
-
-    // 콤마 자동 삽입
-    $(document).on('input', '.fin-revenue, .fin-profit, .fin-net-profit', function() {
-        let val = $(this).val().replace(/[^0-9]/g, '');
-        if (val) $(this).val(Number(val).toLocaleString());
-    });
 });

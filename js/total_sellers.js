@@ -1,7 +1,7 @@
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
-import { debounce, escapeHtml, applyKeywordsMasking } from './utils.js';
+import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { 
     getIndustryIcon, 
@@ -273,24 +273,32 @@ function renderSellers() {
         const isSigned = signedNdaIds.includes(String(seller.id)) || signedNdas.includes(String(seller.id));
         const isAuthorized = isOwner || isSigned;
 
-        let displayName = isAuthorized ? seller.company_name : '비공개';
+        const isNameBlinded = (seller.is_blind_active && seller.blind_personal?.name);
+        
+        let displayName = (seller.company_name || '정보 없음');
+        if (status === '완료') {
+            displayName = '완료';
+        } else if (status === '진행중') {
+            displayName = '진행중';
+        } else if (isNameBlinded) {
+            displayName = 'Blind';
+        }
+
         let displaySummary = seller.summary || "";
 
-        // 식별정보 블라인드 적용 (NDA 체결 이후에도 보호)
+        // 본문 마스킹 (키워드 기반)
         if (seller.is_blind_active && seller.blind_keywords) {
             displaySummary = applyKeywordsMasking(displaySummary, seller.blind_keywords);
-            if (isAuthorized) {
-                displayName = applyKeywordsMasking(displayName, seller.blind_keywords);
-            }
         }
 
-        // 구 버전 마스킹 (NDA 미체결 시 기업명 가리기)
-        if (!isAuthorized && seller.company_name) {
+        // 이름 블라인드 시 본문의 이름도 마스킹
+        if (isNameBlinded && seller.company_name) {
             const escapedName = seller.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
-            displaySummary = displaySummary.replace(nameRegex, 'OOO');
+            displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
         }
 
+        // 진행상황에 따른 스타일
         const isPriceNegotiable = !seller.matching_price || seller.matching_price === '협의';
         const priceDisplay = isPriceNegotiable ? (seller.matching_price || '협의') : `${seller.matching_price}억`;
         const priceColor = isRestricted ? "#94a3b8" : "#000000";
@@ -303,10 +311,8 @@ function renderSellers() {
                             <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${!isAuthorized ? 'lock' : getIndustryIcon(seller.industry)}</span>
                         </div>
                         <div style="flex: 1; min-width: 0;">
-                            ${!isAuthorized
-                                ? isRestricted
-                                    ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
-                                    : `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#8b5cf6;background:#f5f3ff;border:1px solid #8b5cf633;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
+                            ${(!isAuthorized && !isRestricted)
+                                ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#8b5cf6;background:#f5f3ff;border:1px solid #8b5cf633;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
                                 : `<span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>`
                             }
                         </div>
@@ -368,30 +374,37 @@ window.showSellerDetail = function (id) {
     const isSigned = signedNdaIds.includes(String(seller.id)) || localSigned.includes(String(seller.id));
     const isAuthorized = isOwner || isSigned;
 
-    let displayName = isAuthorized ? seller.company_name : '비공개';
+    const isNameBlinded = (seller.is_blind_active && seller.blind_personal?.name);
+    const status = seller.status || '대기';
+
+    let displayName = (seller.company_name || '정보 없음');
+    if (status === '완료') {
+        displayName = '완료';
+    } else if (status === '진행중') {
+        displayName = '진행중';
+    } else if (isNameBlinded) {
+        displayName = 'Blind';
+    }
+
     let displaySummary = seller.summary || "";
     let memo = seller.manager_memo || seller.managerMemo || "";
 
-    // 식별정보 블라인드 적용 (NDA 체결 이후에도 보호)
+    // 본문 마스킹 (키워드 기반)
     if (seller.is_blind_active && seller.blind_keywords) {
         displaySummary = applyKeywordsMasking(displaySummary, seller.blind_keywords);
-        if (isAuthorized) {
-            displayName = applyKeywordsMasking(displayName, seller.blind_keywords);
-            if (memo) memo = applyKeywordsMasking(memo, seller.blind_keywords);
-        }
+        if (memo) memo = applyKeywordsMasking(memo, seller.blind_keywords);
     }
 
-    // 구 버전 마스킹 (NDA 미체결 시 기업명 가리기)
-    if (!isAuthorized && seller.company_name) {
+    // 이름 블라인드 시 본문의 이름도 마스킹 (구 버전 로직 대체)
+    if (isNameBlinded && seller.company_name) {
         const escapedName = seller.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const nameRegex = new RegExp(escapedName, 'gi');
-        displaySummary = displaySummary.replace(nameRegex, 'OOO');
+        displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
     }
 
     const isPriceNegotiable = !seller.matching_price || seller.matching_price === '협의';
     const priceDisplay = isPriceNegotiable ? (seller.matching_price || '정보 없음') : `${seller.matching_price}억`;
 
-    const status = seller.status || '대기';
     const isRestricted = (status === '진행중' || status === '완료');
 
     $('#detail-seller-icon').text(getIndustryIcon(seller.industry));
@@ -648,25 +661,43 @@ function exportToCSV() {
     
     const rows = filteredSellers.map(s => {
         const isOwner = String(s.user_id) === String(currentuser_id);
-        const isSigned = signedNdas.includes(String(s.id));
+        const localSigned = getSignedNdas();
+        const isSigned = signedNdaIds.includes(String(s.id)) || localSigned.includes(String(s.id));
+        const isAuthorized = isOwner || isSigned;
         const status = s.status || '대기';
         const isRestricted = (status === '진행중' || status === '완료');
-        
-        // 마스킹 조건: 본인 글 아니면서 (상태가 진행중/완료이거나 NDA 미결인 경우)
-        const shouldMask = !isOwner && (isRestricted || !isSigned);
 
-        const company_name = shouldMask ? '비공개' : (s.company_name || '');
+        const isNameBlinded = (s.is_blind_active && s.blind_personal?.name);
+        
+        // 마스킹 조건: 진행현황(완료/진행중)이 최우선, 그 다음이 작성자의 기업명 블라인드 체크
+        let company_name = (s.company_name || '');
+        if (status === '완료') {
+            company_name = '완료';
+        } else if (status === '진행중') {
+            company_name = '진행중';
+        } else if (isNameBlinded) {
+            company_name = 'Blind';
+        }
         
         let summary = s.summary || '';
-        if (shouldMask && s.company_name) {
+        
+        // 키워드 마스킹
+        if (s.is_blind_active && s.blind_keywords) {
+            summary = applyKeywordsMasking(summary, s.blind_keywords);
+        }
+
+        // 이름 블라인드 시 본문의 이름도 마스킹
+        if (isNameBlinded && s.company_name) {
             const escapedName = s.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
-            summary = summary.replace(nameRegex, 'OOO');
+            summary = summary.replace(nameRegex, (match) => maskWithCircles(match));
         }
 
         const author = userMap[s.user_id]?.name || 'Unknown';
         const date = (() => { const d = new Date(s.created_at); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; })();
-        const price = shouldMask ? '-' : (s.sale_price || '');
+        
+        const shouldMaskPrice = !isAuthorized;
+        const price = shouldMaskPrice ? '-' : (s.matching_price || s.sale_price || '');
         
         return [
             company_name, 

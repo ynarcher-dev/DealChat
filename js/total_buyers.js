@@ -256,11 +256,11 @@ function renderBuyers() {
         const isAuthorized = isOwner || isSigned;
         
         // [진행중/완료] 상태일 때 비공개 처리
-        let displayName = isAuthorized ? buyer.company_name : '비공개';
+        let displayName = isAuthorized ? buyer.company_name : 'Blind';
         let displaySummary = buyer.summary || "";
 
         if (isRestricted) {
-            displayName = '비공개';
+            displayName = (status === '완료') ? '완료' : '진행중';
             displaySummary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
         } else if (!isAuthorized && buyer.company_name) {
             const escapedName = buyer.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -280,10 +280,8 @@ function renderBuyers() {
                             <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${!isAuthorized ? 'lock' : getIndustryIcon(buyer.industry)}</span>
                         </div>
                         <div style="flex: 1; min-width: 0;">
-                            ${!isAuthorized
-                                ? isRestricted
-                                    ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
-                                    : `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #0d948833;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
+                            ${(!isAuthorized && !isRestricted)
+                                ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#0d9488;background:#f0fdfa;border:1px solid #0d948833;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
                                 : `<span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>`
                             }
                         </div>
@@ -349,11 +347,11 @@ window.showBuyerDetail = function (id) {
     const isRestricted = (status === '진행중' || status === '완료');
     
     // [진행중/완료] 상태일 때 비공개 처리
-    let displayName = isAuthorized ? buyer.company_name : '비공개';
+    let displayName = isAuthorized ? buyer.company_name : 'Blind';
     let displaySummary = buyer.summary || "";
 
     if (isRestricted) {
-        displayName = '비공개';
+        displayName = (status === '완료') ? '완료' : '진행중';
         displaySummary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
     } else if (!isAuthorized && buyer.company_name) {
         const escapedName = buyer.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -363,7 +361,7 @@ window.showBuyerDetail = function (id) {
 
     $('#detail-buyer-icon').text(getIndustryIcon(buyer.industry));
     $('#detail-buyer-name').text(displayName);
-    const displayPriceDetail = (isAuthorized || isRestricted) ? (buyer.price ? `${buyer.price}억` : '정보 없음') : '비공개';
+    const displayPriceDetail = (isAuthorized || isRestricted) ? (buyer.price ? `${buyer.price}억` : '정보 없음') : 'Blind';
     $('#detail-buyer-price').text(displayPriceDetail).css('color', isRestricted ? '#94a3b8' : '#0d9488');
     
     $('#detail-buyer-status').text(status);
@@ -594,9 +592,22 @@ function exportToCSV() {
         const status = b.status || '대기';
         const isRestricted = (status === '진행중' || status === '완료');
         const shouldMask = !isOwner && (isRestricted || !isSigned);
-        const company_name = shouldMask ? '비공개' : (b.company_name || '');
+        
+        let company_name = '';
+        if (status === '완료') {
+            company_name = '완료';
+        } else if (status === '진행중') {
+            company_name = '진행중';
+        } else if (shouldMask) {
+            company_name = 'Blind';
+        } else {
+            company_name = (b.company_name || '');
+        }
+
         let summary = b.summary || '';
-        if (shouldMask && b.company_name) {
+        if (isRestricted) {
+            summary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
+        } else if (shouldMask && b.company_name) {
             const escapedName = b.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
             summary = summary.replace(nameRegex, 'OOO');

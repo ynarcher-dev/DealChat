@@ -551,6 +551,8 @@ $(document).ready(function () {
 
     function applyBuyerReadOnlyMode() {
         applyReportMode({
+            reportTitle: '매수자 정보 - DealChat',
+            titleSelector: '#buyer-name-editor',
             hideSelectors: ['#private-memo-section'],
             textareaIds: ['buyer-summary', 'buyer-interest-summary'],
             afterApply: () => {

@@ -11,6 +11,69 @@
  */
 
 
+/**
+ * 재무 전치 테이블을 리포트 모드용 읽기전용 테이블로 변환
+ * containerId: 'financial-table-container'
+ */
+export function reformatFinancialTableTransposed(containerId = 'financial-table-container') {
+    const $container = $(`#${containerId}`);
+    if (!$container.length || $container.data('report-applied')) return;
+    $container.data('report-applied', true);
+
+    function formatNumber(val) {
+        if (!val || val === '-' || val === '—') return '—';
+        const cleaned = String(val).replace(/,/g, '');
+        const num = parseFloat(cleaned);
+        if (isNaN(num)) return val;
+        return num.toLocaleString('ko-KR');
+    }
+
+    // 년도 수집 (빈 값 제외)
+    const years = [];
+    $container.find('.fin-year-header').each(function() {
+        const y = $(this).val().trim();
+        if (y) years.push(y);
+    });
+
+    // 항목 수집 — 값이 하나라도 있는 항목만
+    const items = [];
+    $container.find('.fin-item-row').each(function() {
+        const $row = $(this);
+        const label = $row.find('.fin-item-label').val().trim();
+        if (!label) return;
+        const values = years.map((_, idx) => formatNumber($row.find(`.fin-cell[data-year-index="${idx}"]`).val()));
+        if (values.some(v => v !== '—')) items.push({ label, values });
+    });
+
+    // 데이터가 없으면 빈 안내
+    if (years.length === 0 || items.length === 0) {
+        $container.html(`<div style="padding:12px 0; font-size:13px; color:#94a3b8;">재무 정보가 입력되지 않았습니다.</div>`);
+        return;
+    }
+
+    // 헤더 행: 구분(고정폭) | 년도1 | 년도2 | ...
+    const headerCells = [
+        `<div class="report-table-cell" style="flex:0 0 120px; min-width:120px; font-weight:700; justify-content:flex-start; text-align:left;">구분</div>`,
+        ...years.map(y => `<div class="report-table-cell" style="flex:1; justify-content:center; text-align:center;">${y}</div>`)
+    ].join('');
+
+    // 데이터 행들
+    const rowsHtml = items.map(item => {
+        const cells = [
+            `<div class="report-table-cell" style="flex:0 0 120px; min-width:120px; justify-content:flex-start; text-align:left; font-weight:500;">${item.label}</div>`,
+            ...item.values.map(v => `<div class="report-table-cell" style="flex:1; justify-content:flex-end; text-align:right;">${v}</div>`)
+        ].join('');
+        return `<div class="report-table-row">${cells}</div>`;
+    }).join('');
+
+    $container.html(`
+        <div class="report-table-wrapper" style="margin-top:4px;">
+            <div class="report-table-row report-table-header">${headerCells}</div>
+            ${rowsHtml}
+        </div>
+    `);
+}
+
 export function shouldEnterReportMode({ viewMode, fromSource, allowedSources = [], isNew = false, isOwner = true }) {
   return viewMode === 'read' || allowedSources.includes(fromSource) || (!isNew && !isOwner);
 }
@@ -19,6 +82,9 @@ export function applyReportMode(config) {
   const {
     hideSelectors = [],
     textareaIds = [],
+    inputIds = [],
+    reportTitle = null,      // 리포트용 공통 타이틀 (예: '매도자 정보-DealChat')
+    titleSelector = null,    // 타이틀을 적용할 요소 (예: '#seller-name-editor')
     afterApply = null
   } = config;
 
@@ -28,6 +94,15 @@ export function applyReportMode(config) {
   // 2. report-mode 클래스 적용 (CSS가 나머지 처리)
   document.body.classList.add('report-mode');
 
+  // [신규] 리포트용 공통 타이틀 적용 (브라우저 탭 전용)
+  if (reportTitle) {
+    document.title = reportTitle;
+    
+    // 사이드바 헤더도 공통 명칭으로 변경 (하이픈 앞부분만 사용)
+    const sidebarTitle = reportTitle.split('-')[0].trim();
+    $('#sidebar-header-title').text(sidebarTitle);
+  }
+
   // 3. 워터마크 삽입
   if ($('#report-watermark').length === 0) {
     $('<div id="report-watermark">DealChat</div>').appendTo('body');
@@ -36,7 +111,7 @@ export function applyReportMode(config) {
   // 4. textarea 처리: 내용을 div로 교체하고 원본 textarea 숨김
   if (Array.isArray(textareaIds)) {
     textareaIds.forEach(id => {
-      const $ta = $(`#${id}`);
+      const $ta = $(id.startsWith('#') ? id : `#${id}`);
       if ($ta.length > 0) {
         const content = $ta.val();
         $ta.after($('<div class="report-text-content">').text(content));
@@ -45,7 +120,19 @@ export function applyReportMode(config) {
     });
   }
 
-  // 5. 모든 입력 요소 비활성화 및 contenteditable 해제
+  // 5. input/span 처리: 내용을 div로 교체하고 원본 숨김
+  if (Array.isArray(inputIds)) {
+    inputIds.forEach(id => {
+      const $el = $(id.startsWith('#') ? id : `#${id}`);
+      if ($el.length > 0) {
+        const content = $el.is('input, textarea, select') ? $el.val() : $el.text();
+        $el.after($('<div class="report-text-field">').text(content || ''));
+        $el.hide();
+      }
+    });
+  }
+
+  // 6. 모든 입력 요소 비활성화 및 contenteditable 해제
   $('input, select, textarea').prop('disabled', true);
   $('[contenteditable]')
     .attr('contenteditable', 'false')
@@ -84,19 +171,25 @@ export function removeReportMode() {
     $(this).remove();
   });
 
-  // 4. 산업 텍스트 복원
+  // 4. 변환된 텍스트 필드 제거 및 원본 요소 복원 (input/span 등)
+  $('.report-text-field').each(function() {
+    $(this).prev().show();
+    $(this).remove();
+  });
+
+  // 5. 산업 텍스트 복원
   $('.report-industry-text').each(function() {
     $(this).prev('select').show();
     $(this).remove();
   });
 
-  // 5. 입력 가능하도록 입력 요소 활성화
+  // 6. 입력 가능하도록 입력 요소 활성화
   $('input, select, textarea').prop('disabled', false);
 
-  // 6. contenteditable 속성 복원
+  // 7. contenteditable 속성 복원
   $('[contenteditable]').attr('contenteditable', 'true');
 
-  // 7. 숨긴 요소 복원
+  // 8. 숨긴 요소 복원
   $('[style*="display: none"]').each(function() {
     // 리포트 모드에서 숨긴 요소만 복원 (원래 숨겨진 요소는 건드리지 않음)
   });

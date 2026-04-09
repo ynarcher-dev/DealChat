@@ -181,17 +181,50 @@ body.report-mode .report-section-icon {
 }
 
 /* ── 6. 상태 칩 ────────────────────────────────── */
+body.report-mode .db-status-chip-group {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
 body.report-mode .btn-status-chip:not(.active) {
     display: none !important;
 }
 
 body.report-mode .btn-status-chip.active {
     pointer-events: none;
-    box-shadow: none;
+    box-shadow: none !important;
     cursor: default;
+    padding: 2px 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: var(--page-theme-light) !important;
+    color: var(--page-theme-color) !important;
+    border: 1px solid var(--page-theme-color) !important;
+    min-height: 28px !important;
+    line-height: 1 !important;
 }
 
-/* ── 7. 숨김 대상 요소들 ──────────────────────── */
+/* ── 7. 블라인드 뱃지 ──────────────────────────── */
+.badge-blind {
+    background-color: var(--page-theme-light);
+    color: var(--page-theme-color);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--page-theme-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+/* ── 8. 숨김 대상 요소들 ──────────────────────── */
 body.report-mode .db-ai-fill-section,
 body.report-mode .db-add-row-btn,
 body.report-mode .btn-remove-row,
@@ -204,8 +237,30 @@ body.report-mode #blind-keywords-container,
 body.report-mode #private-memo,
 body.report-mode #add-financial-btn,
 body.report-mode #add-investment-btn,
+body.report-mode #add-year-btn,
+body.report-mode #add-item-btn,
+body.report-mode .btn-remove-year,
+body.report-mode .btn-remove-item,
+body.report-mode .drag-handle,
 body.report-mode .blind-check,
 body.report-mode label:has(.blind-check) {
+    display: none !important;
+}
+
+/* ── 재무 전치 테이블 편집 모드 스타일 ──────────── */
+#financial-table-container .fin-header-row {
+    margin-bottom: 2px;
+}
+#financial-table-container .fin-item-row:hover {
+    background: #f8fafc;
+    border-radius: 6px;
+}
+
+/* ── 리포트 모드: 전치 테이블 편집 UI 안전 숨김 ── */
+body.report-mode .fin-header-row,
+body.report-mode .fin-item-row,
+body.report-mode .fin-table > #add-item-btn {
+    /* reformatFinancialTableTransposed가 교체하지만 혹시 남으면 숨김 */
     display: none !important;
 }
 
