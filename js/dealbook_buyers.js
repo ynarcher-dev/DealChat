@@ -432,6 +432,7 @@ $(document).ready(function () {
             }
 
             hideLoader();
+            alert(shareType === 'private' ? '비공개로 저장되었습니다.' : '저장되었습니다.');
             location.href = returnUrl;
         } catch (err) {
             console.error('Save error:', err);
@@ -443,6 +444,7 @@ $(document).ready(function () {
     $('#btn-delete-buyer').on('click', async () => {
         if (confirm('삭제하시겠습니까?')) {
             await _supabase.from('buyers').update({ deleted_at: new Date().toISOString() }).eq('id', buyerId);
+            alert('삭제되었습니다.');
             location.href = returnUrl;
         }
     });

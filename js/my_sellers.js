@@ -10,7 +10,8 @@ import {
     initShareUserSearch, 
     submitShareHandler, 
     fetchFiles,
-    initUserMap
+    initUserMap,
+    renderListLoader
 } from './my_list_utils.js';
 
 // 수파베이스 클라이언트 초기화 통합
@@ -110,12 +111,12 @@ $(document).ready(function () {
 });
 
 async function loadInitialData(user_id) {
-    $('#seller-list-container').html('<tr><td colspan="8" class="text-center py-5">데이터 로딩 중...</td></tr>');
+    $('#seller-list-container').html(renderListLoader(8, '#8b5cf6'));
 
     try {
         userMap = await initUserMap(_supabase);
 
-        const { data: sellers, error: sellersError } = await _supabase.from('sellers').select('*, companies(*)').eq('user_id', user_id);
+        const { data: sellers, error: sellersError } = await _supabase.from('sellers').select('*, companies(*)').eq('user_id', user_id).is('deleted_at', null);
         if (sellersError) throw sellersError;
 
         allSellers = (sellers || []).map(s => {

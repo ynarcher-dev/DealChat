@@ -10,7 +10,8 @@ import {
     initShareUserSearch, 
     submitShareHandler, 
     fetchFiles,
-    initUserMap
+    initUserMap,
+    renderListLoader
 } from './my_list_utils.js';
 import { getSignedNdas as utilsGetSignedNdas, saveSignedNda as utilsSaveSignedNda } from './nda_utils.js';
 
@@ -148,11 +149,11 @@ $(document).ready(function () {
 // ==========================================
 
 async function loadInitialData() {
-    $('#buyer-list-container').html('<tr><td colspan="8" class="text-center py-5"><div class="spinner-border" role="status" style="color: #0d9488 !important;"><span class="visually-hidden">Loading...</span></div></td></tr>');
+    $('#buyer-list-container').html(renderListLoader(8, '#0d9488'));
 
     try {
         userMap = await initUserMap(_supabase);
-        const { data: buyers, error: bError } = await _supabase.from('buyers').select('*');
+        const { data: buyers, error: bError } = await _supabase.from('buyers').select('*').is('deleted_at', null);
         if (bError) throw bError;
 
         allBuyers = Array.isArray(buyers) ? buyers.map(parseBuyerData).sort((a, b) => {
@@ -195,7 +196,7 @@ function parseBuyerData(b) {
 // fetchUsers, getIndustryIcon, fetchBuyers 제거
 
 function loadBuyers() {
-    _supabase.from('buyers').select('*')
+    _supabase.from('buyers').select('*').is('deleted_at', null)
         .then(res => {
             const data = res?.data || res;
             if (res.error) throw res.error;

@@ -3,6 +3,25 @@
  * Handles external sharing logs, random key generation, and template formatting.
  */
 
+async function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        // Append inside the active modal (if any) to bypass Bootstrap focus trap
+        const activeModal = document.querySelector('.modal.show') || document.body;
+        activeModal.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const success = document.execCommand('copy');
+        activeModal.removeChild(textarea);
+        if (!success) throw new Error('execCommand copy failed');
+    }
+}
+
 // Generate a random 6-digit alphanumeric key (uppercase)
 export function generateRandomKey(length = 6) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid visually similar chars like 0, O, 1, I
@@ -95,18 +114,7 @@ export async function copySharingTemplate(sharerInfo, shareUrl, shareKey) {
 `;
 
     try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(template);
-        } else {
-            const textarea = document.createElement('textarea');
-            textarea.value = template;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-        }
+        await copyText(template);
         return true;
     } catch (err) {
         console.error('Failed to copy template:', err);
@@ -273,18 +281,7 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
             btn.prop('disabled', true).text('키 생성 완료').css('background', '#94a3b8');
 
             // Auto-copy first time
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(template);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = template;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
+            await copyText(template);
             alert('키가 생성되었으며 안내 문구가 클립보드에 복사되었습니다.');
 
         } catch (error) {
@@ -323,18 +320,7 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
         if ($(this).prop('disabled')) return;
         const template = $('#ext-share-guidance-box').text();
         try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(template);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = template;
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
+            await copyText(template);
             alert('안내 문구가 클립보드에 복사되었습니다.');
         } catch (err) {
             alert('복사에 실패했습니다.');

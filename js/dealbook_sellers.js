@@ -570,7 +570,7 @@ $(document).ready(function () {
         if (!confirm('삭제하시겠습니까?')) return;
         showLoader();
         try {
-            const { error } = await _supabase.from('sellers').delete().eq('id', sellerId);
+            const { error } = await _supabase.from('sellers').update({ deleted_at: new Date().toISOString() }).eq('id', sellerId);
             alert('삭제되었습니다.');
             location.href = returnUrl;
         } catch (e) { alert('삭제 실패'); }

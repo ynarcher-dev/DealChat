@@ -173,10 +173,10 @@ async function loadData() {
                 ? _supabase.from('companies').select('id, name, industry, summary, is_draft, user_id').in('id', companyIds).is('deleted_at', null)
                 : Promise.resolve({ data: [] }),
             buyerIds.length
-                ? _supabase.from('buyers').select('id, company_name, interest_industry, interest_summary, is_draft, user_id').in('id', buyerIds)
+                ? _supabase.from('buyers').select('id, company_name, interest_industry, interest_summary, is_draft, user_id').in('id', buyerIds).is('deleted_at', null)
                 : Promise.resolve({ data: [] }),
             sellerIds.length
-                ? _supabase.from('sellers').select('id, name, industry, summary, is_draft, user_id').in('id', sellerIds)
+                ? _supabase.from('sellers').select('id, name, industry, summary, is_draft, user_id').in('id', sellerIds).is('deleted_at', null)
                 : Promise.resolve({ data: [] }),
         ]);
 
@@ -343,7 +343,7 @@ function buildRow(item) {
         ? `<span class="item-name-span" style="font-size:14px; font-weight:700; color:#1e293b; min-width:0;
                         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
                  title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</span>`
-        : `<span class="nda-required-tag" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700;
+        : `<span class="nda-required-tag" style="display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:700;
                         color:${cfg.color}; background:${cfg.bg}; border:1px solid ${cfg.color + '33'};
                         border-radius:8px; padding:3px 10px; white-space:nowrap;">
                <span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요
@@ -352,7 +352,7 @@ function buildRow(item) {
     const row = $(`
         <tr class="${isDeleted ? 'row-deleted' : 'table-row-clickable'}">
             <td>
-                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                <div style="display:flex; align-items:center; gap:16px; min-width:0;">
                     <div class="item-icon-box" style="width:36px; height:36px; background:${cfg.color}; border-radius:8px;
                                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                         <span class="material-symbols-outlined" style="color:#fff; font-size:20px;">${item.isNdaSigned ? (isDeleted ? 'block' : getIndustryIcon(item.industry, item.item_type)) : 'lock'}</span>

@@ -289,7 +289,7 @@ function renderCurrentPage() {
         const $row = $(`
             <tr class="${isRestricted ? '' : 'table-row-clickable'}" style="${isRestricted ? 'background-color: #fbfcfd; cursor: default;' : 'cursor: pointer;'}" ${isRestricted ? '' : `onclick="window.location.href='${itemLink}'"`}>
                 <td>
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:16px; min-width:0;">
                         <div style="width:36px; height:36px; background:${isRestricted ? '#cbd5e1' : typeCfg.color}; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                             <span class="material-symbols-outlined" style="color:#fff; font-size:20px;">${getIndustryIcon(log.itemIndustry)}</span>
                         </div>

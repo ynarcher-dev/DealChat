@@ -308,3 +308,22 @@ function formatDisplay(val) {
 function escapeHtml(str) {
     return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+/**
+ * 새 형식({years, items}) → 구 배열 형식([{year, revenue, ...}])으로 변환
+ * 이미 배열이면 그대로 반환
+ */
+export function toFinancialArray(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.years && data.items) {
+        return data.years.map(year => {
+            const row = { year };
+            data.items.forEach(item => {
+                row[item.key] = item.values[year] || '';
+            });
+            return row;
+        });
+    }
+    return [];
+}

@@ -10,7 +10,8 @@ import {
     initShareUserSearch, 
     submitShareHandler, 
     fetchFiles,
-    initUserMap
+    initUserMap,
+    renderListLoader
 } from './my_list_utils.js';
 import { getSignedNdas as utilsGetSignedNdas, saveSignedNda as utilsSaveSignedNda } from './nda_utils.js';
 
@@ -164,10 +165,10 @@ $(document).ready(function () {
 // ==========================================
 
 async function loadInitialData() {
-    $('#seller-list-container').html('<div class="col-12 text-center py-5"><div class="spinner-border" role="status" style="color: #8b5cf6 !important;"><span class="visually-hidden">Loading...</span></div></div>');
+    $('#seller-list-container').html(renderListLoader(8, '#8b5cf6'));
     try {
         userMap = await initUserMap(_supabase);
-        const { data: sellers, error: sError } = await _supabase.from('sellers').select('*, companies(*)');
+        const { data: sellers, error: sError } = await _supabase.from('sellers').select('*, companies(*)').is('deleted_at', null);
         if (sError) throw sError;
 
         allSellers = Array.isArray(sellers) ? sellers.map(parseSellerData).sort((a, b) => {
@@ -188,7 +189,7 @@ async function loadInitialData() {
 // fetchUsers, getIndustryIcon, fetchSellers 중복 함수 제거
 
 function loadSellers() {
-    _supabase.from('sellers').select('*, companies(*)')
+    _supabase.from('sellers').select('*, companies(*)').is('deleted_at', null)
         .then(res => {
             const data = res?.data || res;
             if (res.error) throw res.error;

@@ -3,6 +3,7 @@ import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
 import { debounce, escapeHtml } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
+import { toFinancialArray } from './financial_utils.js';
 import { 
     getIndustryIcon, 
     addSelectedUser, 
@@ -10,7 +11,8 @@ import {
     initShareUserSearch, 
     submitShareHandler, 
     fetchFiles,
-    initUserMap
+    initUserMap,
+    renderListLoader
 } from './my_list_utils.js';
 
 // 프로필 모달 스크립트 로드
@@ -196,7 +198,7 @@ function localRenderSelectedTags() {
 }
 
 async function loadInitialData() {
-    $('#company-list-container').html('<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">데이터를 불러오는 중...</div></td></tr>');
+    $('#company-list-container').html(renderListLoader(8, '#1A73E8'));
     
     try {
         userMap = await initUserMap(_supabase);
@@ -577,23 +579,8 @@ function parseCompanyData(company) {
         }
     } catch (e) { console.error('Error parsing company summary in Total Companies:', e); }
 
-    // [New Schema Support] DB에서 직접 데이터(JSONB 배열)가 있으면 우선
-    // [New Schema Support] DB에서 직접 데이터가 있으면 우선
-    if (company.financial_info) {
-        if (Array.isArray(company.financial_info)) {
-            if (company.financial_info.length > 0) parsed.financialDataArr = company.financial_info;
-        } else if (company.financial_info.years && company.financial_info.items) {
-            // 새 형식(객체) -> 배열 형식 변환
-            const arr = company.financial_info.years.map(year => {
-                const row = { year };
-                company.financial_info.items.forEach(item => {
-                    row[item.key] = item.values[year] || '';
-                });
-                return row;
-            });
-            parsed.financialDataArr = arr;
-        }
-    }
+    const finArr = toFinancialArray(company.financial_info);
+    if (finArr.length > 0) parsed.financialDataArr = finArr;
     if (Array.isArray(company.investment_info) && company.investment_info.length > 0) parsed.investmentDataArr = company.investment_info;
     if (company.mgmt_status) parsed.mgmt_status = company.mgmt_status;
     if (company.manager_memo) parsed.managerMemo = company.manager_memo;

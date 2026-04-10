@@ -3,6 +3,7 @@ import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
 import { escapeHtml } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
+import { toFinancialArray } from './financial_utils.js';
 import { 
     getIndustryIcon, 
     addSelectedUser, 
@@ -10,7 +11,8 @@ import {
     initShareUserSearch, 
     submitShareHandler, 
     fetchFiles,
-    initUserMap
+    initUserMap,
+    renderListLoader
 } from './my_list_utils.js';
 
 // 수파베이스 클라이언트 초기화 통합
@@ -139,7 +141,7 @@ function localRenderSelectedTags() {
 
 async function loadCompanies(user_id) {
     if (!user_id) return;
-    $('#company-list-container').html('<tr><td colspan="8" class="text-center py-5">데이터를 불러오는 중...</td></tr>');
+    $('#company-list-container').html(renderListLoader(8, '#1A73E8'));
 
     try {
         // 내 기업 정보 및 전체 사용자 정보 로드
@@ -163,22 +165,8 @@ function getLatestMetrics(data) {
     const res = { revenue: { value: "-", year: "" }, investment: { value: "-", year: "" } };
     
     // 매출액: 가장 최근 연도의 매출액
-    let finArr = [];
-    if (data.financial_info) {
-        if (Array.isArray(data.financial_info)) {
-            // 구 형식 (배열)
-            finArr = data.financial_info.map(item => ({ year: parseInt(item.year) || 0, value: item.revenue || 0 }));
-        } else if (data.financial_info.years && data.financial_info.items) {
-            // 새 형식 (객체)
-            const revItem = data.financial_info.items.find(i => i.key === 'revenue');
-            if (revItem) {
-                finArr = data.financial_info.years.map(y => ({
-                    year: parseInt(y) || 0,
-                    value: revItem.values[y] || 0
-                }));
-            }
-        }
-    }
+    const finArr = toFinancialArray(data.financial_info)
+        .map(item => ({ year: parseInt(item.year) || 0, value: item.revenue || 0 }));
 
     if (finArr.length > 0) {
         const sorted = finArr.sort((a, b) => b.year - a.year);

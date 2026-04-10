@@ -254,3 +254,17 @@ export async function fetchFiles({
         $fileList.html('<div class="text-danger p-1" style="font-size: 13px;">파일을 불러오는 중 오류가 발생했습니다.</div>');
     }
 }
+
+/**
+ * 테이블 본문(tbody) 내에 표시될 표준화된 로더 HTML을 반환합니다.
+ */
+export function renderListLoader(colspan = 8, themeColor = '#1A73E8') {
+    return `<tr>
+        <td colspan="${colspan}" class="text-center py-5">
+            <div class="spinner-border" role="status" style="color: ${themeColor} !important; width: 1.5rem; height: 1.5rem; border-width: 0.2em;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="mt-3 text-muted" style="font-size: 13px; font-weight: 500;">데이터를 불러오는 중...</div>
+        </td>
+    </tr>`;
+}

@@ -44,7 +44,7 @@ async function loadDashboardCounts(userData) {
         let results;
         if (isBuyer) {
             // 매수자는 'Sellers' 통합 목록 카운트만 가져오면 됨 (NDA 등 개인 열람용이면 NDA 개수도 고려 가능)
-            const query = _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_draft', false);
+            const query = _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_draft', false).is('deleted_at', null);
             const { count, error } = await query;
             if (error) throw error;
             results = { totalSellers: count || 0 };
@@ -52,18 +52,18 @@ async function loadDashboardCounts(userData) {
             const queries = [
                 // Total Counts (Public only)
                 _supabase.from('companies').select('*', { count: 'exact', head: true }).eq('is_draft', false).is('deleted_at', null),
-                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_draft', false),
-                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('is_draft', false),
+                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_draft', false).is('deleted_at', null),
+                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('is_draft', false).is('deleted_at', null),
                 
                 // My Counts (Public)
                 _supabase.from('companies').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', false).is('deleted_at', null),
-                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', false),
-                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', false),
+                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', false).is('deleted_at', null),
+                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', false).is('deleted_at', null),
                 
                 // My Counts (Private/Draft)
                 _supabase.from('companies').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', true).is('deleted_at', null),
-                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', true),
-                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', true)
+                _supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', true).is('deleted_at', null),
+                _supabase.from('buyers').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_draft', true).is('deleted_at', null)
             ];
 
             const res = await Promise.all(queries);
