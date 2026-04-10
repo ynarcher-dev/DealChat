@@ -273,10 +273,7 @@ function renderCurrentPage() {
             : `./dealbook_sellers.html?id=${targetId}&from=totalseller`;
 
         const signer = log.signerProfile;
-        let avatarUrl = resolveAvatarUrl(signer.avatar, 1);
-        if (!signer.avatar || signer.avatar.includes('default-avatar.png') || signer.avatar.includes('dealchat-favicon.png')) {
-            avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(signer.name)}&background=random&size=128`;
-        }
+        const avatarUrl = resolveAvatarUrl(signer.avatar, 1);
 
         const typeCfg = TYPE_CONFIG[log.item_type] || TYPE_CONFIG.seller;
         const isRestricted = (log.itemStatus === '진행중' || log.itemStatus === '완료' || log.itemName === '삭제된 항목');

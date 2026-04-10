@@ -106,7 +106,7 @@ $(document).ready(function () {
     initShareUserSearch({
         inputSelector: '#share-user-search',
         resultsSelector: '#user-search-results',
-        userMap: userMap,
+        getUserMap: () => userMap,
         getSelectedReceivers: () => selectedReceivers,
         onSelect: (id, name) => {
             selectedReceivers = addSelectedUser(selectedReceivers, id, name, () => localRenderSelectedTags());
@@ -257,7 +257,7 @@ function renderBuyers() {
         const isAuthorized = isOwner || isSigned;
         
         // [진행중/완료] 상태일 때 비공개 처리
-        let displayName = isAuthorized ? buyer.company_name : 'Blind';
+        let displayName = isAuthorized ? buyer.company_name : 'NDA 필요';
         let displaySummary = buyer.summary || "";
 
         if (isRestricted) {
@@ -348,7 +348,7 @@ window.showBuyerDetail = function (id) {
     const isRestricted = (status === '진행중' || status === '완료');
     
     // [진행중/완료] 상태일 때 비공개 처리
-    let displayName = isAuthorized ? buyer.company_name : 'Blind';
+    let displayName = isAuthorized ? buyer.company_name : 'NDA 필요';
     let displaySummary = buyer.summary || "";
 
     if (isRestricted) {
@@ -600,7 +600,7 @@ function exportToCSV() {
         } else if (status === '진행중') {
             company_name = '진행중';
         } else if (shouldMask) {
-            company_name = 'Blind';
+            company_name = 'NDA 필요';
         } else {
             company_name = (b.company_name || '');
         }

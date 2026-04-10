@@ -298,7 +298,16 @@ $(document).ready(function () {
         const originalHtml = $btn.html();
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 분석 중...');
         try {
-            const prompt = "매수자 정보를 JSON 형식으로 추출해줘 (company_name, interest_industry, manager_name, email, available_funds, summary, interest_summary, private_memo)";
+            const prompt = `업로드된 문서를 바탕으로 다음 매수자 정보를 정확한 JSON 형식으로 추출해줘.
+- company_name: 기업명
+- interest_industry: 관심 산업 분야
+- manager_name: 담당자명
+- email: 이메일
+- available_funds: 가용 자금
+- summary: 매수 회사 소개 (재무 관련 내용은 제외)
+- interest_summary: 매수 희망 요약 (재무 관련 내용은 제외)
+- private_memo: 기타 메모
+반드시 유효한 JSON 형식으로만 답변하고 다른 설명은 생략해.`.trim();
             const res = await addAiResponse(prompt, contextText);
             const data = await res.json();
             const jsonText = data.answer || data.text || "";
@@ -317,11 +326,13 @@ $(document).ready(function () {
             alert('AI 분석이 완료되었습니다.');
         } catch (e) {
             console.error(e);
-            if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED')) {
+            if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
                 alert('⚠️ AI 요청 한도를 초과했습니다.\n해당 모델의 예약 기능이 제한되었습니다. 다른 모델을 선택해 주세요.');
+            } else if (e.message.includes('503') || e.message.includes('UNAVAILABLE') || e.message.includes('high demand')) {
+                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
             } else {
-                alert('AI 분석 중 오류가 발생했습니다.');
+                alert('AI 분석 중 오류가 발생했습니다: ' + (e.message || '알 수 없는 형식'));
             }
         } finally {
             $btn.prop('disabled', false).html(originalHtml);
@@ -355,11 +366,13 @@ $(document).ready(function () {
             $(`#${aiMessageId}`).find('.message-content').html(safeHtml);
             conversationHistory.push({ role: 'user', content: text }, { role: 'assistant', content: answer });
         } catch (e) {
-            if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED')) {
+            if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
                 $(`#${aiMessageId}`).find('.message-content').html('⚠️ 선택하신 AI 모델의 요청 한도가 초과되었습니다.<br>다른 모델을 선택하여 다시 질문해 주세요.');
+            } else if (e.message.includes('503') || e.message.includes('UNAVAILABLE') || e.message.includes('high demand')) {
+                $(`#${aiMessageId}`).find('.message-content').html('⚠️ AI 서비스 접속자가 많아 지연되고 있습니다.<br>잠시 후 다시 시도해 주세요.');
             } else {
-                $(`#${aiMessageId}`).text('오류가 발생했습니다.');
+                $(`#${aiMessageId}`).find('.message-content').text('오류가 발생했습니다: ' + (e.message || '알 수 없는 오류'));
             }
         }
     }

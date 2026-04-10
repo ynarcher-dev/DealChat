@@ -313,7 +313,39 @@
             border-color: var(--primary-color) !important;
         }
 
+        /* Management Tabs */
+        .management-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--secondary-color);
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: -1px;
+        }
+
+        .tab-btn:hover {
+            color: var(--primary-color);
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
         @media (max-width: 1200px) {
+
             .sidebar {
                 transform: translateX(-100%);
                 transition: transform 0.3s;

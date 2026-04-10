@@ -49,7 +49,8 @@ export async function initUserMap(supabase) {
             name: u.name || "정보 없음",
             affiliation: u.company || 'DealChat',
             email: u.email || '',
-            avatar: u.avatar_url || u.avatar || null
+            avatar: u.avatar_url || u.avatar || null,
+            role: u.role || 'reviewer'
         };
     });
     return userMap;
@@ -99,7 +100,8 @@ export function renderSelectedTags({
 export function initShareUserSearch({
     inputSelector,
     resultsSelector,
-    userMap,
+    userMap, // Deprecated: Use getUserMap instead
+    getUserMap,
     getSelectedReceivers,
     onSelect
 }) {
@@ -109,10 +111,13 @@ export function initShareUserSearch({
         if (!keyword) { $results.hide(); return; }
 
         const selectedReceivers = getSelectedReceivers ? getSelectedReceivers() : [];
+        const currentMap = typeof getUserMap === 'function' ? getUserMap() : userMap;
 
-        const matches = Object.entries(userMap)
+        const matches = Object.entries(currentMap)
             .filter(([id, u]) => {
                 if (selectedReceivers && selectedReceivers.includes(id)) return false;
+                // [RBAC Filter] Only show Viewers (Reviewers) and Admins. Hide Buyers.
+                if (u.role === 'buyer') return false;
                 return u.name.toLowerCase().includes(keyword) || (u.affiliation && u.affiliation.toLowerCase().includes(keyword));
             })
             .slice(0, 10);

@@ -35,6 +35,21 @@ export function addAiResponse(userInput, sourceTexts, overrideModel = null) {
         truncatedSource = truncatedSource.substring(0, charLimit) + "\n\n... (Content truncated due to extreme size) ...";
     }
 
+    // JSON 요청 여부 확인 (자동 입력 기능 등에서 파싱 에러 방지)
+    const isJsonRequest = userInput.toLowerCase().includes('json');
+    
+    let instructions = `Answer in Korean. Professional tone.
+        Keep the answer concise but provide detailed explanations if necessary.`;
+
+    if (isJsonRequest) {
+        instructions += `\n        Respond ONLY with a valid JSON object. No additional explanation.`;
+    } else {
+        instructions += `
+        DO NOT use Markdown formatting (e.g., no #, *, **).
+        Organize key points using numbering in the format "n)" (e.g., 1), 2)).
+        After each number, start a new line and prefix every sentence with "-".`;
+    }
+
     let prompts = `
         [Role]
         You are a professional investment analyst.
@@ -43,7 +58,7 @@ export function addAiResponse(userInput, sourceTexts, overrideModel = null) {
         [User Question]
         ${userInput}
         [Instructions]
-        Answer in Korean. Professional tone. Keep the answer concise and to the point.
+        ${instructions}
     `.trim();
 
     const payload = { 

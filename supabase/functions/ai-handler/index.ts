@@ -74,20 +74,20 @@ serve(async (req) => {
 
             if (!query) throw new Error("Missing query for vector search");
 
-            // 1-1. Generate Gemini Embedding
-            const embeddingResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    content: {
-                        parts: [{ text: query }]
-                    }
-                }),
-            });
-            
-            const embeddingData = await embeddingResponse.json();
+            // Gemini Embedding Retry Logic
+            let embeddingResponse;
+            let embeddingData;
+            for (let i = 0; i < 3; i++) {
+                embeddingResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content: { parts: [{ text: query }] } }),
+                });
+                embeddingData = await embeddingResponse.json();
+                if (embeddingResponse.ok) break;
+                if (embeddingResponse.status !== 503 && embeddingResponse.status !== 429) break;
+                await new Promise(r => setTimeout(r, 1000 * (i + 1))); // 지수 백오프
+            }
 
             if (!embeddingData.embedding || !embeddingData.embedding.values) {
                 throw new Error("Failed to generate Gemini embedding: " + JSON.stringify(embeddingData));
@@ -112,38 +112,48 @@ serve(async (req) => {
             });
         }
 
-        // 2. Default: Chat Completion (Dynamic Model Loading)
+        // 2. Default: Chat Completion (Dynamic Model Loading + Retry Logic)
         const userPrompt = prompts || body.query || "";
+        let retryCount = 0;
+        const maxRetries = 3;
+        let response;
+        let data;
 
-        // URL 파라미터에 선택된 모델명을 동적으로 반영
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        role: "user",
-                        parts: [{ text: userPrompt }]
-                    }
-                ],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 4096, // Increased from 2048 to prevent truncation
-                },
-                safetySettings: [
-                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                ]
-            }),
-        });
+        while (retryCount < maxRetries) {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [ { role: "user", parts: [{ text: userPrompt }] } ],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 4096,
+                    },
+                    safetySettings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ]
+                }),
+            });
 
-        const data = await response.json();
+            data = await response.json();
+
+            if (response.ok) break;
+            
+            // 503 (Unavailable) 또는 429 (Rate Limit)인 경우 재시도
+            if (response.status === 503 || response.status === 429) {
+                retryCount++;
+                if (retryCount < maxRetries) {
+                    await new Promise(r => setTimeout(r, 1000 * retryCount)); // 1초, 2초... 대기
+                    continue;
+                }
+            }
+            break;
+        }
 
         if (data.error) {
             return new Response(JSON.stringify({ error: data.error, model_used: model }), {
@@ -171,3 +181,4 @@ serve(async (req) => {
         });
     }
 });
+

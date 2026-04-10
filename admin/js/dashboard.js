@@ -6,6 +6,7 @@ const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 // 현재 그리드 상태
 let _currentGridApi = null;
 let _editMode = false;
+let _currentUserTab = 'all'; // 회원 관리 현재 탭
 
 function getSupabase() {
     if (!window.supabaseClient) {
@@ -92,7 +93,7 @@ async function loadPage(page) {
             renderDashboard($content);
             break;
         case 'users':
-            await renderGrid($content, 'users', '회원 관리');
+            await renderUsersPage($content);
             break;
         case 'companies':
             await renderGrid($content, 'companies', '기업 관리');
@@ -370,8 +371,47 @@ function getEntitySource(entityType, entityId, companiesMap, sellersCompanyMap, 
     return entityName ? `${typeLabel} · ${entityName}` : typeLabel;
 }
 
+// [회원 관리 전용 페이지 렌더러]
+async function renderUsersPage($container) {
+    _editMode = false;
+    $container.html(`
+        <div class="management-tabs">
+            <button class="tab-btn ${_currentUserTab === 'all' ? 'active' : ''}" data-tab="all">전체 회원</button>
+            <button class="tab-btn ${_currentUserTab === 'pending' ? 'active' : ''}" data-tab="pending">승인 대기</button>
+            <button class="tab-btn ${_currentUserTab === 'admin' ? 'active' : ''}" data-tab="admin">관리자 목록</button>
+        </div>
+        <div id="users-grid-container"></div>
+    `);
+
+    // 탭 클릭 이벤트
+    $container.find('.tab-btn').on('click', function() {
+        _currentUserTab = $(this).data('tab');
+        $('.tab-btn').removeClass('active');
+        $(this).addClass('active');
+        refreshUsersGrid();
+    });
+
+    const refreshUsersGrid = async () => {
+        const $gridContainer = $('#users-grid-container');
+        let filter = {};
+        let title = '회원 관리';
+
+        if (_currentUserTab === 'pending') {
+            filter = { status: 'pending' };
+            title = '승인 대기 회원';
+        } else if (_currentUserTab === 'admin') {
+            filter = { role: 'admin' };
+            title = '관리자';
+        }
+
+        await renderGrid($gridContainer, 'users', title, filter);
+    };
+
+    await refreshUsersGrid();
+}
+
 // [그리드 렌더러]
-async function renderGrid($container, tableName, title) {
+async function renderGrid($container, tableName, title, filter = {}) {
     _editMode = false;
 
     $container.html(`
@@ -529,7 +569,7 @@ async function renderGrid($container, tableName, title) {
             const response = await fetch('../../data/reports.json');
             rowData = await response.json();
         } else {
-            const response = await APIcall({ action: 'read', table: tableName }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' });
+            const response = await APIcall({ action: 'read', table: tableName, ...filter }, SUPABASE_ENDPOINT, { 'Content-Type': 'application/json' });
             const data = await response.json();
             rowData = Array.isArray(data) ? data : [];
         }
@@ -848,7 +888,17 @@ window.handleUserRoleAction = async function (userId, combinedValue) {
 
         if (error) throw error;
         alert('처리가 완료되었습니다.');
-        loadPage('users');
+        if (tableName === 'users' || tableName === undefined) {
+             // 회원 처리인 경우 현재 탭 유지하며 새로고침
+             const page = $('.menu-link.active').data('page');
+             if (page === 'users') {
+                 renderUsersPage($('#content-area'));
+             } else {
+                 loadPage(page || 'users');
+             }
+        } else {
+            loadPage(tableName);
+        }
     } catch (e) {
         console.error('회원 상태 변경 오류:', e);
         alert('처리 중 오류가 발생했습니다: ' + e.message);
@@ -880,7 +930,7 @@ window.toggleAdminRole = async function(userId, currentRole) {
 
         alert('처리 완료');
         $('#detail-modal').fadeOut(200);
-        loadPage('users');
+        renderUsersPage($('#content-area'));
     } catch (e) {
         console.error('관리자 권한 변경 오류:', e);
         alert('오류: ' + e.message);

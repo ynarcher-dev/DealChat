@@ -118,10 +118,11 @@ export function APIcall(prompts, Furl, Fheaders, Fmethod = 'POST') {
             let errMsg = text;
             try { 
                 const errJson = JSON.parse(text);
-                const errorVal = errJson.message || errJson.error || text;
+                const errorVal = errJson.message || errJson.error?.message || errJson.error || text;
                 errMsg = (typeof errorVal === 'object') ? JSON.stringify(errorVal) : errorVal;
             } catch(e) {}
-            throw new Error(`[DB Error] ${errMsg}`);
+            // [DB Error] 접두사는 유지하되 내부 메시지가 깔끔하도록 처리
+            throw new Error(errMsg);
         }
         return response;
     });

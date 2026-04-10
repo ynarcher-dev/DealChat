@@ -123,7 +123,7 @@ $(document).ready(function () {
     initShareUserSearch({
         inputSelector: '#share-user-search',
         resultsSelector: '#user-search-results',
-        userMap: userMap,
+        getUserMap: () => userMap,
         getSelectedReceivers: () => selectedReceivers,
         onSelect: (id, name) => {
             selectedReceivers = addSelectedUser(selectedReceivers, id, name, () => localRenderSelectedTags());
@@ -383,6 +383,8 @@ window.showSellerDetail = function (id) {
         displayName = '완료';
     } else if (status === '진행중') {
         displayName = '진행중';
+    } else if (!isAuthorized) {
+        displayName = 'NDA 필요';
     } else if (isNameBlinded) {
         displayName = 'Blind';
     }
@@ -396,8 +398,8 @@ window.showSellerDetail = function (id) {
         if (memo) memo = applyKeywordsMasking(memo, seller.blind_keywords);
     }
 
-    // 이름 블라인드 시 본문의 이름도 마스킹 (구 버전 로직 대체)
-    if (isNameBlinded && seller.company_name) {
+    // 이름 블라인드 또는 NDA 미체결 시 본문의 이름도 마스킹
+    if ((isNameBlinded || !isAuthorized) && seller.company_name) {
         const escapedName = seller.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const nameRegex = new RegExp(escapedName, 'gi');
         displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
@@ -676,6 +678,8 @@ function exportToCSV() {
             company_name = '완료';
         } else if (status === '진행중') {
             company_name = '진행중';
+        } else if (!isAuthorized) {
+            company_name = 'NDA 필요';
         } else if (isNameBlinded) {
             company_name = 'Blind';
         }
@@ -687,8 +691,8 @@ function exportToCSV() {
             summary = applyKeywordsMasking(summary, s.blind_keywords);
         }
 
-        // 이름 블라인드 시 본문의 이름도 마스킹
-        if (isNameBlinded && s.company_name) {
+        // 이름 블라인드 또는 NDA 미체결 시 본문의 이름도 마스킹
+        if ((isNameBlinded || !isAuthorized) && s.company_name) {
             const escapedName = s.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
             summary = summary.replace(nameRegex, (match) => maskWithCircles(match));

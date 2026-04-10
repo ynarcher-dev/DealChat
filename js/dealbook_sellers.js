@@ -801,9 +801,11 @@ $(document).ready(function () {
             if (!isNew) await _supabase.from('sellers').update({ history: conversationHistory }).eq('id', sellerId);
         } catch (e) { 
             console.error('AI Chat Error:', e);
-            if (e.message.includes('429') || (e.message.includes('RESOURCE_EXHAUSTED'))) {
+            if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
                 $aiP.find('.ai-typing').html('현재 모델의 사용 한도가 초과되었습니다.<br>다른 모델로 변경하여 시도해 주세요.');
+            } else if (e.message.includes('503') || e.message.includes('UNAVAILABLE') || e.message.includes('high demand')) {
+                $aiP.find('.ai-typing').html('AI 서비스 접속자가 많아 지연되고 있습니다.<br>잠시 후 다시 시도해 주세요.');
             } else {
                 $aiP.find('.ai-typing').text('오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'); 
             }
@@ -900,7 +902,18 @@ $(document).ready(function () {
                 autoResizeAllTextareas();
                 alert('AI가 파일 내용을 분석하여 정보를 자동으로 입력했습니다.');
             }
-        } catch (e) { console.error('AI Auto-fill Error:', e); alert('정보 추출 중 오류가 발생했습니다.'); }
+        } catch (e) { 
+            console.error('AI Auto-fill Error:', e); 
+            const errMsg = e.message || '';
+            if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+                markModelAsExceeded(getCurrentModelId());
+                alert('⚠️ AI 요청 한도를 초과했습니다.\n다른 모델을 선택해 주세요.');
+            } else if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
+                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+            } else {
+                alert('정보 추출 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식'));
+            }
+        }
         finally { $btn.prop('disabled', false).removeClass('analyzing').html(orig); }
     });
 

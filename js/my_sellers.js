@@ -82,7 +82,7 @@ $(document).ready(function () {
     initShareUserSearch({
         inputSelector: '#share-user-search',
         resultsSelector: '#user-search-results',
-        userMap: userMap,
+        getUserMap: () => userMap,
         getSelectedReceivers: () => selectedReceivers,
         onSelect: (id, name) => {
             selectedReceivers = addSelectedUser(selectedReceivers, id, name, () => localRenderSelectedTags());

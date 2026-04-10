@@ -113,7 +113,7 @@ $(document).ready(function () {
             }
             */
 
-            alert('회원가입이 성공적으로 완료되었습니다!\n로그인 페이지로 이동합니다.');
+            alert('회원가입 요청이 성공적으로 완료되었습니다.\n관리자의 승인 절차를 거쳐 가입이 최종 완료됩니다.');
             location.href = './signin.html';
 
         } catch (err) {

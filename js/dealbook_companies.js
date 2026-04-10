@@ -591,8 +591,8 @@ $(document).ready(function () {
 - email: 이메일
 - establishment_date: 설립일자 (YYYY-MM-DD 형식)
 - address: 주소
-- summary: 회사소개 (300자 내외 요약)
-- key_products: 주요 제품/서비스 (핵심 기술 및 제품 라인업)
+- summary: 회사소개 (300자 내외 요약, 재무 관련 내용은 제외)
+- key_products: 주요 제품/서비스 (핵심 기술 및 제품 라인업, 재무 관련 내용은 제외)
 - financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
 - investment_info: [{ "year": "연도", "stage": "단계", "valuation": "벨류(숫자만)", "amount": "금액(숫자만)", "investor": "투자자" }]
 - financial_analysis: 재무제표 성장성 및 수익성 분석 코멘트 (매출 증가 추이, 영업이익률 변화 등을 포함하여 상세히 기술)
@@ -692,6 +692,8 @@ $(document).ready(function () {
             if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
                 alert('⚠️ AI 요청 한도를 초과했습니다.\n해당 모델의 상담이 제한되었습니다. 다른 모델을 선택해 주세요.');
+            } else if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
+                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도하시거나 다른 모델을 선택해 주세요.');
             } else {
                 alert('분석 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식'));
             }
@@ -832,6 +834,8 @@ $(document).ready(function () {
             if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
                 addMessage('⚠️ 선택하신 AI 모델의 요청 한도가 초과되었습니다. 다른 모델을 선택하여 다시 질문해 주세요.', 'ai');
+            } else if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
+                addMessage('⚠️ AI 서비스 접속자가 많아 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', 'ai');
             } else {
                 addMessage(`오류가 발생했습니다: ${errMsg || '알 수 없는 오류'}`, 'ai');
             }
