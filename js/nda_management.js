@@ -67,6 +67,7 @@ const DEFAULT_MANAGER = AUTH_DEFAULT_MANAGER;
 const TYPE_CONFIG = {
     buyer:  { color: '#0d9488', bg: '#f0fdfa' },
     seller: { color: '#8b5cf6', bg: '#f3f0ff' },
+    company: { color: '#1A73E8', bg: '#eff6ff' },
 };
 
 function getIndustryShortName(industry) {
@@ -132,12 +133,39 @@ async function loadNdaLogs() {
 
         if (logsError) throw logsError;
 
-        // 2. Fetch all buyers, sellers, and users (signers) to resolve details
-        const [{ data: buyers }, { data: sellers }, { data: users }] = await Promise.all([
+        // 2. Fetch all buyers, sellers, companies, and users (signers) to resolve details
+        const [{ data: buyersRes }, { data: sellersRes }, { data: companiesRes }, { data: usersRes }] = await Promise.all([
             supabase.from('buyers').select('*'),
             supabase.from('sellers').select('*'),
+            supabase.from('companies').select('*'),
             supabase.from('users').select('*')
         ]);
+        
+        let buyers = buyersRes || [];
+        let sellers = sellersRes || [];
+        let companies = companiesRes || [];
+        const users = usersRes || [];
+
+        // Check for any missing items that might not have been returned by select('*') due to pagination or RLS
+        const missingFilters = { buyer: new Set(), seller: new Set(), company: new Set() };
+        logs.forEach(log => {
+            const tId = log.item_id || log.seller_id;
+            if (!tId) return;
+            const tMap = log.item_type === 'buyer' ? buyers : (log.item_type === 'company' ? companies : sellers);
+            if (!tMap.find(x => String(x.id) === String(tId))) {
+                const type = log.item_type || 'seller';
+                missingFilters[type].add(tId);
+            }
+        });
+
+        const missingPromises = [];
+        if (missingFilters.buyer.size > 0) missingPromises.push(supabase.from('buyers').select('*').in('id', Array.from(missingFilters.buyer)).then(r => { if(r.data) buyers = buyers.concat(r.data); }));
+        if (missingFilters.company.size > 0) missingPromises.push(supabase.from('companies').select('*').in('id', Array.from(missingFilters.company)).then(r => { if(r.data) companies = companies.concat(r.data); }));
+        if (missingFilters.seller.size > 0) missingPromises.push(supabase.from('sellers').select('*').in('id', Array.from(missingFilters.seller)).then(r => { if(r.data) sellers = sellers.concat(r.data); }));
+        
+        if (missingPromises.length > 0) {
+            await Promise.all(missingPromises);
+        }
 
         const getCompanyName = (item) => item.company_name || item.companyName || item.name || item.Name || '정보 없음';
 
@@ -150,6 +178,12 @@ async function loadNdaLogs() {
             name: getCompanyName(s), 
             summary: s.summary || '',
             industry: s.industry || '기타'
+        }]) || []);
+        
+        const companyMap = new Map(companies?.map(c => [c.id, {
+            name: getCompanyName(c),
+            summary: c.summary || c.one_line_summary || '',
+            industry: c.industry || '기타'
         }]) || []);
         
         const profileMap = new Map(users?.map(u => [u.id, {
@@ -177,6 +211,12 @@ async function loadNdaLogs() {
                 itemSummary = b?.summary || '';
                 itemIndustry = b?.industry || b?.interest_industry || '기타';
                 itemStatus = b?.status || '대기';
+            } else if (log.item_type === 'company') {
+                const c = companies?.find(x => String(x.id) === String(targetId));
+                rawItemName = c?.company_name || c?.companyName || c?.name || c?.Name || '삭제된 항목';
+                itemSummary = c?.summary || c?.one_line_summary || '';
+                itemIndustry = c?.industry || '기타';
+                itemStatus = c?.status || '대기';
             } else if (log.item_type === 'seller' || !log.item_type || log.seller_id) {
                 const s = sellers?.find(x => String(x.id) === String(targetId));
                 rawItemName = s?.name || s?.company_name || s?.companyName || (s?.companies && s?.companies.name) || '삭제된 항목';
@@ -223,6 +263,7 @@ async function loadNdaLogs() {
             };
 
             const isBuyer = log.item_type === 'buyer';
+            const isCompany = log.item_type === 'company';
             return {
                 ...log,
                 itemName,
@@ -230,8 +271,8 @@ async function loadNdaLogs() {
                 itemIndustry,
                 itemStatus,
                 signerProfile: profile,
-                displayType: isBuyer ? '매수' : '매도',
-                typeClass: isBuyer ? 'type-buyer' : 'type-seller'
+                displayType: isBuyer ? '매수' : (isCompany ? '기업' : '매도'),
+                typeClass: isBuyer ? 'type-buyer' : (isCompany ? 'type-company' : 'type-seller')
             };
         });
 
@@ -268,9 +309,8 @@ function renderCurrentPage() {
         const formattedDate = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`;
 
         const targetId = log.item_id || log.seller_id;
-        const itemLink = log.item_type === 'buyer'
-            ? `./dealbook_buyers.html?id=${targetId}&from=total_buyers`
-            : `./dealbook_sellers.html?id=${targetId}&from=totalseller`;
+        const extUrl = (log.item_type === 'buyer') ? 'dealbook_buyers.html' : ((log.item_type === 'company') ? 'dealbook_companies.html' : 'dealbook_sellers.html');
+        const itemLink = `./${extUrl}?id=${targetId}&from=total_${log.item_type}`;
 
         const signer = log.signerProfile;
         const avatarUrl = resolveAvatarUrl(signer.avatar, 1);

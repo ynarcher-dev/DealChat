@@ -247,7 +247,10 @@ body.report-mode .btn-remove-item,
 body.report-mode .drag-handle,
 body.report-mode .blind-check,
 body.report-mode label:has(.blind-check),
-body.report-mode label:has(#negotiable-check) {
+body.report-mode label:has(#negotiable-check),
+body.report-mode button,
+body.report-mode .action-buttons,
+body.report-mode .sidebar-section-edit-btn {
     display: none !important;
 }
 

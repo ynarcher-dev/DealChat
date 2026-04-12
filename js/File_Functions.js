@@ -19,9 +19,9 @@ export const validateText = (text) => {
         return { valid: false, severity: 'error', msg: "문서 텍스트가 깨져있거나 인코딩 오류가 감지되었습니다.\n(올바른 PDF/문서 형식인지 확인해주세요)" };
     }
 
-    // 3. 무의미한 반복 패턴 감지 (동일 문자 10자 이상 반복, 단 . 이나 - 은 목차 등으로 흔하기에 제외)
-    if (/(?![.-])(.)\1{9,}/.test(clean)) {
-        return { valid: false, severity: 'error', msg: "무의미한 반복 패턴이 감지되었습니다.\n(정상적인 텍스트 문서가 아닐 수 있습니다)" };
+    // 3. 무의미한 반복 패턴 감지 (동일 문자 15자 이상 반복, 단 . , - , _ 은 흔하기에 제외)
+    if (/(?![.\-_])(.)\1{14,}/.test(clean)) {
+        return { valid: false, severity: 'warning', msg: "무의미한 반복 패턴이 감지되었습니다.\n(정상적인 텍스트 문서가 아닐 수 있습니다)\n\n파일 자체는 저장되지만 AI 검색은 지원되지 않습니다.\n그래도 업로드하시겠습니까?" };
     }
 
     // 4. 정보 밀도 체크 (특수문자/공백 제외한 실제 언어 텍스트가 20자 미만 → 경고)
@@ -110,7 +110,32 @@ export async function extractTextFromTxt(file) {
     });
 }
 
-export function filetypecheck(file) {
+// 매직 넘버(파일 시그니처) 기반 파일 형식 검증
+async function validateMagicNumber(file) {
+    const header = await file.slice(0, 8).arrayBuffer();
+    const bytes = new Uint8Array(header);
+
+    // PDF: %PDF (25 50 44 46)
+    if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+        return 'application/pdf';
+    }
+
+    // ZIP-based formats (docx, pptx): PK (50 4B 03 04)
+    if (bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04) {
+        // docx와 pptx 모두 ZIP 컨테이너이므로 확장자로 구분
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        if (ext === 'pptx') return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        return 'zip'; // 알 수 없는 ZIP 파일
+    }
+
+    // 텍스트 파일은 매직 넘버가 없으므로 MIME 타입 신뢰
+    if (file.type === 'text/plain') return 'text/plain';
+
+    return null; // 매칭되지 않음
+}
+
+export async function filetypecheck(file) {
     const supportedTypes = [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -118,10 +143,24 @@ export function filetypecheck(file) {
         "text/plain"
     ];
 
+    // 1단계: MIME 타입 확인
     if (!supportedTypes.includes(file.type)) {
         alert("현재 doc 파일은 지원하지 않으며 docx로 저장하여 업로드해야 합니다.");
         return false;
     }
+
+    // 2단계: 매직 넘버 검증 (MIME 위조 방지)
+    const detectedType = await validateMagicNumber(file);
+    if (!detectedType) {
+        alert("파일 내용이 선언된 형식과 일치하지 않습니다.\n파일이 손상되었거나 위장된 파일일 수 있습니다.");
+        return false;
+    }
+
+    if (file.type !== 'text/plain' && detectedType !== file.type) {
+        alert("파일 확장자와 실제 내용이 일치하지 않습니다.\n올바른 형식의 파일을 업로드해주세요.");
+        return false;
+    }
+
     return true;
 }
 
@@ -163,10 +202,19 @@ export async function fileUpload(file, user_id = null, companyId = null, preExtr
 
     }
 
-    // 2. 텍스트 품질 검증 (업로드는 무조건 진행하되, 품질 상태만 파악)
+    // 2. 텍스트 품질 검증 (경고 시 사용자 확인, 에러 시 중단)
     const validation = validateText(extractedText);
     if (!validation.valid) {
-        console.warn(`Text Validation Issue: ${validation.msg}`);
+        if (validation.severity === 'warning') {
+            if (!confirm(validation.msg)) {
+                console.log("User cancelled upload due to validation warning.");
+                return null; // Resolve with null to indicate cancellation
+            }
+        } else {
+            alert(validation.msg);
+            throw new Error(validation.msg);
+        }
+        
         // 텍스트가 없거나 너무 짧은 경우 파일명을 플레이스홀더로 사용
         if (!extractedText || extractedText.trim().length < 5) {
             extractedText = `[텍스트 미추출/이미지 문서] ${file.name}`;

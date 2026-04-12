@@ -1,6 +1,3 @@
-import { APIcall } from './APIcallFunction.js';
-
-const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 
 $(document).ready(function () {
     const $form = $('#signup-form');

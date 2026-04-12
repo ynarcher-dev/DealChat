@@ -93,15 +93,22 @@ $(document).ready(function () {
                 if (!params.data || !params.data.location) return null;
                 const a = document.createElement('a');
                 a.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; color: #1A73E8;">download</span>';
-                const supabaseUrl = window.config.supabase.url;
-                a.href = `${supabaseUrl}/storage/v1/object/public/uploads/${params.data.location}`;
-                a.target = '_blank';
+                a.href = '#';
                 a.style.display = 'flex';
                 a.style.alignItems = 'center';
                 a.style.justifyContent = 'flex-start';
                 a.style.height = '100%';
                 a.style.textDecoration = 'none';
-                a.onclick = (e) => e.stopPropagation();
+                a.style.cursor = 'pointer';
+                const loc = params.data.location;
+                a.onclick = async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const { getSignedFileUrl } = await import('./file_render_utils.js');
+                    const url = await getSignedFileUrl(loc);
+                    if (url) window.open(url, '_blank');
+                    else alert('파일 URL을 생성할 수 없습니다.');
+                };
                 return a;
             }
         },
@@ -181,9 +188,13 @@ $(document).ready(function () {
             $('#modal-updatedAt').val(`${d.getFullYear()}.${mm}.${dd} ${hh}:${min}`);
         }
 
-        const fileUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${location}`;
-        $('#modal-location-icon').attr('href', fileUrl);
-        $('#modal-location-btn').attr('href', fileUrl);
+        $('#modal-location-icon, #modal-location-btn').attr('href', '#').off('click').on('click', async function(e) {
+            e.preventDefault();
+            const { getSignedFileUrl } = await import('./file_render_utils.js');
+            const url = await getSignedFileUrl(location);
+            if (url) window.open(url, '_blank');
+            else alert('파일 URL을 생성할 수 없습니다.');
+        });
 
         const modalEl = document.getElementById('file-modal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -448,10 +459,11 @@ $(document).ready(function () {
 
         try {
             const zip = new JSZip();
-            const supabaseUrl = window.config.supabase.url;
+            const { getSignedFileUrl } = await import('./file_render_utils.js');
 
             const downloadPromises = selectedRows.map(async (file) => {
-                const fileUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${file.location}`;
+                const fileUrl = await getSignedFileUrl(file.location);
+                if (!fileUrl) throw new Error(`Failed to get URL for ${file.file_name}`);
                 const response = await fetch(fileUrl);
                 if (!response.ok) throw new Error(`Failed to download ${file.file_name}`);
                 const blob = await response.blob();

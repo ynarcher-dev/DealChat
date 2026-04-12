@@ -107,7 +107,7 @@
                             style="background: #f8fafc; border-radius: 16px; padding: 24px; border: 1.5px solid #e2e8f0; margin-bottom: 24px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.04); transition: all 0.2s;">
                             <div id="ext-share-key-label" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 600;">생성된 보안 접근 키</div>
                             <div id="ext-share-key-display"
-                                style="font-size: 36px; font-weight: 800; color: #94a3b8; letter-spacing: 4px; margin-bottom: 8px; font-family: 'Outfit', sans-serif;">------</div>
+                                style="font-size: 28px; font-weight: 800; color: #94a3b8; letter-spacing: 3px; margin-bottom: 8px; font-family: 'Outfit', sans-serif;">------------</div>
                             <div id="ext-share-expiry" style="font-size: 12px; color: #94a3b8;">생성 후 48시간 동안 유효합니다</div>
                         </div>
 

@@ -22,12 +22,14 @@ async function copyText(text) {
     }
 }
 
-// Generate a random 6-digit alphanumeric key (uppercase)
-export function generateRandomKey(length = 6) {
+// Generate a cryptographically secure random alphanumeric key (uppercase)
+export function generateRandomKey(length = 12) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid visually similar chars like 0, O, 1, I
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
     let result = '';
     for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(randomValues[i] % chars.length);
     }
     return result;
 }
@@ -67,36 +69,17 @@ export async function saveExternalShareLog(supabase, shareData) {
     return data;
 }
 
-export async function logExternalAccess(supabase, shareId) {
+export async function logExternalAccess(supabase, shareKey) {
     try {
-        // [Integration] Get current data to update count and history
-        const { data: current, error: getError } = await supabase
-            .from('external_share_logs')
-            .select('access_count, access_history')
-            .eq('id', shareId)
-            .single();
+        const { data, error } = await supabase
+            .rpc('increment_share_access', { p_share_key: shareKey });
 
-        if (getError) throw getError;
-
-        const newHistory = Array.isArray(current.access_history) ? current.access_history : [];
-        newHistory.push({
-            accessed_at: new Date().toISOString(),
-            user_agent: navigator.userAgent
-        });
-
-        const { error: updateError } = await supabase
-            .from('external_share_logs')
-            .update({
-                access_count: (current.access_count || 0) + 1,
-                last_accessed_at: new Date().toISOString(),
-                access_history: newHistory
-            })
-            .eq('id', shareId);
-
-        if (updateError) throw updateError;
-
+        if (error) throw error;
+        if (data && !data.success) {
+            console.warn('Share access denied:', data.error);
+        }
     } catch (e) {
-        console.warn('Failed to log access (integrated):', e);
+        console.warn('Failed to log access:', e);
     }
 }
 
@@ -171,7 +154,7 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
             // Initial state: Grayed out result area
             $('#ext-share-key-area').css({'background': '#f8fafc', 'border': '1.5px solid #e2e8f0'});
             $('#ext-share-key-label').css('color', '#94a3b8');
-            $('#ext-share-key-display').text('------').css('color', '#94a3b8');
+            $('#ext-share-key-display').text('------------').css('color', '#94a3b8');
             
             $('#ext-share-guidance-box').css({'background': '#f8fafc', 'border': '1.5px solid #e2e8f0', 'color': '#94a3b8'})
                 .html('<div class="text-muted">키 생성 후 안내 문구가 이곳에 표시됩니다.</div>');
@@ -219,7 +202,7 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
 
             if (!userData) throw new Error('User not logged in (Local Storage)');
 
-            const shareKey = generateRandomKey(6);
+            const shareKey = generateRandomKey(12);
             
             // Save to DB
             const _supabase = window.supabaseClient; 
@@ -260,8 +243,12 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
             const template = `안녕하세요, ${sharerInfo.affiliation} ${sharerInfo.name}입니다.\n\n아래 링크를 통해 리포트를 확인하실 수 있습니다.\n공유 URL: ${shareUrl}\n접근 키: ${shareKey}\n(최대 3회 접근 가능 / ${dateStr}까지 유효)`;
 
             // Update UI - Activate Result Area
-            const lightThemeColor = themeColor === '#0d9488' ? '#f0fdfa' : '#f5f3ff';
-            const borderThemeColor = themeColor === '#0d9488' ? '#ccfbf1' : '#ddd6fe';
+            const lightThemeColor = themeColor === '#0d9488' ? '#f0fdfa'
+                                  : themeColor === '#1A73E8' ? '#eff6ff'
+                                  : '#f5f3ff';
+            const borderThemeColor = themeColor === '#0d9488' ? '#ccfbf1'
+                                   : themeColor === '#1A73E8' ? '#bfdbfe'
+                                   : '#ddd6fe';
             
             $('#ext-share-key-area').css({'background': lightThemeColor, 'border': `1px solid ${borderThemeColor}`});
             $('#ext-share-key-label').css('color', themeColor);
@@ -333,27 +320,50 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
  * Check if NDA is signed for the current user and item
  */
 export async function checkNdaStatus(supabase, itemId, userId, itemType) {
-    // 1. Check LocalStorage (External use/fallback)
+    // 1. 인증 사용자: DB(nda_logs)를 우선 확인 (서버사이드 검증)
+    if (userId) {
+        try {
+            const { data, error } = await supabase
+                .from('nda_logs')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('item_id', itemId)
+                .eq('item_type', itemType)
+                .maybeSingle();
+
+            if (data && !error) {
+                // DB에 존재하면 localStorage 캐시도 동기화
+                try {
+                    const localKey = `dealchat_signed_ndas_${itemType}s_${userId}`;
+                    const signed = localStorage.getItem(localKey);
+                    const list = signed ? JSON.parse(signed) : [];
+                    if (!list.includes(String(itemId))) {
+                        list.push(String(itemId));
+                        localStorage.setItem(localKey, JSON.stringify(list));
+                    }
+                } catch (e) { /* localStorage 캐시 실패는 무시 */ }
+                return true;
+            }
+        } catch (e) {
+            console.warn('DB NDA check failed, falling through:', e);
+        }
+    }
+
+    // 2. 모든 사용자(DB 검증 실패 시 또는 비인증자): localStorage 폴백
     try {
         const localUserId = userId || 'anonymous';
         const signed = localStorage.getItem(`dealchat_signed_ndas_${itemType}s_${localUserId}`);
         const localSignedList = signed ? JSON.parse(signed) : [];
         if (localSignedList.includes(String(itemId))) return true;
+        
+        // 추가 검증: 로컬 유저 아이디가 지정되었으나 'anonymous'로 저장된 캐시도 확인 (예외 방어)
+        if (userId && userId !== 'anonymous') {
+            const anonSigned = localStorage.getItem(`dealchat_signed_ndas_${itemType}s_anonymous`);
+            const anonSignedList = anonSigned ? JSON.parse(anonSigned) : [];
+            if (anonSignedList.includes(String(itemId))) return true;
+        }
     } catch (e) {
         console.warn('LocalStorage NDA check failed:', e);
-    }
-
-    // 2. Check Supabase nda_logs (Member use)
-    if (userId) {
-        const { data, error } = await supabase
-            .from('nda_logs')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('item_id', itemId)
-            .eq('item_type', itemType)
-            .maybeSingle();
-        
-        if (data && !error) return true;
     }
 
     return false;
@@ -395,7 +405,7 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
     const $accessKeySection = $('#nda-access-key-section');
     if (isExternal) {
         $accessKeySection.show();
-        $('#nda-name-hint').text('* 전달받은 6자리 접근 키를 입력해주세요.');
+        $('#nda-name-hint').text('* 전달받은 12자리 접근 키를 입력해주세요.');
     } else {
         $accessKeySection.hide();
         $('#nda-name-hint').html(`* <strong style="color: #6366f1;">${currentUserName}</strong> 님의 성함을 입력해주세요.`);
@@ -409,7 +419,7 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
         let isValid = false;
         if (isExternal) {
             const accessKey = $('#nda-access-key').val().trim();
-            isValid = (signature === (guestName || '') && confirmTxt === REQUIRED_TXT && accessKey.length >= 6);
+            isValid = (signature.toLowerCase() === (guestName || '').toLowerCase() && confirmTxt === REQUIRED_TXT && accessKey.length >= 12);
         } else {
             isValid = (signature === currentUserName && confirmTxt === REQUIRED_TXT);
         }
@@ -423,7 +433,7 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
     if (isExternal) {
         $('#nda-access-key').off('input').on('input', async function() {
             const key = $(this).val().trim();
-            if (key.length >= 6) {
+            if (key.length >= 12) {
                 const shareLog = await validateShareKey(supabase, itemId, key);
                 if (shareLog) {
                     guestName = shareLog.recipient_name;
@@ -438,7 +448,7 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
                 }
             } else {
                 guestName = null;
-                $('#nda-name-hint').text('* 전달받은 6자리 접근 키를 입력해주세요.');
+                $('#nda-name-hint').text('* 전달받은 12자리 접근 키를 입력해주세요.');
                 $(this).css('border-color', '#f1f5f9');
             }
             validateInputs();
@@ -455,17 +465,31 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
                 alert('유효하지 않거나 만료된 접근 키입니다.');
                 return;
             }
-            await logExternalAccess(supabase, shareLog.id);
+            await logExternalAccess(supabase, accessKey);
         }
 
         try {
             if (userData && userData.isLoggedIn) {
-                await supabase.from('nda_logs').insert({
+                const { error: upsertErr } = await supabase.from('nda_logs').upsert({
                     user_id: userData.id,
                     item_id: itemId,
                     item_type: itemType,
                     signature: signature
-                });
+                }, { onConflict: 'user_id,item_id,item_type', ignoreDuplicates: true });
+                
+                if (upsertErr) {
+                    console.error('NDA DB upsert failed:', upsertErr);
+                    // attempt alternative insert or fallback if needed
+                    const { error: insertErr } = await supabase.from('nda_logs').insert({
+                        user_id: userData.id,
+                        item_id: itemId,
+                        item_type: itemType,
+                        signature: signature
+                    });
+                    if (insertErr) {
+                        console.error('NDA DB fallback insert failed:', insertErr);
+                    }
+                }
             }
             
             // Save to LocalStorage

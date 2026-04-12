@@ -21,7 +21,6 @@ const _supabase = window.supabaseClient || supabase.createClient(window.config.s
 window.supabaseClient = _supabase;
 
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
-const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
 
 $(document).ready(function () {
     showLoader();
@@ -886,7 +885,7 @@ $(document).ready(function () {
         if (!files || !files.length) return;
         
         for (const file of files) {
-            if (!filetypecheck(file)) continue;
+            if (!(await filetypecheck(file))) continue;
             
             // 1. 임시 로딩 항목 추가
             const $tempItem = addFileToSourceList(file.name, 'pending-' + Date.now(), null, true, false, null, 'loading');
@@ -905,9 +904,8 @@ $(document).ready(function () {
                     const badgeText = finalStatus === 'reflected' ? 'AI 반영됨' : 'AI 미반영';
                     const badgeTitle = finalStatus === 'reflected' ? 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.' : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.';
                     
-                    const fileUrl = SUPABASE_STORAGE_URL + uploadedFile.storage_path;
-                    
-                    $tempItem.find('.file-link').attr('href', fileUrl);
+                    const { openSignedFile } = await import('./file_render_utils.js');
+                    $tempItem.find('.file-link').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
                     $tempItem.find('.ai-status-badge').removeClass('badge-ai-loading').addClass(badgeClass).text(badgeText).attr('title', badgeTitle);
                     $tempItem.find('.delete-file').attr('data-id', uploadedFile.id);
 

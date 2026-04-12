@@ -3726,3 +3726,10 @@ body.nda-active .app-container {
 .row-deleted .memo-text { color: #94a3b8 !important; }
 .row-deleted .author-name-td { color: #94a3b8 !important; }
 .row-deleted .author-affiliation-td { color: #cbd5e1 !important; }
+
+/* 공유 항목 모달 내 긴 텍스트 레이아웃 뚫림 방지 */
+.summary-content-box {
+    word-break: break-all;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}

@@ -20,7 +20,6 @@ const _supabase = window.supabaseClient || supabase.createClient(window.config.s
 window.supabaseClient = _supabase;
 
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
-const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
 
 let currentBuyerData = null;
 let userOwnedCompanies = []; // 본인 소유 기업 목록 (추천용)
@@ -420,19 +419,30 @@ $(document).ready(function () {
             interest_industry: $('#buyer-industry').val(),
             manager_name: $('#buyer-manager').val(),
             email: $('#buyer-email').val(),
-            available_funds: $('#buyer-investment').val(),
+            available_funds: $('#buyer-investment').val() === "" ? null : $('#buyer-investment').val(),
             interest_summary: $('#buyer-interest-summary').val(),
             private_memo: $('#private-memo').val(),
             user_id: currentuser_id,
             is_draft: shareType === 'private',
-            history: conversationHistory,
-            updated_at: new Date().toISOString()
+            history: conversationHistory
+            // updated_at은 DB 트리거에서 자동 처리하도록 제외 (포맷 불일치로 인한 400 에러 방지)
         };
+
+        console.log('[saveBuyerData] Payload:', payload);
         showLoader();
+
         try {
             const res = isNew ? await _supabase.from('buyers').insert(payload).select().single() : await _supabase.from('buyers').update(payload).eq('id', buyerId);
             
-            if (res.error) throw res.error;
+            if (res.error) {
+                console.error('[saveBuyerData] DB Error Details:', {
+                    message: res.error.message,
+                    details: res.error.details,
+                    hint: res.error.hint,
+                    code: res.error.code
+                });
+                throw res.error;
+            }
 
             // [New] 신규 생성 시 pendingFiles 연동
             if (isNew && res.data && pendingFiles.length > 0) {
@@ -448,9 +458,9 @@ $(document).ready(function () {
             alert(shareType === 'private' ? '비공개로 저장되었습니다.' : '저장되었습니다.');
             location.href = returnUrl;
         } catch (err) {
-            console.error('Save error:', err);
+            console.error('[saveBuyerData] Full error object:', err);
             hideLoader();
-            alert('저장 중 오류가 발생했습니다.');
+            alert('저장 중 오류가 발생했습니다: ' + (err.message || '알 수 없는 오류'));
         }
     }
 
@@ -470,7 +480,7 @@ $(document).ready(function () {
         const files = e.target.files;
         if (!files.length) return;
         for (const file of files) {
-            if (!filetypecheck(file)) continue;
+            if (!(await filetypecheck(file))) continue;
             const tempId = `temp-${Date.now()}`;
             // 분석 중... (Loading) 항목 추가
             const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
@@ -495,10 +505,11 @@ $(document).ready(function () {
                     .text(badgeText)
                     .css({'color': badgeColor, 'background': badgeBg, 'border-color': badgeBorder});
                 
-                $tempItem.find('a').attr('href', SUPABASE_STORAGE_URL + uploadedFile.storage_path);
+                const { openSignedFile } = await import('./file_render_utils.js');
+                $tempItem.find('a').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
                 $tempItem.attr('data-id', uploadedFile.id);
                 $tempItem.find('.btn-delete-file').attr('data-id', uploadedFile.id);
-                
+
                 // [New] 신규 모드와 수정 모드에 맞춰 파일 리스트 업데이트
                 if (isNew) {
                     pendingFiles.push(uploadedFile);
@@ -523,7 +534,7 @@ $(document).ready(function () {
         e.preventDefault();
         const files = e.originalEvent.dataTransfer.files;
         for (const file of files) {
-            if (!filetypecheck(file)) continue;
+            if (!(await filetypecheck(file))) continue;
             const tempId = `temp-${Date.now()}`;
             const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
             
@@ -546,9 +557,10 @@ $(document).ready(function () {
                     .text(badgeText)
                     .css({'color': badgeColor, 'background': badgeBg, 'border-color': badgeBorder});
                 
-                $tempItem.find('a').attr('href', SUPABASE_STORAGE_URL + uploadedFile.storage_path);
+                const { openSignedFile: openSigned2 } = await import('./file_render_utils.js');
+                $tempItem.find('a').attr('href', '#').off('click').on('click', openSigned2(uploadedFile.storage_path));
                 $tempItem.attr('data-id', uploadedFile.id);
-                
+
                 if (isNew) {
                     pendingFiles.push(uploadedFile);
                 } else {

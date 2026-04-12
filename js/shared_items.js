@@ -350,7 +350,7 @@ function buildRow(item) {
            </span>`;
 
     const row = $(`
-        <tr class="${isDeleted ? 'row-deleted' : 'table-row-clickable'}">
+        <tr class="${isDeleted ? 'row-deleted dc-item-deleted' : 'table-row-clickable'}" ${isDeleted ? 'style="pointer-events: none;"' : ''}>
             <td>
                 <div style="display:flex; align-items:center; gap:16px; min-width:0;">
                     <div class="item-icon-box" style="width:36px; height:36px; background:${cfg.color}; border-radius:8px;

@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
-// 간단한 메모리 기반 Rate Limiter
+// Rate Limiter: JWT user_id 기반 (스푸핑 불가) + IP 폴백
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 30; // 분당 최대 요청 수
 const RATE_WINDOW = 60 * 1000; // 1분 (밀리초)
@@ -17,6 +17,26 @@ function checkRateLimit(identifier: string): boolean {
         return false;
     }
     return true;
+}
+
+// JWT에서 user_id 추출 (스푸핑 불가능한 식별자)
+function extractUserIdFromJwt(req: Request): string | null {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.sub || null;
+    } catch {
+        return null;
+    }
+}
+
+// Rate limit 식별자: JWT user_id > cf-connecting-ip > x-forwarded-for
+function getRateLimitKey(req: Request): string {
+    const userId = extractUserIdFromJwt(req);
+    if (userId) return `user:${userId}`;
+    return req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
 const ALLOWED_ORIGINS = [
@@ -122,8 +142,8 @@ async function generateAndStoreEmbeddings(
 
 Deno.serve(async (req) => {
     // Rate Limiting
-    const clientIP = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
-    if (!checkRateLimit(clientIP)) {
+    const rateLimitKey = getRateLimitKey(req);
+    if (!checkRateLimit(rateLimitKey)) {
         return new Response(JSON.stringify({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }), {
             status: 429,
             headers: { "Content-Type": "application/json", "Retry-After": "60" },

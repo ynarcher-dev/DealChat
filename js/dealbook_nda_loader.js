@@ -48,11 +48,11 @@
                     <div id="nda-access-key-section" style="display: none; margin-bottom: 24px;">
                         <label class="form-label fw-bold mb-2" style="font-size: 14px; color: #1e293b;">접근 키 입력 (최대 3회 접근 가능)</label>
                         <div class="input-group">
-                            <input type="text" id="nda-access-key" class="form-control" placeholder="6자리 영문/숫자 키를 입력해주세요"
+                            <input type="text" id="nda-access-key" class="form-control" placeholder="12자리 영문/숫자 키를 입력해주세요"
                                 style="border-radius: 12px; font-size: 15px; padding: 14px 18px; border: 2px solid #f1f5f9; background: #fbfcfd; transition: all 0.2s; text-transform: uppercase;">
                         </div>
                         <p class="small mt-2 mb-0" style="color: #94a3b8; font-size: 12px; margin-left: 2px;">
-                            * 전달받은 6자리 접근 키를 입력하시면 서명 가이드가 활성화됩니다.
+                            * 전달받은 12자리 접근 키를 입력하시면 서명 가이드가 활성화됩니다.
                         </p>
                     </div>
 

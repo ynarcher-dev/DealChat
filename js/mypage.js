@@ -169,14 +169,15 @@ $(document).ready(function () {
 
             if (error) throw error;
 
-            const { data: { publicUrl } } = _supabase.storage
+            const { data: signedData, error: signError } = await _supabase.storage
                 .from('uploads')
-                .getPublicUrl(filePath);
+                .createSignedUrl(filePath, 3600);
+            const avatarUrl = signError ? filePath : signedData.signedUrl;
 
             $('.avatar-option').removeClass('selected');
             btn.addClass('selected');
-            btn.html(`<img src="${publicUrl}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`);
-            currentAvatar = publicUrl;
+            btn.html(`<img src="${avatarUrl}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`);
+            currentAvatar = filePath; // DB에는 경로만 저장 (표시 시 signed URL 재생성)
             selectedFile = file;
             
 

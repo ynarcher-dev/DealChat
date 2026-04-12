@@ -88,15 +88,22 @@ $(document).ready(function () {
                 if (!params.data || !params.data.location) return null;
                 const a = document.createElement('a');
                 a.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; color: #8b5cf6;">download</span>';
-                const supabaseUrl = window.config.supabase.url;
-                a.href = `${supabaseUrl}/storage/v1/object/public/uploads/${params.data.location}`;
-                a.target = '_blank';
+                a.href = '#';
                 a.style.display = 'flex';
                 a.style.alignItems = 'center';
                 a.style.justifyContent = 'flex-start';
                 a.style.height = '100%';
                 a.style.textDecoration = 'none';
-                a.onclick = (e) => e.stopPropagation();
+                a.style.cursor = 'pointer';
+                const loc = params.data.location;
+                a.onclick = async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const { getSignedFileUrl } = await import('./file_render_utils.js');
+                    const url = await getSignedFileUrl(loc);
+                    if (url) window.open(url, '_blank');
+                    else alert('파일 URL을 생성할 수 없습니다.');
+                };
                 return a;
             }
         },
@@ -175,10 +182,14 @@ $(document).ready(function () {
         $('#modal-createdAt').val(file.created_at ? (d => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`)(new Date(file.created_at)) : '');
         $('#modal-updatedAt').val(file.updated_at ? (d => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`)(new Date(file.updated_at)) : '');
 
-        const supabaseUrl = window.config.supabase.url;
-        const fileUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${file.location}`;
-        $('#modal-location-icon').attr('href', fileUrl);
-        $('#modal-location-btn').attr('href', fileUrl);
+        // Signed URL 기반 다운로드 핸들러 등록
+        $('#modal-location-icon, #modal-location-btn').attr('href', '#').off('click').on('click', async function(e) {
+            e.preventDefault();
+            const { getSignedFileUrl } = await import('./file_render_utils.js');
+            const url = await getSignedFileUrl(file.location);
+            if (url) window.open(url, '_blank');
+            else alert('파일 URL을 생성할 수 없습니다.');
+        });
 
         const modalEl = document.getElementById('file-modal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -313,9 +324,10 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="material-symbols-outlined spin" style="font-size: 22px;">sync</span>');
         try {
             const zip = new JSZip();
-            const supabaseUrl = window.config.supabase.url;
+            const { getSignedFileUrl } = await import('./file_render_utils.js');
             const downloadPromises = selectedRows.map(async (file) => {
-                const fileUrl = `${supabaseUrl}/storage/v1/object/public/uploads/${file.location}`;
+                const fileUrl = await getSignedFileUrl(file.location);
+                if (!fileUrl) throw new Error(`Failed to get URL for ${file.file_name}`);
                 const response = await fetch(fileUrl);
                 if (!response.ok) throw new Error(`Failed to download ${file.file_name}`);
                 const blob = await response.blob();

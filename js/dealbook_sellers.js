@@ -20,7 +20,6 @@ const _supabase = window.supabaseClient || supabase.createClient(window.config.s
 window.supabaseClient = _supabase;
 
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
-const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
 
 $(document).ready(function () {
     // ==========================================
@@ -204,34 +203,17 @@ $(document).ready(function () {
         renderFinancialTable(migrateFinancialInfo(finSource), 'financial-table-container');
         toggleCompanyFields(true);
         
-        try {
-            const { data: sellerData } = await _supabase.from('sellers').select('*').eq('company_id', company.id).eq('user_id', user_id).maybeSingle();
-            if (sellerData) {
-                $('#seller-price').val(sellerData.matching_price || sellerData.sale_price || '');
-                if ((sellerData.matching_price || sellerData.sale_price) === '협의') {
-                    $('#negotiable-check').prop('checked', true);
-                    $('#seller-price').prop('readonly', true).css('background', '#f8fafc');
-                }
-                $('#seller-method').val(sellerData.sale_method || '');
-                $('#seller-memo').val(sellerData.sale_info || '');
-                $('#seller-manager-memo').val(sellerData.manager_memo || '');
-                sellerId = sellerData.id;
-                isNew = false;
-                currentSellerData = sellerData;
-                window.currentSellerData = currentSellerData;
-                selectedCompanyId = sellerData.company_id;
-                $('#btn-delete-seller').show();
-            } else {
-                $('#seller-price').val('');
-                $('#negotiable-check').prop('checked', false);
-                $('#seller-price').prop('readonly', false).css('background', '#ffffff');
-                $('#seller-method').val('');
-                $('#seller-memo').val('');
-                $('#seller-manager-memo').val('');
-                setChip('대기');
-                $('#btn-delete-seller').hide();
-            }
-        } catch (err) { console.error('Failed to fetch existing seller data:', err); }
+        // 신규 매도자 생성 시 복수의 티저(글)를 작성할 수 있도록 
+        // 기존의 sellerData를 강제로 불러와서 덮어씌우는(isNew = false) 로직을 제거하고,
+        // 매도자 전용 필드를 초기화합니다.
+        $('#seller-price').val('');
+        $('#negotiable-check').prop('checked', false);
+        $('#seller-price').prop('readonly', false).css('background', '#ffffff');
+        $('#seller-method').val('');
+        $('#seller-memo').val('');
+        $('#seller-manager-memo').val('');
+        if (typeof setChip === 'function') setChip('대기');
+        $('#btn-delete-seller').hide();
         autoResizeAllTextareas();
         $('#company-suggestions').hide();
         loadAvailableFiles(); // 데이터 소스 패널(학습 데이터) 새로고침 추가
@@ -654,7 +636,7 @@ $(document).ready(function () {
         const $listA = $('#source-list-additional');
         
         for (const file of files) {
-            if (!filetypecheck(file)) continue;
+            if (!(await filetypecheck(file))) continue;
             
             // 1. 임시 로딩 항목 추가
             const loadingBadge = getFileBadgeHtml(null, 'loading');

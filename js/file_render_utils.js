@@ -1,10 +1,50 @@
 /**
+ * Signed URL을 생성하여 파일을 안전하게 다운로드합니다.
+ * 1시간 유효한 서명된 URL을 반환합니다.
+ */
+export async function getSignedFileUrl(location) {
+    if (!location) return null;
+    if (location.startsWith('http')) return location; // 이미 전체 URL인 경우
+
+    const _supabase = window.supabaseClient;
+    if (!_supabase) {
+        console.warn('Supabase client not available for signed URL');
+        return null;
+    }
+
+    const { data, error } = await _supabase.storage
+        .from('uploads')
+        .createSignedUrl(location, 3600); // 1시간 유효
+
+    if (error) {
+        console.error('Signed URL 생성 실패:', error);
+        return null;
+    }
+    return data.signedUrl;
+}
+
+/**
+ * 클릭 시 Signed URL을 생성하여 새 탭에서 파일을 엽니다.
+ */
+export function openSignedFile(location) {
+    return async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = await getSignedFileUrl(location);
+        if (url) {
+            window.open(url, '_blank');
+        } else {
+            alert('파일 URL을 생성할 수 없습니다. 다시 시도해주세요.');
+        }
+    };
+}
+
+/**
  * 파일 목록(학습 데이터/일반 파일)에 항목을 렌더링하는 공통 함수
  */
 export function addFileToSourceList(name, id, location, isTraining, isFinance, parsedTextValue = null, status = null, themeColor = '#8b5cf6') {
-    const SUPABASE_STORAGE_URL = `${window.config.supabase.url}/storage/v1/object/public/uploads/`;
     let target = '#source-list-training';
-    const fileUrl = location ? (location.startsWith('http') ? location : (SUPABASE_STORAGE_URL + location)) : '#';
+    const fileUrl = '#';
     
     // AI 검색 반영 여부 판단
     const isSearchable = parsedTextValue && typeof parsedTextValue === 'string' && !parsedTextValue.startsWith('[텍스트 미추출');
@@ -41,7 +81,12 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
         </li>
     `);
     $(target).append(item);
-    
+
+    // Signed URL 기반 파일 열기 핸들러 등록
+    if (location) {
+        item.find('.file-link').on('click', openSignedFile(location));
+    }
+
     // 버튼 호버 효과 추가
     item.find('.delete-file').hover(
         function() { $(this).css('opacity', '1'); },
