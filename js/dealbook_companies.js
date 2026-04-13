@@ -342,7 +342,7 @@ $(document).ready(function () {
         
         companyFiles.forEach(file => {
             // 모든 파일을 학습 데이터 목록으로 표시
-            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, file.parsedText);
+            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, file.parsedtext || file.parsedText);
         });
     }
 
@@ -564,8 +564,8 @@ $(document).ready(function () {
     $('#ai-auto-fill-btn').on('click', async function() {
         const trainingFiles = availableFiles.filter(f => f.entity_id === companyId || pendingFiles.some(pf => pf.id === f.id));
         const contextText = trainingFiles
-            .filter(f => f.parsedText && !f.parsedText.startsWith('[텍스트 미추출'))
-            .map(f => `파일명: ${f.file_name}\n내용: ${f.parsedText}`)
+            .filter(f => (f.parsedtext || f.parsedText) && !(f.parsedtext || f.parsedText).startsWith('[텍스트 미추출'))
+            .map(f => `파일명: ${f.file_name}\n내용: ${f.parsedtext || f.parsedText}`)
             .join('\n\n---\n\n');
 
         if (!contextText) {
@@ -584,7 +584,7 @@ $(document).ready(function () {
         try {
             const prompt = `
 업로드된 기업 관련 문서 내용을 바탕으로 다음 정보를 추출하여 정확한 JSON 형식으로 답변해주세요.
-- name: 기업명
+- name: 기업명 (단, '주식회사', '(주)' 등은 제외하고 추출)
 - industry: 산업 분야 (가급적 드롭다운 목록에 있는 값으로 매핑: AI, IT·정보통신, SaaS·솔루션, 게임, 공공·국방, 관광·레저, 교육·에듀테크, 금융·핀테크, 농·임·어업, 라이프스타일, 모빌리티, 문화예술·콘텐츠, 바이오·헬스케어, 부동산, 뷰티·패션, 에너지·환경, 외식업·소상공인, 우주·항공, 유통·물류, 제조·건설, 플랫폼·커뮤니티 중 하나)
 - ceo_name: 대표자명
 - email: 이메일
@@ -897,7 +897,8 @@ $(document).ready(function () {
                 const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
                 
                 if (uploadedFile && uploadedFile.storage_path) {
-                    const isSearchable = uploadedFile.parsedText && !uploadedFile.parsedText.startsWith('[텍스트 미추출');
+                    const _pt = uploadedFile.parsedtext || uploadedFile.parsedText;
+                    const isSearchable = _pt && !_pt.startsWith('[텍스트 미추출');
                     const finalStatus = isSearchable ? 'reflected' : 'failed';
                     
                     const badgeClass = finalStatus === 'reflected' ? 'badge-ai-reflected' : 'badge-ai-failed';

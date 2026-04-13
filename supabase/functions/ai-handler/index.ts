@@ -44,6 +44,8 @@ const ALLOWED_ORIGINS = [
     "https://afitwguexwihnepyutqw.supabase.co",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ];
 
 function getCorsHeaders(req: Request) {
@@ -98,7 +100,7 @@ serve(async (req) => {
             let embeddingResponse;
             let embeddingData;
             for (let i = 0; i < 3; i++) {
-                embeddingResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`, {
+                embeddingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ content: { parts: [{ text: query }] } }),

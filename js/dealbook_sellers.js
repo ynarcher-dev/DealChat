@@ -83,7 +83,7 @@ $(document).ready(function () {
     // 블라인드 설정 전역 변수
     let isBlindActive = true;
     let blindKeywords = [];
-    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false };
+    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false, fin_analysis: false };
     
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
@@ -402,7 +402,7 @@ $(document).ready(function () {
             window.currentSellerData = currentSellerData;
             $('#btn-delete-seller').show();
             blindKeywords = Array.isArray(seller.blind_keywords) ? seller.blind_keywords : [];
-            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false };
+            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false, fin_analysis: false };
             blindPersonal = { ...defaultBlind, ...(seller.blind_personal || {}) };
             renderBlindTags();
             $('#blind-check-name').prop('checked', blindPersonal.name);
@@ -411,6 +411,7 @@ $(document).ready(function () {
             $('#blind-check-establishment').prop('checked', blindPersonal.establishment);
             $('#blind-check-address').prop('checked', blindPersonal.address);
             $('#blind-check-fin-summary').prop('checked', blindPersonal.fin_summary);
+            $('#blind-check-fin-analysis').prop('checked', blindPersonal.fin_analysis);
 
             const company = seller.companies || {};
             const sellerName = seller.name || company.name || '비공개 기업';
@@ -561,8 +562,7 @@ $(document).ready(function () {
     });
 
     function getFileBadgeHtml(file, status) {
-        // file.parsed_text 또는 file.parsedText 모두 대응 (수파베이스 필드명 확인 필요)
-        const parsedText = file ? (file.parsed_text || file.parsedText) : null;
+        const parsedText = file ? (file.parsedtext || file.parsed_text || file.parsedText) : null;
         const isSearchable = parsedText && !parsedText.startsWith('[텍스트 미추출');
         
         if (!status) {
@@ -762,7 +762,7 @@ $(document).ready(function () {
             // 2. [추가] 신규 작성 중 업로드된 파일(pendingFiles) 내용 포함
             if (pendingFiles.length > 0) {
                 pendingFiles.forEach(f => {
-                    const txt = f.parsed_text || f.parsedText;
+                    const txt = f.parsedtext || f.parsed_text || f.parsedText;
                     if (txt) ragContexts.push(`[신규 업로드 파일(${f.file_name}) 내용]:\n${txt}`);
                 });
             }
@@ -817,7 +817,7 @@ $(document).ready(function () {
             }
             if (pendingFiles.length > 0) {
                 pendingFiles.forEach(f => {
-                    const txt = f.parsed_text || f.parsedText;
+                    const txt = f.parsedtext || f.parsed_text || f.parsedText;
                     if (txt) ragContexts.push(txt);
                 });
             }
@@ -831,7 +831,7 @@ $(document).ready(function () {
 
             const prompt = `
 업로드된 기업 관련 문서 내용을 바탕으로 다음 정보를 추출하여 정확한 JSON 형식으로 답변해주세요.
-- companyName: 기업명(매도자)
+- companyName: 기업명(매도자) (단, '주식회사', '(주)' 등은 제외하고 추출)
 - industry: 산업 분야 (가급적 드롭다운 목록에 있는 값으로 매핑: AI, IT·정보통신, SaaS·솔루션, 게임, 공공·국방, 관광·레저, 교육·에듀테크, 금융·핀테크, 농·임·어업, 라이프스타일, 모빌리티, 문화예술·콘텐츠, 바이오·헬스케어, 부동산, 뷰티·패션, 에너지·환경, 외식업·소상공인, 우주·항공, 유통·물류, 제조·건설, 플랫폼·커뮤니티 중 하나)
 - ceoName: 대표자명
 - email: 이메일
@@ -846,6 +846,7 @@ $(document).ready(function () {
 2. 금액이나 숫자는 단위 구분 쉼표 없이 숫자만 추출하세요. (예: 1,000,000 -> 1000000)
 3. 알 수 없는 정보는 빈 문자열("") 또는 0으로 반환하세요.
 4. 반드시 유효한 JSON 형식으로만 답변하세요. 다른 설명은 생략하세요.
+5. **[중요] 'companyName' 필드에는 실제 기업명을 추출하되, 'summary', 'keyProducts' 등 그 외 본문 항목에서는 기업명을 직접 언급하지 마세요.** 필요한 경우 '해당 기업'과 같은 중립적인 표현을 사용하거나 주어를 생략하세요.
             `.trim();
 
             const res = await addAiResponse(prompt, ctx, getCurrentModelId());
@@ -866,6 +867,21 @@ $(document).ready(function () {
             }
 
             if (json) {
+                // [신규] 본문 항목에서 기업명 언급 제거 후처리
+                const cName = json.companyName;
+                if (cName && cName.length > 1) {
+                    const fieldsToClean = ['summary', 'keyProducts', 'financial_analysis', 'manager_memo'];
+                    // (주), 주식회사 등이 포함된 경우도 대응하기 위해 정규식 구성
+                    const escapedName = cName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const cleanRegex = new RegExp(`(\\(\\주\\)|주식회사\\s*)?${escapedName}`, 'g');
+                    
+                    fieldsToClean.forEach(f => {
+                        if (json[f] && typeof json[f] === 'string') {
+                            json[f] = json[f].replace(cleanRegex, '해당 기업');
+                        }
+                    });
+                }
+
                 if (json.companyName) $('#seller-name-editor').text(json.companyName).trigger('input');
                 if (json.industry) {
                     const $ind = $('#seller-industry');
@@ -905,24 +921,47 @@ $(document).ready(function () {
     function applyBlindMasking() {
         const anyPersonal = Object.values(blindPersonal).some(v => v);
         if (!isBlindActive && !anyPersonal) return;
-        
+
         const blindBadge = '<span class="badge-blind">blind</span>';
         const regex = (isBlindActive && blindKeywords.length) ? new RegExp(blindKeywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi') : null;
-        
-        // 1. 개별 필드 블라인드 (체크박스) -> 뱃지로 표시
-        ['seller-name-editor', 'seller-ceo', 'seller-email', 'seller-establishment', 'seller-address'].forEach(id => {
-            const fieldMap = { 'name-editor': 'name', 'ceo': 'ceo', 'email': 'email', 'establishment': 'establishment', 'address': 'address' };
-            const key = fieldMap[id.split('-')[1] + (id.includes('name') ? '-editor' : '')] || id.split('-')[1];
-            
+
+        // 1-a. 기업명: 뱃지 형태로 표시 (행을 숨기지 않음)
+        if (blindPersonal.name) {
+            const $name = $('#seller-name-editor'), $rep = $name.next('.report-text-field');
+            if ($rep.length) $rep.html(blindBadge);
+            else $name.html(blindBadge);
+        }
+
+        // 1-b. 개별 필드 블라인드 -> 해당 flex:1 컬럼 또는 width:100% 컨테이너 숨김
+        const fieldMap = {
+            'ceo': 'ceo',
+            'email': 'email',
+            'establishment': 'establishment',
+            'address': 'address',
+            'fin-analysis': 'fin_analysis'
+        };
+        ['seller-ceo', 'seller-email', 'seller-establishment', 'seller-address', 'seller-fin-analysis'].forEach(id => {
+            const suffix = id.replace('seller-', '');
+            const key = fieldMap[suffix] || suffix;
             if (blindPersonal[key]) {
-                const $el = $(`#${id}`), $rep = $el.next('.report-text-field');
-                if ($rep.length) $rep.html(blindBadge); 
-                else if ($el.length) {
-                    if (id === 'seller-name-editor') $el.html(blindBadge);
-                    else $el.val('blind');
-                }
+                $(`#${id}`).closest('div[style*="flex: 1"], div[style*="width: 100%"]').hide();
             }
         });
+
+        // [여백 제거] 행 내 모든 필드가 숨겨진 경우 부모 flex 행 컨테이너도 숨겨 margin 제거
+        // 대표자명 & 이메일 행
+        const $ceoCol = $('#seller-ceo').closest('div[style*="flex: 1"]');
+        const $emailCol = $('#seller-email').closest('div[style*="flex: 1"]');
+        if ($ceoCol.length && $emailCol.length && $ceoCol.is(':hidden') && $emailCol.is(':hidden')) {
+            $ceoCol.parent().hide();
+        }
+
+        // 설립일자 & 주소 행
+        const $estCol = $('#seller-establishment').closest('div[style*="flex: 1"]');
+        const $addrCol = $('#seller-address').closest('div[style*="flex: 1"]');
+        if ($estCol.length && $addrCol.length && $estCol.is(':hidden') && $addrCol.is(':hidden')) {
+            $estCol.parent().hide();
+        }
 
         // 2. 키워드 블라인드 (본문 및 블라인드 체크 안 된 개별 필드) -> ○로 표시
         if (regex) {
@@ -931,10 +970,10 @@ $(document).ready(function () {
                 if ($rep.length) $rep.html($rep.text().replace(regex, (match) => maskWithCircles(match)));
                 else if ($el.length) $el.val($el.val().replace(regex, (match) => maskWithCircles(match)));
             });
-            
+
             // 키워드 블라인드: 이름 필드 (이름 자체가 블라인드 체크 안 된 경우에만 수행)
             if (!blindPersonal.name) {
-                const $name = $('#seller-name-editor'); 
+                const $name = $('#seller-name-editor');
                 $name.html($name.text().replace(regex, (match) => maskWithCircles(match)));
             }
         }

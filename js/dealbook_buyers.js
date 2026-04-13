@@ -270,7 +270,7 @@ $(document).ready(function () {
 
         displayFiles.forEach(file => {
             // [New] parsed_text 또는 parsedText 둘 다 체크
-            const pText = file.parsed_text || file.parsedText;
+            const pText = file.parsedtext || file.parsed_text || file.parsedText;
             const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
             const status = isSearchable ? 'reflected' : 'failed';
             addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status, null, '#22c55e');
@@ -283,11 +283,11 @@ $(document).ready(function () {
         
         const contextText = trainingFiles
             .filter(f => {
-                const pText = f.parsed_text || f.parsedText;
+                const pText = f.parsedtext || f.parsed_text || f.parsedText;
                 return f.is_training !== false && pText && !pText.startsWith('[텍스트 미추출');
             })
             .map(f => {
-                const pText = f.parsed_text || f.parsedText;
+                const pText = f.parsedtext || f.parsed_text || f.parsedText;
                 return `파일명: ${f.file_name}\n내용: ${pText}`;
             })
             .join('\n\n---\n\n');
@@ -298,7 +298,7 @@ $(document).ready(function () {
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 분석 중...');
         try {
             const prompt = `업로드된 문서를 바탕으로 다음 매수자 정보를 정확한 JSON 형식으로 추출해줘.
-- company_name: 기업명
+- company_name: 기업명 (단, '주식회사', '(주)' 등은 제외하고 추출)
 - interest_industry: 관심 산업 분야
 - manager_name: 담당자명
 - email: 이메일
@@ -306,7 +306,7 @@ $(document).ready(function () {
 - summary: 매수 회사 소개 (재무 관련 내용은 제외)
 - interest_summary: 매수 희망 요약 (재무 관련 내용은 제외)
 - private_memo: 기타 메모
-반드시 유효한 JSON 형식으로만 답변하고 다른 설명은 생략해.`.trim();
+반드시 유효한 JSON 형식으로만 답변하고 다른 설명은 생략해. **[중요] 'company_name' 필드에는 실제 기업명을 추출하되, 'summary', 'interest_summary' 등 그 외 본문 항목에서는 기업명을 직접 언급하지 마세요.** 필요한 경우 '해당 기업'과 같은 중립적인 표현을 사용하거나 주어를 생략하세요.`.trim();
             const res = await addAiResponse(prompt, contextText);
             const data = await res.json();
             const jsonText = data.answer || data.text || "";
@@ -314,6 +314,22 @@ $(document).ready(function () {
             if (!jsonMatch) throw new Error('JSON format not found');
             const json = JSON.parse(jsonMatch[0]);
             
+            if (json) {
+                // [신규] 본문 항목에서 기업명 언급 제거 후처리
+                const cName = json.company_name;
+                if (cName && cName.length > 1) {
+                    const fieldsToClean = ['summary', 'interest_summary', 'private_memo'];
+                    const escapedName = cName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const cleanRegex = new RegExp(`(\\(\\주\\)|주식회사\\s*)?${escapedName}`, 'g');
+                    
+                    fieldsToClean.forEach(f => {
+                        if (json[f] && typeof json[f] === 'string') {
+                            json[f] = json[f].replace(cleanRegex, '해당 기업');
+                        }
+                    });
+                }
+            }
+
             if (json.company_name) $('#buyer-name-editor').text(json.company_name);
             if (json.manager_name) $('#buyer-manager').val(json.manager_name);
             if (json.email) $('#buyer-email').val(json.email);
@@ -350,10 +366,10 @@ $(document).ready(function () {
         
         const contextText = trainingFiles
             .filter(f => {
-                const pText = f.parsed_text || f.parsedText;
+                const pText = f.parsedtext || f.parsed_text || f.parsedText;
                 return f.is_training !== false && pText && !pText.startsWith('[텍스트 미추출');
             })
-            .map(f => f.parsed_text || f.parsedText)
+            .map(f => f.parsedtext || f.parsed_text || f.parsedText)
             .join('\n\n');
         const aiMessageId = `ai-msg-${Date.now()}`;
         addMessage('', 'ai', true, aiMessageId);
@@ -491,7 +507,7 @@ $(document).ready(function () {
             const uploadedFile = Array.isArray(res) ? res[0] : res;
             if (uploadedFile && uploadedFile.storage_path) {
                 // [New] 텍스트 필드명 통합 체크
-                const pText = uploadedFile.parsed_text || uploadedFile.parsedText;
+                const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
                 const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
                 const badgeClass = isSearchable ? 'badge-ai-reflected' : 'badge-ai-failed';
                 const badgeText = isSearchable ? 'AI 반영됨' : 'AI 불가';
@@ -543,7 +559,7 @@ $(document).ready(function () {
             // [Fix] 드롭 시에도 res.success 대신 실제 파일 객체 유무로 판단
             const uploadedFile = Array.isArray(res) ? res[0] : res;
             if (uploadedFile && uploadedFile.storage_path) {
-                const pText = uploadedFile.parsed_text || uploadedFile.parsedText;
+                const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
                 const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
                 const badgeClass = isSearchable ? 'badge-ai-reflected' : 'badge-ai-failed';
                 const badgeText = isSearchable ? 'AI 반영됨' : 'AI 불가';

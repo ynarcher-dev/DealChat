@@ -43,6 +43,8 @@ const ALLOWED_ORIGINS = [
     "https://afitwguexwihnepyutqw.supabase.co",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ];
 
 const ALLOWED_TYPES = [
@@ -101,7 +103,7 @@ async function generateAndStoreEmbeddings(
         const chunk = parsedText.substring(i, i + chunkSize);
         if (chunk.length < 50) continue;
 
-        const embeddingResp = await fetch(`https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`, {
+        const embeddingResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
