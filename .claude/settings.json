@@ -14,7 +14,8 @@
       "Bash(grep -rh \"import.*from\" js/*.js)",
       "Bash(curl -s 'https://afitwguexwihnepyutqw.supabase.co/rest/v1/sellers?select=*,companies\\(*\\)&limit=1' -H 'apikey: sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5' -H 'Authorization: Bearer sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5')",
       "Bash(curl -s 'https://afitwguexwihnepyutqw.supabase.co/rest/v1/sellers?select=*,companies\\(*\\)&user_id=eq.40862963-e4d5-4ed0-8057-100f808c1fad&deleted_at=is.null' -H 'apikey: sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5' -H 'Authorization: Bearer sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5')",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(env|json|yml|yaml|toml\\)$\")"
     ]
   }
 }

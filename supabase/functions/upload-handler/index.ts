@@ -103,7 +103,7 @@ async function generateAndStoreEmbeddings(
         const chunk = parsedText.substring(i, i + chunkSize);
         if (chunk.length < 50) continue;
 
-        const embeddingResp = await fetch(`https://generativelanguage.googleapis.com/v1/models/text-embedding-004:embedContent?key=${apiKey}`, {
+        const embeddingResp = await fetch(`https://generativelanguage.googleapis.com/v1/models/embedding-001:embedContent?key=${apiKey}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

@@ -765,27 +765,31 @@ $(document).ready(function () {
         try {
             // [수정] 매도자 ID(sellerId)와 연동된 기업 ID(selectedCompanyId) 두 곳 모두의 벡터 데이터를 검색함
             let ragContexts = [];
+            // 1. 매도자 소유 파일 (기존 저장된 파일)
+            availableFiles.forEach(f => {
+                const txt = f.parsedtext || f.parsed_text || f.parsedText;
+                if (txt && !txt.startsWith('[텍스트 미추출')) {
+                    ragContexts.push(`[추가 업로드 파일(${f.file_name}) 내용]:\n${txt}`);
+                }
+            });
             
-            // 1. 매도자 소유 파일 검색 (신규 작성 중이 아닐 때)
-            if (!isNew && sellerId) {
-                const sellerRag = await searchVectorDB(msg, sellerId);
-                if (sellerRag) ragContexts.push(`[추가 업로드 파일 내용]:\n${sellerRag}`);
-            }
-            
-            // 2. [추가] 신규 작성 중 업로드된 파일(pendingFiles) 내용 포함
+            // 2. 신규 작성 중 업로드된 파일(pendingFiles) 내용 포함
             if (pendingFiles.length > 0) {
                 pendingFiles.forEach(f => {
                     const txt = f.parsedtext || f.parsed_text || f.parsedText;
-                    if (txt) ragContexts.push(`[신규 업로드 파일(${f.file_name}) 내용]:\n${txt}`);
+                    if (txt && !txt.startsWith('[텍스트 미추출')) {
+                        ragContexts.push(`[신규 업로드 파일(${f.file_name}) 내용]:\n${txt}`);
+                    }
                 });
             }
             
-            // 3. 연동된 기업 소유 파일 검색
-            const tid = (currentSellerData?.company_id) || selectedCompanyId;
-            if (tid) {
-                const companyRag = await searchVectorDB(msg, tid);
-                if (companyRag) ragContexts.push(`[기업 연동 파일 내용]:\n${companyRag}`);
-            }
+            // 3. 연동된 기업 소유 파일
+            companyLinkedFiles.forEach(f => {
+                const txt = f.parsedtext || f.parsed_text || f.parsedText;
+                if (txt && !txt.startsWith('[텍스트 미추출')) {
+                    ragContexts.push(`[기업 연동 파일(${f.file_name}) 내용]:\n${txt}`);
+                }
+            });
             
             const rag = ragContexts.join("\n\n---\n\n");
             const ctx = `[매도인 정보]\n기업명: ${$('#seller-name-editor').text()}\n산업: ${$('#seller-industry').val()}\n대표자: ${$('#seller-ceo').val()}\n소개: ${$('#seller-summary').val()}\n[참고 문서 내용]\n${rag}`;
@@ -824,21 +828,33 @@ $(document).ready(function () {
 
         try {
             let ragContexts = [];
-            if (!isNew && sellerId) {
-                const sellerRag = await searchVectorDB("기업 주요 정보 추출", sellerId);
-                if (sellerRag) ragContexts.push(sellerRag);
-            }
+            
+            // 1. 매도자 소유 파일 (기존 저장된 파일)
+            availableFiles.forEach(f => {
+                const txt = f.parsedtext || f.parsed_text || f.parsedText;
+                if (txt && !txt.startsWith('[텍스트 미추출')) {
+                    ragContexts.push(`파일명: ${f.file_name}\n내용: ${txt}`);
+                }
+            });
+
+            // 2. 신규 작성 중 업로드된 파일(pendingFiles)
             if (pendingFiles.length > 0) {
                 pendingFiles.forEach(f => {
                     const txt = f.parsedtext || f.parsed_text || f.parsedText;
-                    if (txt) ragContexts.push(txt);
+                    if (txt && !txt.startsWith('[텍스트 미추출')) {
+                        ragContexts.push(`파일명: ${f.file_name}\n내용: ${txt}`);
+                    }
                 });
             }
-            const tid = (currentSellerData?.company_id) || selectedCompanyId;
-            if (tid) {
-                const companyRag = await searchVectorDB("기업 주요 정보 추출", tid);
-                if (companyRag) ragContexts.push(companyRag);
-            }
+
+            // 3. 연동된 기업 소유 파일
+            companyLinkedFiles.forEach(f => {
+                const txt = f.parsedtext || f.parsed_text || f.parsedText;
+                if (txt && !txt.startsWith('[텍스트 미추출')) {
+                    ragContexts.push(`파일명: ${f.file_name}\n내용: ${txt}`);
+                }
+            });
+
             const ctx = ragContexts.join("\n\n---\n\n");
             if (!ctx) { alert('파일에서 분석할 수 있는 텍스트를 찾을 수 없습니다.'); return; }
 
@@ -920,6 +936,7 @@ $(document).ready(function () {
                     renderFinancialTable(migrateFinancialInfo(json.financial_info), 'financial-table-container');
                 }
                 autoResizeAllTextareas();
+                $('#company-suggestions').hide();
                 alert('AI가 파일 내용을 분석하여 정보를 자동으로 입력했습니다.');
             }
         } catch (e) { 

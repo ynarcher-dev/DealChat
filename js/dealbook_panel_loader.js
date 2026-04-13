@@ -100,6 +100,9 @@
                 style="background: white; border: 1px solid var(--border-color); border-radius: 12px; min-height: 100px; max-height: 600px; overflow-y: auto; margin-bottom: 8px;">
                 <ul class="source-list" id="source-list-training" style="margin: 0; padding: 0; list-style: none;"></ul>
             </div>
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; padding: 0 4px; line-height: 1.5;">
+                <span style="color: var(--page-theme-color); font-weight: 600;">추천 데이터:</span> IR 자료, 재무제표, 티저(Teaser), 투자 제안서 등
+            </p>
         </div>`;
 
     /* ─── 우측 데이터 소스 패널 (double: sellers) ─── */
@@ -126,8 +129,10 @@
                 style="background: white; border: 1px solid var(--border-color); border-radius: 12px; min-height: 100px; max-height: 300px; overflow-y: auto;">
                 <ul class="source-list" id="source-list-additional" style="margin: 0; padding: 0; list-style: none;"></ul>
             </div>
-            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; padding: 0 4px;">
-                * AI 분석에 반영될 수 있는 추가 학습 데이터입니다.</p>
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; padding: 0 4px; line-height: 1.5;">
+                <span style="color: var(--page-theme-color); font-weight: 600;">추천 데이터:</span> IR 자료, 재무제표, 티저(Teaser), 투자 제안서 등<br>
+                <span style="opacity: 0.8;">* AI 분석에 반영될 수 있는 추가 학습 데이터입니다.</span>
+            </p>
         </div>`;
 
     const rightPanel = `
