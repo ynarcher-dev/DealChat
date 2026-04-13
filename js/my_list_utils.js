@@ -37,6 +37,89 @@ export function getIndustryIcon(industry) {
 }
 
 /**
+ * 산업군 명칭을 블라인드용 한글 가명으로 변환합니다.
+ */
+export function getIndustryBlindName(industry) {
+    const mapping = {
+        'AI': 'AI',
+        'IT·정보통신': 'IT',
+        'SaaS·솔루션': 'SaaS',
+        '게임': '게임',
+        '공공·국방': '공공',
+        '관광·레저': '관광',
+        '교육·에듀테크': '교육',
+        '금융·핀테크': '금융',
+        '농축산·어업': '농수산',
+        '농축수산·어업': '농수산',
+        '농·임·어업': '농수산',
+        '라이프스타일': '생활',
+        '모빌리티': '모빌리티',
+        '문화예술·콘텐츠': '콘텐츠',
+        '바이오·헬스케어': '바이오',
+        '부동산': '부동산',
+        '뷰티·패션': '뷰티패션',
+        '에너지·환경': '에너지',
+        '외식·중소상공인': '외식',
+        '외식업·소상공인': '외식',
+        '외식·음료·소상공인': '외식',
+        '우주·항공': '우주항공',
+        '유통·물류': '유통물류',
+        '제조·건설': '제조건설',
+        '플랫폼·커뮤니티': '플랫폼',
+        '기타': '기타'
+    };
+
+    if (!industry) return '기타';
+    if (industry.startsWith('기타: ')) {
+        return industry.replace('기타: ', '');
+    }
+    return mapping[industry] || industry;
+}
+
+/**
+ * 아이템 리스트를 받아 산업군별 등록 순서에 따라 'A-001' 형태의 가명을 부여합니다.
+ */
+export function assignBlindLabels(items) {
+    if (!items || !Array.isArray(items) || items.length === 0) return;
+
+    // 등록일시 순으로 정렬 (오름차순)하여 순번의 일관성 유지
+    const sorted = [...items].sort((a, b) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateA - dateB;
+    });
+
+    const counts = {}; // 각 산업군별 현재 순번 카운트
+
+    sorted.forEach(item => {
+        const ind = item.industry || '기타';
+        if (!counts[ind]) counts[ind] = 0;
+        counts[ind]++;
+
+        const count = counts[ind];
+        
+        // 999개마다 알파벳 변경 (A, B, C...)
+        const alphabetIdx = Math.floor((count - 1) / 999);
+        const number = ((count - 1) % 999) + 1;
+
+        let alphabet = "";
+        let n = alphabetIdx;
+        do {
+            alphabet = String.fromCharCode(65 + (n % 26)) + alphabet;
+            n = Math.floor(n / 26) - 1;
+        } while (n >= 0);
+
+        // 결과 저장 (A-001 형식)
+        const label = `${alphabet}-${String(number).padStart(3, '0')}`;
+        const blindName = `${getIndustryBlindName(ind)} ${label}`;
+
+        // 원본 객체에 속성 추가
+        item.blind_label = label;
+        item.blind_name_structured = blindName;
+    });
+}
+
+/**
  * Supabase에서 사용자 데이터를 가져와 userMap 객체를 생성 및 반환합니다.
  */
 export async function initUserMap(supabase) {

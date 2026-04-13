@@ -11,7 +11,9 @@ import {
     submitShareHandler, 
     fetchFiles,
     initUserMap,
-    renderListLoader
+    renderListLoader,
+    assignBlindLabels,
+    getIndustryBlindName
 } from './my_list_utils.js';
 import { getSignedNdas as utilsGetSignedNdas, saveSignedNda as utilsSaveSignedNda } from './nda_utils.js';
 
@@ -176,6 +178,10 @@ async function loadInitialData() {
             const dateB = new Date(a.updated_at || a.created_at || 0);
             return dateA - dateB;
         }) : [];
+        
+        // 블라인드 가벨 할당
+        assignBlindLabels(allSellers);
+
         updateFilterOptions();
         applyFilters();
     } catch (error) {
@@ -198,6 +204,10 @@ function loadSellers() {
                 const dateB = new Date(a.updated_at || a.created_at || 0);
                 return dateA - dateB;
             }) : [];
+
+            // 블라인드 가벨 할당
+            assignBlindLabels(allSellers);
+
             updateFilterOptions();
             applyFilters();
         })
@@ -282,7 +292,9 @@ function renderSellers() {
         } else if (status === '진행중') {
             displayName = '진행중';
         } else if (isNameBlinded) {
-            displayName = 'Blind';
+            // NDA 체결 전에는 "NDA 필요"가 우선적으로 보이고 (아래 템플릿 로직),
+            // 체결 후 블라인드 상태일 때만 이 가명이 보입니다.
+            displayName = seller.blind_name_structured || 'Blind';
         }
 
         let displaySummary = seller.summary || "";
@@ -386,7 +398,7 @@ window.showSellerDetail = function (id) {
     } else if (!isAuthorized) {
         displayName = 'NDA 필요';
     } else if (isNameBlinded) {
-        displayName = 'Blind';
+        displayName = seller.blind_name_structured || 'Blind';
     }
 
     let displaySummary = seller.summary || "";
@@ -403,6 +415,7 @@ window.showSellerDetail = function (id) {
         const escapedName = seller.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const nameRegex = new RegExp(escapedName, 'gi');
         displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
+        if (memo) memo = memo.replace(nameRegex, (match) => maskWithCircles(match));
     }
 
     const isPriceNegotiable = !seller.matching_price || seller.matching_price === '협의';
@@ -558,6 +571,8 @@ function applyFilters() {
         const matchesKeyword = !keyword ||
             (seller.company_name && seller.company_name.toLowerCase().includes(keyword)) ||
             (seller.industry && seller.industry.toLowerCase().includes(keyword)) ||
+            (seller.blind_name_structured && seller.blind_name_structured.toLowerCase().includes(keyword)) ||
+            (seller.blind_label && seller.blind_label.toLowerCase().includes(keyword)) ||
             (seller.summary && seller.summary.toLowerCase().includes(keyword));
         if (!matchesKeyword) return false;
 
@@ -681,7 +696,7 @@ function exportToCSV() {
         } else if (!isAuthorized) {
             company_name = 'NDA 필요';
         } else if (isNameBlinded) {
-            company_name = 'Blind';
+            company_name = s.blind_name_structured || 'Blind';
         }
         
         let summary = s.summary || '';

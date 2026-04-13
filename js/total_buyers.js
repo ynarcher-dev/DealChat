@@ -11,7 +11,9 @@ import {
     submitShareHandler, 
     fetchFiles,
     initUserMap,
-    renderListLoader
+    renderListLoader,
+    assignBlindLabels,
+    getIndustryBlindName
 } from './my_list_utils.js';
 import { getSignedNdas as utilsGetSignedNdas, saveSignedNda as utilsSaveSignedNda } from './nda_utils.js';
 
@@ -162,6 +164,9 @@ async function loadInitialData() {
             return dateA - dateB;
         }) : [];
         
+        // 블라인드 라벨 할당
+        assignBlindLabels(allBuyers);
+
         updateFilterOptions();
         applyFilters();
     } catch (error) {
@@ -205,6 +210,10 @@ function loadBuyers() {
                 const dateB = new Date(a.updated_at || a.created_at || 0);
                 return dateA - dateB;
             }) : [];
+
+            // 블라인드 라벨 할당
+            assignBlindLabels(allBuyers);
+
             updateFilterOptions();
             applyFilters();
         })
@@ -256,8 +265,18 @@ function renderBuyers() {
         const isSigned = signedNdaIds.includes(String(buyer.id)) || signedNdas.includes(String(buyer.id));
         const isAuthorized = isOwner || isSigned;
         
+        const isNameBlinded = (buyer.is_blind_active && buyer.blind_personal?.name);
+        
         // [진행중/완료] 상태일 때 비공개 처리
-        let displayName = isAuthorized ? buyer.company_name : 'NDA 필요';
+        let displayName = buyer.company_name || '정보 없음';
+        if (status === '완료') {
+            displayName = '완료';
+        } else if (status === '진행중') {
+            displayName = '진행중';
+        } else if (isNameBlinded) {
+            displayName = buyer.blind_name_structured || 'Blind';
+        }
+
         let displaySummary = buyer.summary || "";
 
         if (isRestricted) {
@@ -347,18 +366,21 @@ window.showBuyerDetail = function (id) {
     const status = buyer.status || '대기';
     const isRestricted = (status === '진행중' || status === '완료');
     
+    const isNameBlinded = (buyer.is_blind_active && buyer.blind_personal?.name);
+    
     // [진행중/완료] 상태일 때 비공개 처리
-    let displayName = isAuthorized ? buyer.company_name : 'NDA 필요';
-    let displaySummary = buyer.summary || "";
-
-    if (isRestricted) {
-        displayName = (status === '완료') ? '완료' : '진행중';
-        displaySummary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
-    } else if (!isAuthorized && buyer.company_name) {
-        const escapedName = buyer.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const nameRegex = new RegExp(escapedName, 'gi');
-        displaySummary = displaySummary.replace(nameRegex, 'OOO');
+    let displayName = buyer.company_name || '정보 없음';
+    if (status === '완료') {
+        displayName = '완료';
+    } else if (status === '진행중') {
+        displayName = '진행중';
+    } else if (!isAuthorized) {
+        displayName = 'NDA 필요';
+    } else if (isNameBlinded) {
+        displayName = buyer.blind_name_structured || 'Blind';
     }
+
+    let displaySummary = buyer.summary || "";
 
     $('#detail-buyer-icon').text(getIndustryIcon(buyer.industry));
     $('#detail-buyer-name').text(displayName);
@@ -504,6 +526,8 @@ function applyFilters() {
         const matchesKeyword = !keyword ||
             (buyer.company_name && buyer.company_name.toLowerCase().includes(keyword)) ||
             (buyer.industry && buyer.industry.toLowerCase().includes(keyword)) ||
+            (buyer.blind_name_structured && buyer.blind_name_structured.toLowerCase().includes(keyword)) ||
+            (buyer.blind_label && buyer.blind_label.toLowerCase().includes(keyword)) ||
             (buyer.summary && buyer.summary.toLowerCase().includes(keyword));
         if (!matchesKeyword) return false;
 
@@ -599,8 +623,10 @@ function exportToCSV() {
             company_name = '완료';
         } else if (status === '진행중') {
             company_name = '진행중';
-        } else if (shouldMask) {
+        } else if (!isSigned && !isOwner) {
             company_name = 'NDA 필요';
+        } else if (b.is_blind_active && b.blind_personal?.name) {
+            company_name = b.blind_name_structured || 'Blind';
         } else {
             company_name = (b.company_name || '');
         }

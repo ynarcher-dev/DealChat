@@ -1,6 +1,12 @@
 import { hideLoader, resolveAvatarUrl, DEFAULT_MANAGER as AUTH_DEFAULT_MANAGER } from './auth_utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { applyKeywordsMasking, maskWithCircles, escapeHtml } from './utils.js';
+import { 
+    getIndustryIcon, 
+    renderListLoader, 
+    assignBlindLabels,
+    getIndustryBlindName 
+} from './my_list_utils.js';
 
 let supabase;
 
@@ -86,34 +92,6 @@ function getIndustryShortName(industry) {
     return shortMap[industry] || industry;
 }
 
-function getIndustryIcon(industry) {
-    const iconMap = {
-        'AI': 'smart_toy',
-        'IT·정보통신': 'computer',
-        'SaaS·솔루션': 'cloud',
-        '게임': 'sports_esports',
-        '공공·국방': 'policy',
-        '관광·레저': 'beach_access',
-        '교육·에듀테크': 'school',
-        '금융·핀테크': 'payments',
-        '농축수산·어업': 'agriculture',
-        '라이프스타일': 'person',
-        '모빌리티': 'directions_car',
-        '문화예술·콘텐츠': 'movie',
-        '바이오·헬스케어': 'medical_services',
-        '부동산': 'real_estate_agent',
-        '뷰티·패션': 'content_cut',
-        '에너지·환경': 'eco',
-        '외식·음료·소상공인': 'restaurant',
-        '우주·항공': 'rocket',
-        '유통·물류': 'local_shipping',
-        '제조·건설': 'factory',
-        '플랫폼·커뮤니티': 'groups',
-        '기타': 'person_search'
-    };
-    return iconMap[industry] || 'person_search';
-}
-
 let allLogs = [];
 const ITEMS_PER_PAGE = 15;
 let currentPage = 1;
@@ -167,6 +145,9 @@ async function loadNdaLogs() {
             await Promise.all(missingPromises);
         }
 
+        // 블라인드 라벨 할당 (매칭 규칙에 따라 가명 생성 - 매도자만 적용)
+        assignBlindLabels(sellers);
+
         const getCompanyName = (item) => item.company_name || item.companyName || item.name || item.Name || '정보 없음';
 
         const buyerMap = new Map(buyers?.map(b => [b.id, { 
@@ -211,12 +192,20 @@ async function loadNdaLogs() {
                 itemSummary = b?.summary || '';
                 itemIndustry = b?.industry || b?.interest_industry || '기타';
                 itemStatus = b?.status || '대기';
+                // Industry-specific blind settings
+                isBlindActive = b?.is_blind_active || false;
+                blindKeywords = b?.blind_keywords || [];
+                blindPersonal = b?.blind_personal || {};
             } else if (log.item_type === 'company') {
                 const c = companies?.find(x => String(x.id) === String(targetId));
                 rawItemName = c?.company_name || c?.companyName || c?.name || c?.Name || '삭제된 항목';
                 itemSummary = c?.summary || c?.one_line_summary || '';
                 itemIndustry = c?.industry || '기타';
                 itemStatus = c?.status || '대기';
+                // Industry-specific blind settings
+                isBlindActive = c?.is_blind_active || false;
+                blindKeywords = c?.blind_keywords || [];
+                blindPersonal = c?.blind_personal || {};
             } else if (log.item_type === 'seller' || !log.item_type || log.seller_id) {
                 const s = sellers?.find(x => String(x.id) === String(targetId));
                 rawItemName = s?.name || s?.company_name || s?.companyName || (s?.companies && s?.companies.name) || '삭제된 항목';
@@ -240,7 +229,12 @@ async function loadNdaLogs() {
             } else if (itemStatus === '진행중') {
                 itemName = '진행중';
             } else if (isNameBlinded) {
-                itemName = 'Blind';
+                if (log.item_type === 'seller' || !log.item_type || log.seller_id) {
+                    const s = sellers?.find(x => String(x.id) === String(targetId));
+                    itemName = s?.blind_name_structured || 'Blind';
+                } else {
+                    itemName = 'Blind';
+                }
             }
 
             // Apply Summary Masking

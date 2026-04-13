@@ -189,7 +189,8 @@ $(document).ready(function () {
     // 기업 선택 시 필드 채우기
     async function fillCompanyFields(company) {
         if (!company) return;
-        $('#seller-name-editor').text(company.companyName || '').trigger('input');
+        const companyName = company.companyName || '';
+        $('#seller-name-editor').text(companyName).trigger('input');
         $('#seller-industry').val(company.industry || '기타').trigger('change');
         $('#seller-ceo').val(company.ceoName || '');
         $('#seller-email').val(company.companyEmail || '');
@@ -199,6 +200,12 @@ $(document).ready(function () {
         $('#seller-key-products').val(company.key_products || '');
         $('#seller-fin-analysis').val(company.financialAnalysis || '');
         
+        // [추가] 기업명을 키워드 블라인드에 자동 추가
+        if (companyName && !blindKeywords.includes(companyName)) {
+            blindKeywords.push(companyName);
+            renderBlindTags();
+        }
+
         const finSource = company.financialDataArr || company.financial_info || company.financial_data;
         renderFinancialTable(migrateFinancialInfo(finSource), 'financial-table-container');
         toggleCompanyFields(true);
@@ -521,6 +528,12 @@ $(document).ready(function () {
 
     async function saveSeller(isDraft, $btn) {
         if (!$('#seller-price').val().trim() && !$('#negotiable-check').is(':checked')) $('#negotiable-check').prop('checked', true).trigger('change');
+        
+        // [추가] '저장하기' 시 블라인드 체크박스 자동 활성화 (비공개 저장은 제외)
+        if (!isDraft) {
+            $('#blind-check-name, #blind-check-ceo, #blind-check-email, #blind-check-establishment, #blind-check-address, #blind-check-fin-summary, #blind-check-fin-analysis').prop('checked', true).trigger('change');
+        }
+
         const payload = buildPayload(isDraft);
         if (!payload) return;
 
@@ -882,7 +895,15 @@ $(document).ready(function () {
                     });
                 }
 
-                if (json.companyName) $('#seller-name-editor').text(json.companyName).trigger('input');
+                if (json.companyName) {
+                    const companyName = json.companyName;
+                    $('#seller-name-editor').text(companyName).trigger('input');
+                    // [추가] 기업명을 키워드 블라인드에 자동 추가
+                    if (companyName && !blindKeywords.includes(companyName)) {
+                        blindKeywords.push(companyName);
+                        renderBlindTags();
+                    }
+                }
                 if (json.industry) {
                     const $ind = $('#seller-industry');
                     const options = $ind.find('option').map(function() { return $(this).val(); }).get();
