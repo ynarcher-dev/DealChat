@@ -83,7 +83,7 @@ $(document).ready(function () {
     // 블라인드 설정 전역 변수
     let isBlindActive = true;
     let blindKeywords = [];
-    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false };
+    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false };
     
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
@@ -402,7 +402,7 @@ $(document).ready(function () {
             window.currentSellerData = currentSellerData;
             $('#btn-delete-seller').show();
             blindKeywords = Array.isArray(seller.blind_keywords) ? seller.blind_keywords : [];
-            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false };
+            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false };
             blindPersonal = { ...defaultBlind, ...(seller.blind_personal || {}) };
             renderBlindTags();
             $('#blind-check-name').prop('checked', blindPersonal.name);
@@ -410,6 +410,7 @@ $(document).ready(function () {
             $('#blind-check-email').prop('checked', blindPersonal.email);
             $('#blind-check-establishment').prop('checked', blindPersonal.establishment);
             $('#blind-check-address').prop('checked', blindPersonal.address);
+            $('#blind-check-fin-summary').prop('checked', blindPersonal.fin_summary);
 
             const company = seller.companies || {};
             const sellerName = seller.name || company.name || '비공개 기업';
@@ -939,6 +940,83 @@ $(document).ready(function () {
         }
     }
 
+    /**
+     * 재무 요약 모드: 최근 연도의 매출/영업이익/당기순이익을 억 단위로 요약 표시
+     * - #financial-table-container 를 hide하고 요약 패널을 그 자리에 삽입
+     * - removeFinancialSummaryMode()로 원복 가능
+     */
+    function applyFinancialSummaryMode() {
+        const $container = $('#financial-table-container');
+        // 이미 요약 모드가 적용된 경우 중복 적용 방지
+        if ($('#fin-summary-panel').length) return;
+
+        const data = collectFinancialData('financial-table-container');
+
+        // 가장 최근 연도 식별 (숫자 기준으로 가장 큰 값, 없으면 마지막 항목)
+        let latestYear = null;
+        if (data.years && data.years.length > 0) {
+            const numericYears = data.years.map(y => parseInt(y, 10)).filter(n => !isNaN(n));
+            if (numericYears.length > 0) {
+                latestYear = String(Math.max(...numericYears));
+            } else {
+                latestYear = data.years[data.years.length - 1];
+            }
+        }
+
+        // 억 단위 변환 헬퍼
+        function toEok(rawVal) {
+            if (!rawVal && rawVal !== 0) return null;
+            const cleaned = String(rawVal).replace(/,/g, '').trim();
+            if (cleaned === '' || cleaned === '-' || cleaned === '—') return null;
+            const num = parseFloat(cleaned);
+            if (isNaN(num)) return null;
+            return (num / 100000000).toFixed(2);
+        }
+
+        // 매출액 레인지 변환 헬퍼
+        function toRevenueRange(eok) {
+            if (eok === null) return '-';
+            const v = parseFloat(eok);
+            if (isNaN(v))      return '-';
+            if (v < 5)         return '5억 미만';
+            if (v < 10)        return '5억 ~ 10억';
+            if (v < 30)        return '10억 ~ 30억';
+            if (v < 50)        return '30억 ~ 50억';
+            if (v < 100)       return '50억 ~ 100억';
+            if (v < 300)       return '100억 ~ 300억';
+            if (v < 500)       return '300억 ~ 500억';
+            if (v < 1000)      return '500억 ~ 1,000억';
+            return '1,000억 이상';
+        }
+
+        // 매출액만 표시
+        let revenueRange = '-';
+        if (data.items && latestYear) {
+            const matched = data.items.find(item => item.label && item.label.includes('매출'));
+            if (matched) revenueRange = toRevenueRange(toEok(matched.values[latestYear]));
+        }
+
+        const yearLabel = latestYear ? `${latestYear}년 재무 요약` : '재무 요약';
+        const rowsHtml =
+            `<div class="fin-summary-row" style="display:flex; align-items:center; padding:6px 0; font-size:13px; color:#334155;">
+                <span style="flex:0 0 100px; color:#64748b; font-weight:500;">매출액 규모</span>
+                <span style="flex:1; font-weight:600; color:#1e293b; text-align:right;">${revenueRange}</span>
+            </div>`;
+
+        const $panel = $(`
+            <div id="fin-summary-panel" style="margin-top:4px; padding:12px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+                <div style="font-size:12px; font-weight:700; color:#7c3aed; margin-bottom:8px; display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:14px;">summarize</span>
+                    ${yearLabel}
+                </div>
+                ${rowsHtml}
+            </div>
+        `);
+
+        $container.hide();
+        $container.after($panel);
+    }
+
     function applySellerReadOnlyMode() {
         applyReportMode({
             reportTitle: '매도자 정보 - DealChat',
@@ -946,7 +1024,11 @@ $(document).ready(function () {
             textareaIds: ['seller-summary', 'seller-key-products', 'seller-fin-analysis', 'seller-memo', 'seller-manager-memo'],
             inputIds: ['seller-name-editor', 'seller-ceo', 'seller-email', 'seller-establishment', 'seller-address', 'seller-price', 'seller-method'],
             afterApply: () => {
-                reformatFinancialTableTransposed('financial-table-container');
+                if ($('#blind-check-fin-summary').is(':checked')) {
+                    applyFinancialSummaryMode();
+                } else {
+                    reformatFinancialTableTransposed('financial-table-container');
+                }
                 injectReportSectionIcons({
                     'status-chip-group': 'account_tree',
                     'seller-summary': 'description',

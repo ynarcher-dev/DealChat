@@ -192,10 +192,11 @@ export function removeReportMode() {
   // 7. contenteditable 속성 복원
   $('[contenteditable]').attr('contenteditable', 'true');
 
-  // 8. 숨긴 요소 복원
-  $('[style*="display: none"]').each(function() {
-    // 리포트 모드에서 숨긴 요소만 복원 (원래 숨겨진 요소는 건드리지 않음)
-  });
+  // 8. 재무 요약 패널 제거 및 테이블 복원
+  if ($('#fin-summary-panel').length) {
+    $('#fin-summary-panel').remove();
+    $('#financial-table-container').show();
+  }
 }
 
 /**
