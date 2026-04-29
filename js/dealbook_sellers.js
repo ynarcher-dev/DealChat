@@ -8,6 +8,7 @@ import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatFinancialTableTransposed } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
 import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
+import { getSignedFileUrl } from './file_render_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -594,7 +595,7 @@ $(document).ready(function () {
     let companyLinkedFiles = [];
     async function loadAvailableFiles() {
         try {
-            const { data: sFiles } = !isNew ? await _supabase.from('files').select('*').eq('entity_id', sellerId).eq('entity_type', 'seller') : { data: [] };
+            const { data: sFiles } = !isNew ? await _supabase.from('files').select('*, storage_type').eq('entity_id', sellerId).eq('entity_type', 'seller') : { data: [] };
             availableFiles = sFiles || [];
             
             // [추가] 신규 작성 중인 경우 보관된 파일들을 목록에 합침
@@ -603,7 +604,7 @@ $(document).ready(function () {
             }
             
             const tid = (currentSellerData?.company_id) || selectedCompanyId;
-            const { data: cFiles } = tid ? await _supabase.from('files').select('*').eq('entity_id', tid).eq('entity_type', 'company') : { data: [] };
+            const { data: cFiles } = tid ? await _supabase.from('files').select('*, storage_type').eq('entity_id', tid).eq('entity_type', 'company') : { data: [] };
             companyLinkedFiles = cFiles || [];
             renderFileList();
         } catch (err) { console.error('Files load error:', err); }
@@ -616,10 +617,17 @@ $(document).ready(function () {
             if(companyLinkedFiles.length) {
                 companyLinkedFiles.forEach(f => {
                     const badge = getFileBadgeHtml(f);
-                    $listT.append(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+                    const $item = $(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
                         ${badge}
-                        <span style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.file_name}</span>
+                        <a href="#" class="file-download-link" style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;">${f.file_name}</a>
                     </li>`);
+                    
+                    $item.find('.file-download-link').on('click', async (e) => {
+                        e.preventDefault();
+                        const url = await getSignedFileUrl(f.location || f.storage_path, f.storage_type);
+                        if (url) window.open(url, '_blank');
+                    });
+                    $listT.append($item);
                 });
             }
         }
@@ -628,13 +636,21 @@ $(document).ready(function () {
             if(availableFiles.length) {
                 availableFiles.forEach(f => {
                     const badge = getFileBadgeHtml(f);
-                    $listA.append(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+                    const $item = $(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
                         ${badge}
-                        <span style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.file_name}</span>
+                        <a href="#" class="file-download-link" style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;">${f.file_name}</a>
                         <button class="btn-remove-file" data-id="${f.id}" data-is-pending="${isNew}" style="background:none; border:none; cursor:pointer; color:#ef4444; padding:2px; display:flex; align-items:center; opacity:0.7; transition:opacity 0.2s;">
                             <span class="material-symbols-outlined" style="font-size:16px;">close</span>
                         </button>
                     </li>`);
+
+                    $item.find('.file-download-link').on('click', async (e) => {
+                        e.preventDefault();
+                        const url = await getSignedFileUrl(f.location || f.storage_path, f.storage_type);
+                        if (url) window.open(url, '_blank');
+                    });
+                    
+                    $listA.append($item);
                 });
                 // 삭제 버튼 호버 효과
                 $('.btn-remove-file').hover(function() { $(this).css('opacity', '1'); }, function() { $(this).css('opacity', '0.7'); });
@@ -814,6 +830,11 @@ $(document).ready(function () {
 
     $('#send-btn').on('click', sendMessage);
     $('#chat-input').on('keypress', (e) => { if (e.which === 13 && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    $(document).on('click', '.prompt-chip', function() {
+        const text = $(this).text();
+        $('#chat-input').val(text);
+        sendMessage();
+    });
 
     // AI 자동 입력 추출
     $('#ai-auto-fill-btn').on('click', async function() {

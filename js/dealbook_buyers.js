@@ -248,7 +248,7 @@ $(document).ready(function () {
     async function loadAvailableFiles() {
         try {
             // 전체 공유 파일 + 내 파일 로드
-            const { data, error } = await _supabase.from('files').select('*').or(`user_id.eq.${currentuser_id},entity_id.eq.${buyerId}`);
+            const { data, error } = await _supabase.from('files').select('*, storage_type').or(`user_id.eq.${currentuser_id},entity_id.eq.${buyerId}`);
             if (!error) {
                 availableFiles = data || [];
                 renderBuyerFiles();
@@ -268,13 +268,11 @@ $(document).ready(function () {
             displayFiles = [...displayFiles, ...pendingFiles];
         }
 
-        displayFiles.forEach(file => {
-            // [New] parsed_text 또는 parsedText 둘 다 체크
+            // [New] parsed_text 또는 parsedText 둘 다 체크 (storage_type 전달)
             const pText = file.parsedtext || file.parsed_text || file.parsedText;
             const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
             const status = isSearchable ? 'reflected' : 'failed';
-            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status, null, '#22c55e');
-        });
+            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status, null, '#22c55e', file.storage_type);
     }
 
     $('#ai-auto-fill-btn').on('click', async function() {
@@ -404,6 +402,11 @@ $(document).ready(function () {
 
     $('#send-btn').on('click', sendMessage);
     $chatInput.on('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    $(document).on('click', '.prompt-chip', function() {
+        const text = $(this).text();
+        $chatInput.val(text);
+        sendMessage();
+    });
 
     // ==========================================
     // 기타 상호작용

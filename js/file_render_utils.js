@@ -2,7 +2,7 @@
  * Signed URL을 생성하여 파일을 안전하게 다운로드합니다.
  * 1시간 유효한 서명된 URL을 반환합니다.
  */
-export async function getSignedFileUrl(location) {
+export async function getSignedFileUrl(location, storageType = 'supabase') {
     if (!location) return null;
     if (location.startsWith('http')) return location; // 이미 전체 URL인 경우
 
@@ -12,12 +12,27 @@ export async function getSignedFileUrl(location) {
         return null;
     }
 
+    // --- AWS S3 지원 추가 ---
+    if (storageType === 's3') {
+        try {
+            const { data, error } = await _supabase.functions.invoke('get-s3-url', {
+                body: { storagePath: location }
+            });
+            if (error) throw error;
+            return data.url;
+        } catch (err) {
+            console.error('S3 Signed URL 생성 실패:', err);
+            return null;
+        }
+    }
+
+    // --- 기존 Supabase Storage 지원 ---
     const { data, error } = await _supabase.storage
         .from('uploads')
         .createSignedUrl(location, 3600); // 1시간 유효
 
     if (error) {
-        console.error('Signed URL 생성 실패:', error);
+        console.error('Supabase Signed URL 생성 실패:', error);
         return null;
     }
     return data.signedUrl;
@@ -26,11 +41,11 @@ export async function getSignedFileUrl(location) {
 /**
  * 클릭 시 Signed URL을 생성하여 새 탭에서 파일을 엽니다.
  */
-export function openSignedFile(location) {
+export function openSignedFile(location, storageType = 'supabase') {
     return async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        const url = await getSignedFileUrl(location);
+        const url = await getSignedFileUrl(location, storageType);
         if (url) {
             window.open(url, '_blank');
         } else {
@@ -42,8 +57,10 @@ export function openSignedFile(location) {
 /**
  * 파일 목록(학습 데이터/일반 파일)에 항목을 렌더링하는 공통 함수
  */
-export function addFileToSourceList(name, id, location, isTraining, isFinance, parsedTextValue = null, status = null, themeColor = '#8b5cf6') {
-    let target = '#source-list-training';
+export function addFileToSourceList(name, id, location, isTraining, isFinance, parsedTextValue = null, status = null, themeColor = '#8b5cf6', storageType = 'supabase') {
+    let target = isTraining ? '#source-list-training' : '#source-list-etc'; // Fix: Use isTraining to determine target
+    if (isFinance) target = '#source-list-finance'; // If specific finance target exists
+    
     const fileUrl = '#';
     
     // AI 검색 반영 여부 판단
@@ -51,7 +68,6 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
     
     // status가 특별히 지정되지 않은 경우, 데이터 속성에 따라 자동 결정
     if (!status) {
-        // companies와 buyers의 인자 순서/의미가 약간 다를 수 있으므로 status가 직접 넘어오지 않은 경우 처리
         if (parsedTextValue === 'reflected' || parsedTextValue === 'failed' || parsedTextValue === 'loading') {
             status = parsedTextValue;
         } else {
@@ -63,9 +79,8 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
     if (status === 'loading') {
         badgeHtml = `<span class="ai-status-badge badge-ai-loading" style="font-size: 10px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #e2e8f0;">분석 중...</span>`;
     } else if (status === 'reflected') {
-        // 테마 색상 기반 동적 스타일링
-        const bgColor = themeColor + '1a'; // 10% opacity
-        const borderColor = themeColor + '4d'; // 30% opacity
+        const bgColor = themeColor + '1a'; 
+        const borderColor = themeColor + '4d'; 
         badgeHtml = `<span class="ai-status-badge badge-ai-reflected" style="font-size: 10px; font-weight: 600; color: ${themeColor}; background: ${bgColor}; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid ${borderColor};">AI 반영됨</span>`;
     } else {
         badgeHtml = `<span class="ai-status-badge badge-ai-failed" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fecaca;">AI 불가</span>`;
@@ -80,14 +95,19 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
             <button class="delete-file ms-2" data-id="${id}" style="background: none; border: none; cursor: pointer; color: #ef4444; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;"><span class="material-symbols-outlined" style="font-size: 16px;">close</span></button>
         </li>
     `);
-    $(target).append(item);
-
-    // Signed URL 기반 파일 열기 핸들러 등록
-    if (location) {
-        item.find('.file-link').on('click', openSignedFile(location));
+    
+    // Ensure the target container exists before appending
+    if ($(target).length) {
+        $(target).append(item);
+    } else {
+        $('#source-list-training').append(item); // Fallback
     }
 
-    // 버튼 호버 효과 추가
+    // Signed URL 기반 파일 열기 핸들러 등록 (storageType 전달)
+    if (location) {
+        item.find('.file-link').on('click', openSignedFile(location, storageType));
+    }
+
     item.find('.delete-file').hover(
         function() { $(this).css('opacity', '1'); },
         function() { $(this).css('opacity', '0.7'); }

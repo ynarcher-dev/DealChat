@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { S3Client, PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.540.0";
 
 // Rate Limiter: JWT user_id 기반 (스푸핑 불가) + IP 폴백
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -41,6 +42,7 @@ function getRateLimitKey(req: Request): string {
 
 const ALLOWED_ORIGINS = [
     "https://afitwguexwihnepyutqw.supabase.co",
+    "http://dealchat-web.s3-website.ap-northeast-2.amazonaws.com",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://127.0.0.1:5500",
@@ -63,6 +65,17 @@ function getCorsHeaders(req: Request) {
         "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     };
 }
+
+// --- S3 Client Initialization ---
+const s3Client = new S3Client({
+    region: Deno.env.get("AWS_REGION") || "ap-northeast-2",
+    credentials: {
+        accessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID") || "",
+        secretAccessKey: Deno.env.get("AWS_SECRET_ACCESS_KEY") || "",
+    },
+});
+
+const S3_BUCKET = Deno.env.get("S3_BUCKET_NAME") || "dealchat-uploads";
 
 // --- Helpers ---
 
@@ -180,23 +193,33 @@ Deno.serve(async (req) => {
                 const safeName = `${Date.now()}_${rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
                 const storagePath = `${userId}/${safeName}`;
 
-                // Upload to Storage
-                const { error: uploadError } = await supabase.storage
-                    .from("uploads")
-                    .upload(storagePath, file, {
-                        contentType: file.type,
-                        upsert: true,
-                    });
+                // --- S3 Upload Implementation ---
+                const fileArrayBuffer = await file.arrayBuffer();
+                const fileBuffer = new Uint8Array(fileArrayBuffer);
 
-                if (uploadError) throw uploadError;
+                const uploadParams = {
+                    Bucket: S3_BUCKET,
+                    Key: storagePath,
+                    Body: fileBuffer,
+                    ContentType: file.type,
+                };
+
+                try {
+                    await s3Client.send(new PutObjectCommand(uploadParams));
+                    console.log(`Successfully uploaded to S3: ${storagePath}`);
+                } catch (err) {
+                    console.error("S3 Upload Error:", err);
+                    throw new Error(`S3 업로드 실패: ${err.message}`);
+                }
 
                 // Update Database (Unified schema strategy)
                 const fileMetadata: Record<string, any> = {
                     file_name: rawFileName,
-                    location: storagePath,      // Legacy
-                    storage_path: storagePath,  // v2
-                    userId: userId,             // Legacy
-                    user_id: userId,            // v2
+                    location: storagePath,      
+                    storage_path: storagePath,  
+                    userId: userId,             
+                    user_id: userId,            
+                    storage_type: 's3',         // New field
                     summary: formData.get("summary") as string || "",
                 };
 
@@ -322,24 +345,32 @@ Deno.serve(async (req) => {
                     bytes[i] = binaryStr.charCodeAt(i);
                 }
 
-                // 1. Upload to Storage
-                const { error: uploadError } = await supabase.storage
-                    .from("uploads")
-                    .upload(storagePath, bytes, {
-                        contentType: content_type || 'application/octet-stream',
-                        upsert: true,
-                    });
-                if (uploadError) throw uploadError;
+                // --- S3 Upload Implementation (Base64) ---
+                const uploadParams = {
+                    Bucket: S3_BUCKET,
+                    Key: storagePath,
+                    Body: bytes,
+                    ContentType: content_type || 'application/octet-stream',
+                };
+
+                try {
+                    await s3Client.send(new PutObjectCommand(uploadParams));
+                    console.log(`Successfully uploaded to S3 (Base64): ${storagePath}`);
+                } catch (err) {
+                    console.error("S3 Upload Error (Base64):", err);
+                    throw new Error(`S3 업로드 실패: ${err.message}`);
+                }
 
                 // 2. Insert into Database (Unified schema strategy)
                 const now = new Date().toISOString();
                 const dbRow: Record<string, any> = {
                     file_name: file_name,
-                    location: storagePath,      // Legacy
-                    storage_path: storagePath,  // v2
-                    userId: userId,             // Legacy
-                    user_id: userId,            // v2
-                    created_at: now,            // Exists in both schemas
+                    location: storagePath,      
+                    storage_path: storagePath,  
+                    userId: userId,             
+                    user_id: userId,            
+                    storage_type: 's3',         // New field
+                    created_at: now,            
                 };
 
                 const excludedFields = ['vectorNamespace', 'companyId', 'is_base64', 'content', 'content_type', 'action', 'table', 'created_at', 'updated_at', 'storage_path', 'user_id'];

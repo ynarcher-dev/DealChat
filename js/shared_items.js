@@ -1,5 +1,6 @@
 import { checkAuth, hideLoader, showLoader, resolveAvatarUrl } from './auth_utils.js';
 import { renderPagination } from './pagination_utils.js';
+import { getSignedFileUrl } from './file_render_utils.js';
 
 
 const _supabase = window.supabaseClient || supabase.createClient(
@@ -442,8 +443,8 @@ function showItemSummaryModal(item) {
         $filesList.html('<div style="font-size:12px; color:#94a3b8; padding: 10px;">파일 정보를 불러오는 중...</div>');
         $ndaNotice.toggle(!item.isNdaSigned); // NDA 미체결 시 안내 문구 표시
 
-        // location과 storage_path를 모두 조회하여 필드명 변경에 대비
-        _supabase.from('files').select('id, file_name, location, storage_path').in('id', item.file_ids)
+        // location, storage_path, storage_type을 모두 조회하여 필드명 변경 및 S3 지원에 대비
+        _supabase.from('files').select('id, file_name, location, storage_path, storage_type').in('id', item.file_ids)
             .then(async ({ data: files, error }) => {
                 if (error) throw error;
                 if (files?.length) {
@@ -458,16 +459,12 @@ function showItemSummaryModal(item) {
                             </div>`;
                         }
 
-                        // NDA 체결 상태인 경우 기존 로직 수행
                         const path = f.location || f.storage_path;
                         if (!path) return '';
                         try {
-                            const { data, error: signedError } = await _supabase.storage
-                                .from('uploads')
-                                .createSignedUrl(path, 3600);
-                            if (signedError) throw signedError;
+                            const fileUrl = await getSignedFileUrl(path, f.storage_type);
+                            if (!fileUrl) throw new Error('URL 생성 실패');
                             
-                            const fileUrl = data.signedUrl;
                             return `
                             <a href="${fileUrl}" target="_blank" download="${f.file_name}" class="file-item-pill">
                                 <span class="material-symbols-outlined">description</span>

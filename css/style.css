@@ -674,7 +674,7 @@ body.is-loading .app-container {
 
 .btn-close,
 .btn-icon-only {
-    background: none;
+    background-color: transparent;
     border: none;
     cursor: pointer;
     color: var(--text-secondary);
@@ -682,11 +682,12 @@ body.is-loading .app-container {
     align-items: center;
     padding: 4px;
     border-radius: 50%;
+    transition: background-color 0.15s ease;
 }
 
 .btn-close:hover,
 .btn-icon-only:hover {
-    background-color: #f1f3f4;
+    background-color: #e8eaed;
 }
 
 /* Chat Messages */

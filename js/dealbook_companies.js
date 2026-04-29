@@ -319,16 +319,25 @@ $(document).ready(function () {
     async function loadAvailableFiles() {
         if (isNew) return; // 신규 작성 시에는 개별 파일 로드 생략
         try {
-            // 전체 공유 파일 + 내 파일
-            const { data, error } = await _supabase
+            // entity_id 기준으로 먼저 조회, 없으면 user_id 기준으로 폴백
+            let data = null;
+            let error = null;
+
+            ({ data, error } = await _supabase
                 .from('files')
                 .select('*')
-                .or(`user_id.eq.${user_id},entity_id.eq.${companyId}`);
-            
-            if (error) throw error;
+                .eq('entity_id', companyId));
+
+            if (error || !data || data.length === 0) {
+                // entity_id 컬럼이 없거나 매칭 결과가 없으면 user_id로 폴백
+                ({ data, error } = await _supabase
+                    .from('files')
+                    .select('*')
+                    .eq('user_id', user_id));
+                if (error) throw error;
+            }
+
             availableFiles = data || [];
-            
-            // 현재 기업에 연결된 파일들 필터링하여 리스트 렌더링
             renderCompanyFiles();
         } catch (err) {
             console.error('File load error:', err);
@@ -338,11 +347,14 @@ $(document).ready(function () {
     function renderCompanyFiles() {
         $('#source-list-training').empty();
 
-        const companyFiles = availableFiles.filter(f => f.entity_id === companyId);
-        
+        // entity_id로 정확히 매칭되는 파일 먼저 시도, 없으면 전체 user 파일 표시
+        let companyFiles = availableFiles.filter(f => f.entity_id === companyId);
+        if (companyFiles.length === 0) {
+            companyFiles = availableFiles;
+        }
+
         companyFiles.forEach(file => {
-            // 모든 파일을 학습 데이터 목록으로 표시
-            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, file.parsedtext || file.parsedText);
+            addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, file.parsedtext || file.parsedText, null, '#1A73E8', file.storage_type || 's3');
         });
     }
 

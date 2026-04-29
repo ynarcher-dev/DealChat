@@ -306,3 +306,16 @@ body.is-loading .app-container {
     border-color: #94a3b8 !important;
     color: #475569;
 }
+
+/* --- 파일 다운로드 링크 스타일 --- */
+.file-download-link {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.file-download-link:hover {
+    color: var(--page-theme-color) !important;
+    text-decoration: underline !important;
+    transform: translateX(2px);
+    opacity: 0.8;
+}

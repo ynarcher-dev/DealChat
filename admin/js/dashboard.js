@@ -690,8 +690,13 @@ function getColumnDefs(tableName, editMode = false) {
                     width: 180,
                     editable: false,
                     cellRenderer: params => {
-                        const status = params.data.status || 'pending';
                         const role = params.data.role || 'reviewer';
+                        if (role === 'admin') {
+                            return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#696cff,#9b59b6);color:#fff;letter-spacing:0.3px;box-shadow:0 1px 4px rgba(105,108,255,0.35);line-height:1.6;">
+                                <span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1;">shield_person</span>관리자
+                            </span>`;
+                        }
+                        const status = params.data.status || 'pending';
                         const current = `${status}|${role}`;
                         const options = [
                             { value: 'pending|reviewer', label: '대기 중' },
@@ -888,17 +893,7 @@ window.handleUserRoleAction = async function (userId, combinedValue) {
 
         if (error) throw error;
         alert('처리가 완료되었습니다.');
-        if (tableName === 'users' || tableName === undefined) {
-             // 회원 처리인 경우 현재 탭 유지하며 새로고침
-             const page = $('.menu-link.active').data('page');
-             if (page === 'users') {
-                 renderUsersPage($('#content-area'));
-             } else {
-                 loadPage(page || 'users');
-             }
-        } else {
-            loadPage(tableName);
-        }
+        renderUsersPage($('#content-area'));
     } catch (e) {
         console.error('회원 상태 변경 오류:', e);
         alert('처리 중 오류가 발생했습니다: ' + e.message);
