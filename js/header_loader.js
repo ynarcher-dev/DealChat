@@ -6,7 +6,7 @@
 
 (function () {
     // url_helper.js 미로드 시 fallback
-    if (typeof resolveUrl === 'undefined') {
+    if (typeof window.resolveUrl === 'undefined') {
         window.resolveUrl = function (url) { return url; };
     }
 
@@ -65,11 +65,11 @@
             }
         }
 
-        const myPagePath = resolveUrl('/mypage');
+        const myPagePath = window.resolveUrl('/mypage');
         const isBuyer = userData && userData.role === 'buyer';
-        const dashboardPath = resolveUrl(isBuyer ? '/total_sellers' : '/dashboard');
-        const qnaPath = resolveUrl('/qna');
-        const ndaPath = resolveUrl('/nda_management');
+        const dashboardPath = window.resolveUrl(isBuyer ? '/total_sellers' : '/dashboard');
+        const qnaPath = window.resolveUrl('/qna');
+        const ndaPath = window.resolveUrl('/nda_management');
 
         const headerHtml = `
             <style>
@@ -250,7 +250,7 @@
                                 if (sessionError || !session) {
                                     console.warn('Supabase session expired or invalid. Logging out.');
                                     localStorage.removeItem('dealchat_users');
-                                    window.location.href = resolveUrl('/signin');
+                                    window.location.href = window.resolveUrl('/signin');
                                     return;
                                 }
 
@@ -346,7 +346,7 @@
                 e.stopPropagation();
                 if (confirm('로그아웃 하시겠습니까?')) {
                     localStorage.removeItem('dealchat_users');
-                    window.location.href = resolveUrl('/signin');
+                    window.location.href = window.resolveUrl('/signin');
                 }
             }
 
