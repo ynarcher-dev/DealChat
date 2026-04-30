@@ -16,8 +16,7 @@ export function checkAuth() {
         console.warn('checkAuth: localStorage 파싱 실패', e);
     }
     
-    const currentPath = window.location.pathname;
-    const signinPath = currentPath.includes('/html/') ? './signin.html' : './html/signin.html';
+    const signinPath = '/html/signin.html';
 
     if (!userData || !userData.isLoggedIn) {
         alert('로그인 후 이용해주세요.');
@@ -44,14 +43,14 @@ export function checkAuth() {
         
         // 허용되지 않은 페이지 접근 시 리다이렉트 (Total Sellers 및 Dashboard만 허용)
         const allowedPages = ['index.html', 'total_sellers.html', 'dealbook_sellers.html', 'signin.html', 'signup.html', 'mypage.html'];
-        const isAllowed = allowedPages.some(page => currentPath.includes(page));
-        
+        const isAllowed = allowedPages.some(page => window.location.pathname.includes(page));
+
         // 루트(/) 또는 빈 경로인 경우(index.html) 허용
-        const isRoot = currentPath.endsWith('/') || currentPath.endsWith('DealChat');
-        
+        const isRoot = window.location.pathname.endsWith('/') || window.location.pathname.endsWith('DealChat');
+
         if (!isAllowed && !isRoot) {
             alert('해당 페이지에 접근할 권한이 없습니다.');
-            location.href = signinPath.replace('signin.html', 'total_sellers.html');
+            location.href = '/html/total_sellers.html';
             return null;
         }
     }
@@ -95,12 +94,7 @@ function applyBuyerRestrictions() {
 export function signStoreOut() {
     if (confirm('로그아웃 하시겠습니까?')) {
         localStorage.removeItem('dealchat_users');
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('/html/')) {
-            location.href = './signin.html';
-        } else {
-            location.href = './html/signin.html';
-        }
+        location.href = '/html/signin.html';
     }
 }
 

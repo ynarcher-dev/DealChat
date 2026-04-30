@@ -248,8 +248,7 @@
                                 if (sessionError || !session) {
                                     console.warn('Supabase session expired or invalid. Logging out.');
                                     localStorage.removeItem('dealchat_users');
-                                    const signinPath = isSubPage ? 'signin.html' : 'html/signin.html';
-                                    window.location.href = signinPath;
+                                    window.location.href = '/html/signin.html';
                                     return;
                                 }
 
@@ -345,9 +344,7 @@
                 e.stopPropagation();
                 if (confirm('로그아웃 하시겠습니까?')) {
                     localStorage.removeItem('dealchat_users');
-                    const isSubPage = window.location.pathname.includes('/html/');
-                    const signinPath = isSubPage ? 'signin.html' : 'html/signin.html';
-                    window.location.href = signinPath;
+                    window.location.href = '/html/signin.html';
                 }
             }
             

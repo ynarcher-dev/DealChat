@@ -67,12 +67,10 @@ $(document).ready(function () {
       localStorage.setItem('dealchat_users', JSON.stringify(userData));
       
       // 페이지 이동
-      const currentPath = location.pathname;
-      const isSubPage = currentPath.includes('/html/') || currentPath.endsWith('/html');
       if (userData.role === 'buyer') {
-        location.href = isSubPage ? './total_sellers.html' : './html/total_sellers.html';
+        location.href = '/html/total_sellers.html';
       } else {
-        location.href = isSubPage ? './index.html' : './html/index.html';
+        location.href = '/html/index.html';
       }
 
     } catch (err) {

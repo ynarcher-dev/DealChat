@@ -9,12 +9,12 @@
     try {
       var userData = JSON.parse(localStorage.getItem('dealchat_users'));
       if (userData && userData.isLoggedIn === true) {
-        window.location.href = 'html/index.html';
+        window.location.href = '/dashboard';
       } else {
-        window.location.href = 'html/signin.html';
+        window.location.href = '/signin';
       }
     } catch (e) {
-      window.location.href = 'html/signin.html';
+      window.location.href = '/signin';
     }
   </script>
 </body>
