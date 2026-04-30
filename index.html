@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <script src="js/url_helper.js"></script>
 </head>
 
 <body>
@@ -9,12 +10,12 @@
     try {
       var userData = JSON.parse(localStorage.getItem('dealchat_users'));
       if (userData && userData.isLoggedIn === true) {
-        window.location.href = '/dashboard';
+        window.location.href = resolveUrl('/dashboard');
       } else {
-        window.location.href = '/signin';
+        window.location.href = resolveUrl('/signin');
       }
     } catch (e) {
-      window.location.href = '/signin';
+      window.location.href = resolveUrl('/signin');
     }
   </script>
 </body>

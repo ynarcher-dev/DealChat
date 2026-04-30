@@ -1,13 +1,15 @@
 /**
  * URL Helper
- * 로컬(Live Server)과 배포(CloudFront) 환경을 자동 감지하여
- * clean URL을 적절한 경로로 변환합니다.
+ * 환경을 자동 감지하여 clean URL을 적절한 경로로 변환합니다.
  *
- * - 배포 환경: /signin → /signin (변경 없음, CloudFront Function이 처리)
- * - 로컬 환경: /signin → /html/signin.html (직접 파일 경로로 변환)
+ * - CloudFront(커스텀 도메인): /signin → /signin (CloudFront Function이 처리)
+ * - 로컬 / S3 정적 호스팅: /signin → /html/signin.html (직접 파일 경로로 변환)
  */
 (function () {
-    var isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    var hostname = window.location.hostname;
+    var isLocal = ['localhost', '127.0.0.1'].includes(hostname);
+    var isS3 = hostname.includes('.s3-website') || hostname.includes('.s3.amazonaws.com');
+    var needsFilePaths = isLocal || isS3;
 
     // Clean URL → 로컬 파일 경로 매핑
     var routeMap = {
@@ -42,7 +44,7 @@
      * @returns {string} 변환된 URL
      */
     window.resolveUrl = function (cleanUrl) {
-        if (!isLocal) return cleanUrl;
+        if (!needsFilePaths) return cleanUrl;
 
         // 경로와 쿼리스트링 분리
         var parts = cleanUrl.split('?');
@@ -56,8 +58,8 @@
         return cleanUrl;
     };
 
-    // <a> 태그 클릭 자동 인터셉트 (로컬 환경 전용)
-    if (isLocal) {
+    // <a> 태그 클릭 자동 인터셉트 (파일 경로 변환이 필요한 환경)
+    if (needsFilePaths) {
         document.addEventListener('click', function (e) {
             var link = e.target.closest ? e.target.closest('a') : null;
             if (!link) return;

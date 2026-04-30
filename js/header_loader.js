@@ -5,6 +5,11 @@
  */
 
 (function () {
+    // url_helper.js 미로드 시 fallback
+    if (typeof resolveUrl === 'undefined') {
+        window.resolveUrl = function (url) { return url; };
+    }
+
     async function loadDependencies() {
         const isSubPage = window.location.pathname.includes('/html/');
         const basePath = isSubPage ? '../' : './';
