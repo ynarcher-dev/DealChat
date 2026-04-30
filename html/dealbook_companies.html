@@ -96,6 +96,7 @@
             letter-spacing: 0.02em;
         }
     </style>
+    <script src="../js/url_helper.js"></script>
 </head>
 
 <body class="theme-mode-companies is-loading" data-page-type="companies" data-share-entity="기업">
@@ -112,7 +113,7 @@
         ============================================================ -->
         <aside class="sidebar">
             <div class="panel-header db-panel-header">
-                <button class="btn-icon-only" onclick="location.href='./my_companies.html'" title="이전으로"
+                <button class="btn-icon-only" onclick="location.href=resolveUrl('/my_companies')" title="이전으로"
                     style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
                     <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
                 </button>

@@ -16,11 +16,11 @@ export function checkAuth() {
         console.warn('checkAuth: localStorage 파싱 실패', e);
     }
     
-    const signinPath = '/html/signin.html';
+    const signinPath = '/signin';
 
     if (!userData || !userData.isLoggedIn) {
         alert('로그인 후 이용해주세요.');
-        location.href = signinPath;
+        location.href = resolveUrl(signinPath);
         return null;
     }
 
@@ -28,12 +28,12 @@ export function checkAuth() {
     if (userData.status === 'pending') {
         alert('관리자의 가입 승인을 기다리는 중입니다.');
         localStorage.removeItem('dealchat_users');
-        location.href = signinPath;
+        location.href = resolveUrl(signinPath);
         return null;
     } else if (userData.status === 'rejected') {
         alert('가입 승인이 거부되었습니다. 관리자에게 문의해 주세요.');
         localStorage.removeItem('dealchat_users');
-        location.href = signinPath;
+        location.href = resolveUrl(signinPath);
         return null;
     }
 
@@ -42,7 +42,7 @@ export function checkAuth() {
         applyBuyerRestrictions();
         
         // 허용되지 않은 페이지 접근 시 리다이렉트 (Total Sellers 및 Dashboard만 허용)
-        const allowedPages = ['index.html', 'total_sellers.html', 'dealbook_sellers.html', 'signin.html', 'signup.html', 'mypage.html'];
+        const allowedPages = ['dashboard', 'total_sellers', 'dealbook_sellers', 'signin', 'signup', 'mypage'];
         const isAllowed = allowedPages.some(page => window.location.pathname.includes(page));
 
         // 루트(/) 또는 빈 경로인 경우(index.html) 허용
@@ -50,7 +50,7 @@ export function checkAuth() {
 
         if (!isAllowed && !isRoot) {
             alert('해당 페이지에 접근할 권한이 없습니다.');
-            location.href = '/html/total_sellers.html';
+            location.href = resolveUrl('/total_sellers');
             return null;
         }
     }
@@ -94,7 +94,7 @@ function applyBuyerRestrictions() {
 export function signStoreOut() {
     if (confirm('로그아웃 하시겠습니까?')) {
         localStorage.removeItem('dealchat_users');
-        location.href = '/html/signin.html';
+        location.href = resolveUrl('/signin');
     }
 }
 

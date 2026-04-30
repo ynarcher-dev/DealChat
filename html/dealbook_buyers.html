@@ -28,6 +28,7 @@
             color: white;
         }
     </style>
+    <script src="../js/url_helper.js"></script>
 </head>
 
 <body class="theme-mode-buyers is-loading" data-page-type="buyers" data-share-entity="매수자">
@@ -45,7 +46,7 @@
         <aside class="sidebar" id="buyer-sidebar">
             <!-- 헤더 -->
             <div class="panel-header db-panel-header">
-                <button class="btn-icon-only" onclick="location.href='./my_buyers.html'" title="목록으로"
+                <button class="btn-icon-only" onclick="location.href=resolveUrl('/my_buyers')" title="목록으로"
                     style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
                     <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
                 </button>

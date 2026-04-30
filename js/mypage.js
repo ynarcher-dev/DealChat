@@ -211,7 +211,7 @@ $(document).ready(function () {
             
             if (authError || !authUser) {
                 alert('인증 세션이 만료되었습니다. 다시 로그인해주세요.');
-                location.href = './signin.html';
+                location.href = resolveUrl('/signin');
                 return;
             }
 
@@ -326,7 +326,7 @@ $(document).ready(function () {
                 await _supabase.auth.signOut();
                 localStorage.removeItem('dealchat_users');
                 alert('회원 탈퇴가 완료되었습니다.');
-                location.href = '../index.html';
+                location.href = resolveUrl('/');
 
             } catch (err) {
                 console.error('Delete user error:', err);

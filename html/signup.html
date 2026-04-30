@@ -17,11 +17,12 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 
     <link rel="stylesheet" href="../css/style.css">
+    <script src="../js/url_helper.js"></script>
 
 </head>
 
 <body class="auth-page">
-    <button class="btn-back" onclick="location.href='signin.html'">
+    <button class="btn-back" onclick="location.href=resolveUrl('/signin')">
         <span class="material-symbols-outlined">arrow_back</span>
         이전으로
     </button>
@@ -69,15 +70,15 @@
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="agree-terms" class="agree-item" required>
-                        <label for="agree-terms"><a href="terms.html" target="_blank">이용약관</a>에 동의합니다. (필수)</label>
+                        <label for="agree-terms"><a href="/terms" target="_blank">이용약관</a>에 동의합니다. (필수)</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="agree-privacy" class="agree-item" required>
-                        <label for="agree-privacy"><a href="privacy.html" target="_blank">개인정보 처리방침</a>에 동의합니다. (필수)</label>
+                        <label for="agree-privacy"><a href="/privacy" target="_blank">개인정보 처리방침</a>에 동의합니다. (필수)</label>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="agree-marketing" class="agree-item">
-                        <label for="agree-marketing"><a href="marketing.html" target="_blank">마케팅 정보 수신</a>에 동의합니다. (선택)</label>
+                        <label for="agree-marketing"><a href="/marketing" target="_blank">마케팅 정보 수신</a>에 동의합니다. (선택)</label>
                     </div>
                 </div>
 
@@ -87,7 +88,7 @@
 
                 <div class="login-section">
                     <p>이미 계정이 있으신가요?</p>
-                    <button type="button" class="btn-login-link" onclick="location.href='signin.html'">로그인</button>
+                    <button type="button" class="btn-login-link" onclick="location.href=resolveUrl('/signin')">로그인</button>
                 </div>
             </form>
         </div>

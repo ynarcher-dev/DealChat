@@ -25,7 +25,7 @@ const gridOptions = {
     onRowClicked: (params) => {
         const id = params.data.id;
         if (id) {
-            window.location.href = `./html/dealbook_companies.html?id=${encodeURIComponent(id)}`;
+            window.location.href = resolveUrl(`/dealbook_companies?id=${encodeURIComponent(id)}`);
         }
     }
 };

@@ -68,9 +68,9 @@ $(document).ready(function () {
       
       // 페이지 이동
       if (userData.role === 'buyer') {
-        location.href = '/html/total_sellers.html';
+        location.href = resolveUrl('/total_sellers');
       } else {
-        location.href = '/html/index.html';
+        location.href = resolveUrl('/dashboard');
       }
 
     } catch (err) {

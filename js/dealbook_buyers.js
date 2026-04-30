@@ -56,9 +56,9 @@ $(document).ready(function () {
         $('#btn-delete-buyer').show();
     }
 
-    let returnUrl = './my_buyers.html';
+    let returnUrl = resolveUrl('/my_buyers');
     if (fromSource === 'totalbuyer' || fromSource === 'total_buyers') {
-        returnUrl = './total_buyers.html';
+        returnUrl = resolveUrl('/total_buyers');
     }
     $('.btn-icon-only[title="목록으로"]').off('click').on('click', function() {
         location.href = returnUrl;
@@ -165,7 +165,7 @@ $(document).ready(function () {
                 if (!isSigned) {
                     $('body').addClass('nda-active');
                     sharingUtils.initNdaGate(_supabase, id, 'buyer', userData, {
-                        fromSource, returnUrl: './total_buyers.html', onSuccess: () => location.reload()
+                        fromSource, returnUrl: resolveUrl('/total_buyers'), onSuccess: () => location.reload()
                     });
                     document.getElementById('nda-modal').addEventListener('hidden.bs.modal', () => {
                         $('body').removeClass('nda-active');

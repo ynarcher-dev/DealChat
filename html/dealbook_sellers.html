@@ -28,6 +28,7 @@
             color: white;
         }
     </style>
+    <script src="../js/url_helper.js"></script>
 </head>
 
 <body class="theme-mode-sellers is-loading" data-page-type="sellers" data-share-entity="매도자">
@@ -45,7 +46,7 @@
         <aside class="sidebar">
             <!-- 헤더 -->
             <div class="panel-header db-panel-header">
-                <button class="btn-icon-only" onclick="location.href='./my_sellers.html'" title="이전으로"
+                <button class="btn-icon-only" onclick="location.href=resolveUrl('/my_sellers')" title="이전으로"
                     style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
                     <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
                 </button>

@@ -34,7 +34,7 @@ $(document).ready(async function () {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
             alert("로그인이 필요합니다.");
-            location.href = "./signin.html";
+            location.href = "/signin";
             return;
         }
 
@@ -303,8 +303,8 @@ function renderCurrentPage() {
         const formattedDate = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`;
 
         const targetId = log.item_id || log.seller_id;
-        const extUrl = (log.item_type === 'buyer') ? 'dealbook_buyers.html' : ((log.item_type === 'company') ? 'dealbook_companies.html' : 'dealbook_sellers.html');
-        const itemLink = `./${extUrl}?id=${targetId}&from=total_${log.item_type}`;
+        const extUrl = (log.item_type === 'buyer') ? 'dealbook_buyers' : ((log.item_type === 'company') ? 'dealbook_companies' : 'dealbook_sellers');
+        const itemLink = `/${extUrl}?id=${targetId}&from=total_${log.item_type}`;
 
         const signer = log.signerProfile;
         const avatarUrl = resolveAvatarUrl(signer.avatar, 1);

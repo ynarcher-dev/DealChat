@@ -37,9 +37,9 @@ $(document).ready(function () {
     const fromSource = urlParams.get('from');
 
     // [New] 이전 페이지(목록)로 돌아갈 URL 설정
-    let returnUrl = './my_companies.html';
+    let returnUrl = resolveUrl('/my_companies');
     if (fromSource === 'total_companies' || fromSource === 'totalstartup') {
-        returnUrl = './total_companies.html';
+        returnUrl = resolveUrl('/total_companies');
     }
 
     // [New] 헤더의 뒤로가기 버튼 URL 업데이트
@@ -190,7 +190,7 @@ $(document).ready(function () {
             if (cError) throw cError;
             if (!company) {
                 alert('기업 정보를 찾을 수 없습니다.');
-                location.href = './my_companies.html';
+                location.href = resolveUrl('/my_companies');
                 return;
             }
 
@@ -291,7 +291,7 @@ $(document).ready(function () {
                     $('body').addClass('nda-active');
                     initNdaGate(_supabase, companyId, 'company', userData, {
                         fromSource,
-                        returnUrl: './shared_items.html',
+                        returnUrl: resolveUrl('/shared_items'),
                         onSuccess: () => location.reload()
                     });
                     document.getElementById('nda-modal').addEventListener('hidden.bs.modal', () => {

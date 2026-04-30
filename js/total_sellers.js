@@ -484,7 +484,7 @@ window.showSellerDetail = function (id) {
         // 상세 페이지의 리포트 모드에서 NDA 게이트가 작동하게 됩니다.
         $('#transition-loader').css('display', 'flex');
         setTimeout(() => {
-            location.href = `./dealbook_sellers.html?id=${encodeURIComponent(id)}&from=totalseller`;
+            location.href = resolveUrl(`/dealbook_sellers?id=${encodeURIComponent(id)}&from=totalseller`);
         }, 600);
     });
 

@@ -8,10 +8,6 @@
         const globalFooter = document.getElementById('global-footer');
         if (!globalFooter) return;
 
-        // 현재 페이지가 html 폴더 안에 있는지 확인
-        const isSubPage = window.location.pathname.includes('/html/');
-        const htmlPath = isSubPage ? '' : 'html/';
-
         const footerHtml = `
             <div class="footer-container">
                 <div class="footer-info">
@@ -26,9 +22,9 @@
                     <div class="footer-bottom-row">
                         <div class="copyright">© 2026 DEALCHAT all rights reserved.</div>
                         <div class="footer-links">
-                            <a href="${htmlPath}terms.html" target="_blank">서비스 이용약관</a>
-                            <a href="${htmlPath}privacy.html" target="_blank">개인정보 처리방침</a>
-                            <a href="${htmlPath}marketing.html" target="_blank">마케팅 및 홍보 활용동의</a>
+                            <a href="/terms" target="_blank">서비스 이용약관</a>
+                            <a href="/privacy" target="_blank">개인정보 처리방침</a>
+                            <a href="/marketing" target="_blank">마케팅 및 홍보 활용동의</a>
                         </div>
                     </div>
                 </div>

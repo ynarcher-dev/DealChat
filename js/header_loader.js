@@ -60,14 +60,11 @@
             }
         }
 
-        const htmlPath = isSubPage ? '' : 'html/';
-        const myPagePath = isSubPage ? 'mypage.html' : 'html/mypage.html';
+        const myPagePath = resolveUrl('/mypage');
         const isBuyer = userData && userData.role === 'buyer';
-        const dashboardPath = isBuyer
-            ? (isSubPage ? 'total_sellers.html' : 'html/total_sellers.html')
-            : (isSubPage ? 'index.html' : 'html/index.html');
-        const qnaPath = isSubPage ? 'qna.html' : 'html/qna.html';
-        const ndaPath = isSubPage ? 'nda_management.html' : 'html/nda_management.html';
+        const dashboardPath = resolveUrl(isBuyer ? '/total_sellers' : '/dashboard');
+        const qnaPath = resolveUrl('/qna');
+        const ndaPath = resolveUrl('/nda_management');
 
         const headerHtml = `
             <style>
@@ -178,7 +175,7 @@
                         <!-- 섹션 1: 관리 도구 (향후 운영자 전용 예정) -->
                         <div style="padding: 4px 10px 8px 10px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">관리 도구</div>
                         
-                        <a href="${isSubPage ? 'shared_items.html' : 'html/shared_items.html'}" class="user-menu-item" style="padding: 9px 10px; display: flex; align-items: center; gap: 10px; color: #475569; text-decoration: none; border-radius: 8px; font-size: 13.5px; transition: background 0.15s;">
+                        <a href="/shared_items" class="user-menu-item" style="padding: 9px 10px; display: flex; align-items: center; gap: 10px; color: #475569; text-decoration: none; border-radius: 8px; font-size: 13.5px; transition: background 0.15s;">
                             <span class="material-symbols-outlined" style="font-size: 18px; color: #64748b;">share</span>
                             <span style="flex: 1;">공유목록</span>
                             <span class="shared-count-badge" id="shared-count-badge">0</span>
@@ -248,7 +245,7 @@
                                 if (sessionError || !session) {
                                     console.warn('Supabase session expired or invalid. Logging out.');
                                     localStorage.removeItem('dealchat_users');
-                                    window.location.href = '/html/signin.html';
+                                    window.location.href = resolveUrl('/signin');
                                     return;
                                 }
 
@@ -344,10 +341,10 @@
                 e.stopPropagation();
                 if (confirm('로그아웃 하시겠습니까?')) {
                     localStorage.removeItem('dealchat_users');
-                    window.location.href = '/html/signin.html';
+                    window.location.href = resolveUrl('/signin');
                 }
             }
-            
+
             // 기타 메뉴 아이템(태그 a) 클릭 시는 기본 동작(이동)을 허용함
         });
 

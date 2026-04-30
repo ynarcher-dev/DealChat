@@ -56,7 +56,7 @@ $(document).ready(function () {
         applyFilters();
     });
 
-    $('#new-btn').on('click', () => { location.href = './dealbook_buyers.html?id=new&from=mybuyer'; });
+    $('#new-btn').on('click', () => { location.href = resolveUrl('/dealbook_buyers?id=new&from=mybuyer'); });
 
     $('#export-csv-btn').on('click', exportToCSV);
 
@@ -199,7 +199,7 @@ window.showBuyerDetail = function (id) {
     const $loader = $('#transition-loader');
     $loader.css('display', 'flex');
     setTimeout(() => {
-        location.href = `./dealbook_buyers.html?id=${encodeURIComponent(id)}&from=mybuyer`;
+        location.href = resolveUrl(`/dealbook_buyers?id=${encodeURIComponent(id)}&from=mybuyer`);
     }, 600);
 };
 

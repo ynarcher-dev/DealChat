@@ -24,7 +24,7 @@ $(document).ready(function () {
             window.supabaseClient = _supabase;
 
             // 재설정 링크가 랜딩될 URL (개발/배포 환경에 따라 조정될 수 있음)
-            const resetUrl = `${window.location.origin}${window.location.pathname.replace('forgot-password.html', 'reset-password.html')}`;
+            const resetUrl = `${window.location.origin}${window.location.pathname.replace('forgot-password', 'reset-password')}`;
 
             // 1. 수파베이스 비밀번호 재설정 요청
             const { data, error } = await _supabase.auth.resetPasswordForEmail(email, {
@@ -35,7 +35,7 @@ $(document).ready(function () {
 
             alert('비밀번호 재설정 링크를 이메일로 보내드렸습니다. 메일함을 확인해주세요.');
             // 로그인 페이지로 돌아가기
-            location.href = 'signin.html';
+            location.href = resolveUrl('/signin');
 
         } catch (err) {
             console.error('Password Reset Request Error:', err);

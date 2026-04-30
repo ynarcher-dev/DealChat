@@ -18,6 +18,7 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 
     <link rel="stylesheet" href="../css/style.css">
+    <script src="../js/url_helper.js"></script>
 
 </head>
 
@@ -26,7 +27,7 @@
         try {
             var _u = JSON.parse(localStorage.getItem('dealchat_users'));
             if (_u && _u.isLoggedIn === true) {
-                window.location.href = _u.role === 'buyer' ? '/html/total_sellers.html' : '/html/index.html';
+                window.location.href = resolveUrl(_u.role === 'buyer' ? '/total_sellers' : '/dashboard');
             }
         } catch (e) { }
     </script>
@@ -52,13 +53,13 @@
                 <button type="submit" class="btn-login">로그인</button>
 
                 <div class="forgot-password">
-                    <a href="forgot-password.html">비밀번호를 잊으셨나요?</a>
+                    <a href="/forgot-password">비밀번호를 잊으셨나요?</a>
                 </div>
 
                 <div class="divider"></div>
 
                 <div class="signup-section">
-                    <button type="button" class="btn-signup-link" onclick="location.href='signup.html'">회원가입</button>
+                    <button type="button" class="btn-signup-link" onclick="location.href=resolveUrl('/signup')">회원가입</button>
                 </div>
             </form>
         </div>

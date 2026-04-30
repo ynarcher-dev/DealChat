@@ -13,9 +13,9 @@ const NAVY           = '#1E293B';
 const ITEMS_PER_PAGE = 15;
 
 const TYPE_CONFIG = {
-    company: { label: '기업',  icon: 'corporate_fare', color: '#1a73e8', bg: '#e7f1ff', detailPage: 'dealbook_companies.html' },
-    buyer:   { label: '매수',  icon: 'person_search',  color: '#0d9488', bg: '#f0fdfa', detailPage: 'dealbook_buyers.html'    },
-    seller:  { label: '매도',  icon: 'storefront',     color: '#8b5cf6', bg: '#f3f0ff', detailPage: 'dealbook_sellers.html'   },
+    company: { label: '기업',  icon: 'corporate_fare', color: '#1a73e8', bg: '#e7f1ff', detailPage: 'dealbook_companies' },
+    buyer:   { label: '매수',  icon: 'person_search',  color: '#0d9488', bg: '#f0fdfa', detailPage: 'dealbook_buyers'    },
+    seller:  { label: '매도',  icon: 'storefront',     color: '#8b5cf6', bg: '#f3f0ff', detailPage: 'dealbook_sellers'   },
 };
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ function formatDateTime(dateStr) {
 }
 
 function getTypeConfig(type) {
-    return TYPE_CONFIG[type] || { label: type, icon: 'info', color: '#64748b', bg: '#f1f5f9', detailPage: 'index.html' };
+    return TYPE_CONFIG[type] || { label: type, icon: 'info', color: '#64748b', bg: '#f1f5f9', detailPage: 'index' };
 }
 
 // ── Initialisation ─────────────────────────────────────────────────────────────

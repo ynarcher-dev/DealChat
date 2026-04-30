@@ -454,7 +454,7 @@ window.showCompanyDetail = function (id) {
         $loader.css('display', 'flex'); // Show loading overlay
         
         setTimeout(() => {
-            location.href = `./dealbook_companies.html?id=${encodeURIComponent(id)}&from=totalstartup`;
+            location.href = resolveUrl(`/dealbook_companies?id=${encodeURIComponent(id)}&from=totalstartup`);
         }, 600);
     });
 

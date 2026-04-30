@@ -56,7 +56,7 @@ $(document).ready(function () {
         applyFilters();
     });
 
-    $('#new-btn').on('click', () => { location.href = './dealbook_sellers.html?id=new'; });
+    $('#new-btn').on('click', () => { location.href = resolveUrl('/dealbook_sellers?id=new'); });
 
     $('#export-csv-btn').on('click', exportToCSV);
 
@@ -204,7 +204,7 @@ window.showSellerDetail = function (id) {
     const $loader = $('#transition-loader');
     $loader.css('display', 'flex');
     setTimeout(() => {
-        location.href = `./dealbook_sellers.html?id=${encodeURIComponent(id)}`;
+        location.href = resolveUrl(`/dealbook_sellers?id=${encodeURIComponent(id)}`);
     }, 600);
 };
 

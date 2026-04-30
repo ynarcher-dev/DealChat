@@ -222,8 +222,8 @@ export function initExternalSharing(itemType, themeColor = '#0d9488') {
 
             // Construct Link
             const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
-            const detailPageMap = { seller: 'dealbook_sellers.html', buyer: 'dealbook_buyers.html', company: 'dealbook_companies.html' };
-            const shareUrl = baseUrl + `/${detailPageMap[itemType] || 'index.html'}?id=${id}&from=shared`;
+            const detailPageMap = { seller: 'dealbook_sellers', buyer: 'dealbook_buyers', company: 'dealbook_companies' };
+            const shareUrl = baseUrl + `/${detailPageMap[itemType] || 'index'}?id=${id}&from=shared`;
 
             // Prepare sharer info
             const sharerInfo = {
@@ -375,7 +375,7 @@ export async function checkNdaStatus(supabase, itemId, userId, itemType) {
 export function initNdaGate(supabase, itemId, itemType, userData, options = {}) {
     const { 
         fromSource = '', 
-        returnUrl = './index.html',
+        returnUrl = '/dashboard',
         onSuccess = () => location.reload()
     } = options;
 

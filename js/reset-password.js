@@ -44,7 +44,7 @@ $(document).ready(function () {
             await _supabase.auth.signOut();
             localStorage.removeItem('dealchat_users');
             
-            location.href = 'signin.html';
+            location.href = resolveUrl('/signin');
 
         } catch (err) {
             console.error('Password Update Error:', err);

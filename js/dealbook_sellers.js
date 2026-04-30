@@ -34,9 +34,9 @@ $(document).ready(function () {
     window.isNew = isNew; // Expose to window for financial_utils.js
 
     // [New] 이전 페이지(목록)로 돌아갈 URL 설정
-    let returnUrl = './my_sellers.html';
+    let returnUrl = resolveUrl('/my_sellers');
     if (fromSource === 'totalseller' || fromSource === 'total_sellers') {
-        returnUrl = './total_sellers.html';
+        returnUrl = resolveUrl('/total_sellers');
     }
 
     // [New] 헤더의 뒤로가기 버튼 URL 업데이트
@@ -381,7 +381,7 @@ $(document).ready(function () {
 
             if (!seller) {
                 alert('정보를 찾을 수 없거나 접근 권한이 없습니다.');
-                location.href = './my_sellers.html';
+                location.href = resolveUrl('/my_sellers');
                 return;
             }
 
@@ -395,7 +395,7 @@ $(document).ready(function () {
                     $('body').addClass('nda-active');          // 배경 차단 클래스 추가
                     sharingUtils.initNdaGate(_supabase, sellerId, 'seller', userData, {
                         fromSource,
-                        returnUrl: './total_sellers.html',
+                        returnUrl: resolveUrl('/total_sellers'),
                         onSuccess: () => location.reload()
                     });
                     // 모달이 닫힐 때(취소 포함) nda-active 제거

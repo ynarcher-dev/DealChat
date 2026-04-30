@@ -70,7 +70,7 @@ $(document).ready(function () {
     });
 
     $('#new-btn').on('click', () => {
-        location.href = `./dealbook_companies.html?id=new`;
+        location.href = resolveUrl(`/dealbook_companies?id=new`);
     });
 
     $('#filter-min-revenue, #filter-max-revenue, #filter-min-investment, #filter-max-investment').on('input', applyFilters);
@@ -272,7 +272,7 @@ window.goToCompanyDetail = function (id) {
     const $loader = $('#transition-loader');
     $loader.css('display', 'flex');
     setTimeout(() => {
-        location.href = `./dealbook_companies.html?id=${encodeURIComponent(id)}`;
+        location.href = resolveUrl(`/dealbook_companies?id=${encodeURIComponent(id)}`);
     }, 600);
 };
 
