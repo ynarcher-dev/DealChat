@@ -16,7 +16,13 @@
       "Bash(curl -s 'https://afitwguexwihnepyutqw.supabase.co/rest/v1/sellers?select=*,companies\\(*\\)&user_id=eq.40862963-e4d5-4ed0-8057-100f808c1fad&deleted_at=is.null' -H 'apikey: sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5' -H 'Authorization: Bearer sb_publishable_ZRX8BCMSV4A1WDgzVh5q-A_sz5vaNH5')",
       "Bash(xargs grep:*)",
       "Bash(grep -E \"\\\\.\\(env|json|yml|yaml|toml\\)$\")",
-      "Bash(aws s3:*)"
+      "Bash(aws s3:*)",
+      "PowerShell(Get-Command supabase -ErrorAction SilentlyContinue | Format-List Name, Source; if \\(-not \\(Get-Command supabase -ErrorAction SilentlyContinue\\)\\) { Write-Host \"NO_SUPABASE_CLI\" })",
+      "PowerShell(& \"./scripts/deploy.ps1\")",
+      "Bash(aws --version)",
+      "Bash(supabase --version)",
+      "Bash(npx supabase *)",
+      "PowerShell(./scripts/deploy.ps1)"
     ]
   }
 }

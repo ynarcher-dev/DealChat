@@ -721,7 +721,15 @@ $(document).ready(function () {
         $(this).addClass('drag-over');
     });
 
-    $dropZone.on('dragleave dragend drop', function(e) {
+    $dropZone.on('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!this.contains(e.originalEvent.relatedTarget)) {
+            $(this).removeClass('drag-over');
+        }
+    });
+
+    $dropZone.on('dragend drop', function(e) {
         e.preventDefault();
         e.stopPropagation();
         $(this).removeClass('drag-over');

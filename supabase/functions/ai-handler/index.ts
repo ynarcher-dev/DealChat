@@ -91,6 +91,89 @@ serve(async (req) => {
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+        // 1-A. OCR Action: PDF를 Gemini 멀티모달로 텍스트 추출 (스캔/이미지 PDF 폴백)
+        if (action === 'ocr_pdf') {
+            const content = body.content; // base64 (no data URI prefix)
+            const contentType = body.content_type || 'application/pdf';
+            const fileName = body.file_name || 'document.pdf';
+
+            if (!content) {
+                return new Response(JSON.stringify({ error: 'Missing content (base64 PDF)' }), {
+                    status: 400,
+                    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+                });
+            }
+
+            // 안전 한도: Gemini inlineData는 ~20MB 권장
+            const estimatedBytes = Math.ceil(content.length * 3 / 4);
+            if (estimatedBytes > 20 * 1024 * 1024) {
+                return new Response(JSON.stringify({
+                    error: 'OCR 대상 파일이 20MB를 초과합니다. 더 작은 파일이나 일반 텍스트 추출을 사용해주세요.'
+                }), {
+                    status: 413,
+                    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+                });
+            }
+
+            const ocrPrompt = `당신은 한국어/영문 PDF에서 텍스트를 정확하게 추출하는 OCR 엔진입니다.
+
+[지시사항]
+- 문서의 모든 텍스트를 위에서 아래, 왼쪽에서 오른쪽 순서로 추출하세요.
+- 표가 있을 경우 행은 줄바꿈으로, 같은 행 내 열은 탭(\\t)으로 구분하세요.
+- 표의 첫 행은 헤더로 간주하고, 각 데이터 행이 헤더와 같은 열 개수가 되도록 유지하세요.
+- 회계/재무 문서의 단위(예: "(단위: 백만원)", "(단위: 천원)")는 해당 표 바로 위에 반드시 표기하세요.
+- 숫자에서 천 단위 쉼표는 유지하고, 음수는 괄호 또는 마이너스 부호 그대로 두세요.
+- 페이지가 여러 개면 페이지 사이에 빈 줄 두 개로 구분하세요.
+- 헤더/푸터, 페이지 번호는 생략해도 됩니다.
+- 어떤 설명이나 추가 코멘트도 출력하지 마세요. 오로지 추출된 텍스트만 출력하세요.`;
+
+            // OCR은 정확도를 위해 2.5-flash 고정 (멀티모달 + 안정성)
+            const ocrModel = body.model || 'gemini-2.5-flash';
+
+            const ocrResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ocrModel}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        role: 'user',
+                        parts: [
+                            { text: ocrPrompt },
+                            { inlineData: { mimeType: contentType, data: content } }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        topK: 1,
+                        topP: 0.1,
+                        maxOutputTokens: 32768,
+                    },
+                    safetySettings: [
+                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                    ]
+                })
+            });
+
+            const ocrData = await ocrResp.json();
+            if (!ocrResp.ok || ocrData.error) {
+                console.error('[ai-handler ocr_pdf]', ocrData.error || ocrData);
+                return new Response(JSON.stringify({
+                    error: ocrData.error?.message || 'OCR 처리 중 오류가 발생했습니다.',
+                    file_name: fileName
+                }), {
+                    status: ocrResp.status || 500,
+                    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+                });
+            }
+
+            const text = ocrData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            return new Response(JSON.stringify({ text, file_name: fileName }), {
+                headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+            });
+        }
+
         // 1. Vector Search Action (Gemini Embedding)
         if (action === 'search_vector') {
             const query = body.query;
@@ -144,18 +227,33 @@ serve(async (req) => {
         let response;
         let data;
 
+        // 클라이언트가 전달한 max_tokens 우선 사용, 없으면 모델 기본값 (Gemini 2.5는 65536까지 지원)
+        const requestedMaxTokens = Number(body.max_tokens) || 16384;
+        // 클라이언트가 temperature를 전달했으면 사용 (자동 채우기 등은 낮은 값으로 일관성 유지)
+        const temperature = typeof body.temperature === 'number' ? body.temperature : 0.7;
+
+        // JSON 모드 활성화 여부: 명시적 플래그 또는 프롬프트에 "JSON" 언급이 있으면 ON
+        // → Gemini가 응답을 strict JSON으로 강제하므로 마크다운 펜스/설명 잡음이 사라짐
+        const wantsJson = body.response_format === 'json'
+            || /\bJSON\b/i.test(userPrompt);
+
+        const generationConfig: Record<string, any> = {
+            temperature,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: requestedMaxTokens,
+        };
+        if (wantsJson) {
+            generationConfig.responseMimeType = 'application/json';
+        }
+
         while (retryCount < maxRetries) {
-            response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     contents: [ { role: "user", parts: [{ text: userPrompt }] } ],
-                    generationConfig: {
-                        temperature: 0.7,
-                        topK: 40,
-                        topP: 0.95,
-                        maxOutputTokens: 4096,
-                    },
+                    generationConfig,
                     safetySettings: [
                         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },

@@ -27,9 +27,9 @@ window.config = {
   ai: {
     model: 'gemini-2.5-flash',
     tokenLimits: {
-      'gemini-2.5-flash':      { maxContextTokens: 1000000, maxOutputTokens: 8192, safetyMargin: 1000 },
-      'gemini-2.5-pro':        { maxContextTokens: 1000000, maxOutputTokens: 8192, safetyMargin: 1000 },
-      'gemini-2.5-flash-lite': { maxContextTokens: 1000000, maxOutputTokens: 8192, safetyMargin: 1000 }
+      'gemini-2.5-flash':      { maxContextTokens: 1000000, maxOutputTokens: 32768, safetyMargin: 1000 },
+      'gemini-2.5-pro':        { maxContextTokens: 1000000, maxOutputTokens: 32768, safetyMargin: 1000 },
+      'gemini-2.5-flash-lite': { maxContextTokens: 1000000, maxOutputTokens: 32768, safetyMargin: 1000 }
     }
   }
 };

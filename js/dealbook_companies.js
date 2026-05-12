@@ -578,7 +578,8 @@ $(document).ready(function () {
             .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
 
         try {
-            const prompt = `
+            // [1] 일반 회사 정보 프롬프트 (financial_info 제외)
+            const generalPrompt = `
 업로드된 기업 관련 문서 내용을 바탕으로 다음 정보를 추출하여 정확한 JSON 형식으로 답변해주세요.
 - name: 기업명 (단, '주식회사', '(주)' 등은 제외하고 추출)
 - industry: 산업 분야 (가급적 드롭다운 목록에 있는 값으로 매핑: AI, IT·정보통신, SaaS·솔루션, 게임, 공공·국방, 관광·레저, 교육·에듀테크, 금융·핀테크, 농·임·어업, 라이프스타일, 모빌리티, 문화예술·콘텐츠, 바이오·헬스케어, 부동산, 뷰티·패션, 에너지·환경, 외식업·소상공인, 우주·항공, 유통·물류, 제조·건설, 플랫폼·커뮤니티 중 하나)
@@ -588,7 +589,6 @@ $(document).ready(function () {
 - address: 주소
 - summary: 회사소개 (300자 내외 요약, 재무 관련 내용은 제외)
 - key_products: 주요 제품/서비스 (핵심 기술 및 제품 라인업, 재무 관련 내용은 제외)
-- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
 - investment_info: [{ "year": "연도", "stage": "단계", "valuation": "벨류(숫자만)", "amount": "금액(숫자만)", "investor": "투자자" }]
 - financial_analysis: 재무제표 성장성 및 수익성 분석 코멘트 (매출 증가 추이, 영업이익률 변화 등을 포함하여 상세히 기술)
 
@@ -599,44 +599,94 @@ $(document).ready(function () {
 4. 반드시 유효한 JSON 형식으로만 답변하세요. 다른 설명은 생략하세요.
             `.trim();
 
+            // [2] 재무정보 전용 프롬프트 (표 구조 매핑 가드 강화)
+            const financialPrompt = `
+업로드된 문서에서 재무제표 데이터를 추출하여 JSON 객체로만 답변하세요.
 
-            const response = await addAiResponse(prompt, contextText);
-            const data = await response.json();
-            
-            let resultText = data.answer || data.text || data.response || "";
-            
-            // JSON 추출 시도 (Markdown 펜스 또는 순수 { } 블록)
-            let jsonString = '';
-            const markdownMatch = resultText.match(/```json\n?([\s\S]*?)\n?```/);
-            
-            if (markdownMatch) {
-                jsonString = markdownMatch[1].trim();
-            } else {
-                const curlyMatch = resultText.match(/\{[\s\S]*\}/);
-                if (curlyMatch) {
-                    jsonString = curlyMatch[0].trim();
+[출력 형식]
+{
+  "financial_info": [
+    { "year": "YYYY", "revenue": "숫자", "profit": "숫자", "net_profit": "숫자", "total_assets": "숫자", "total_liabilities": "숫자", "total_equity": "숫자" }
+  ]
+}
+
+[필드 정의]
+- year: 연도 (예: "2023"). 회계연도/사업연도 표기를 우선 사용.
+- revenue: 매출액 / 영업수익
+- profit: 영업이익
+- net_profit: 당기순이익
+- total_assets: 총자산 (자산총계)
+- total_liabilities: 총부채 (부채총계)
+- total_equity: 총자본 (자본총계)
+
+[엄격 규칙 — 위반 시 잘못된 답변으로 간주]
+1. **연도-값 매핑이 모호하면 그 연도 전체를 빈 객체로 만들지 말고, 아예 결과에서 제외하세요.** 추측 금지.
+2. 표의 열 헤더(연도)와 행 헤더(매출액 등)가 명확히 교차하는 셀의 값만 사용하세요.
+3. 단위 표시("(단위: 백만원)", "(단위: 천원)", "단위: 원" 등)가 표 근처에 있다면 **실제 원(KRW) 단위로 환산**한 정수를 반환하세요.
+   - "(단위: 백만원)"이고 표 값이 "1,200"이면 → "1200000000"
+   - "(단위: 천원)"이고 표 값이 "1,200"이면 → "1200000"
+   - 단위 표시가 없으면 표 값 자체를 숫자로 변환 (예: "1,234,567" → "1234567")
+4. 음수(괄호 또는 마이너스 부호로 표기)는 마이너스 부호로 반환하세요. (예: "(123)" → "-123")
+5. 알 수 없거나 비어있는 셀은 빈 문자열("")로.
+6. 천 단위 쉼표는 모두 제거하세요.
+7. 같은 연도가 여러 번 나타나면 가장 신뢰도 높은 표(예: 정식 재무상태표/손익계산서) 값을 사용하세요.
+8. 회계 계정이 없으면 추측하지 말고 ""로.
+9. financial_info 외의 다른 필드는 절대 포함하지 마세요.
+10. 반드시 유효한 JSON 객체만 출력하세요. 마크다운 펜스, 설명, 주석 모두 금지.
+
+[추가 안전장치]
+- 문서에 표 형태 재무 데이터가 전혀 없으면 { "financial_info": [] } 를 반환하세요.
+- 1~2개 항목만 단편적으로 보이는 경우(불완전 표)도 financial_info: [] 를 반환하세요.
+            `.trim();
+
+            // 두 호출 병렬 실행
+            const [generalResp, financialResp] = await Promise.all([
+                addAiResponse(generalPrompt, contextText),
+                addAiResponse(financialPrompt, contextText)
+            ]);
+            const [generalData, financialData] = await Promise.all([
+                generalResp.json(),
+                financialResp.json()
+            ]);
+
+            // 공통 JSON 파서
+            const parseJsonFromAi = (data) => {
+                const resultText = data.answer || data.text || data.response || "";
+                let jsonString = '';
+                const markdownMatch = resultText.match(/```json\n?([\s\S]*?)\n?```/);
+                if (markdownMatch) {
+                    jsonString = markdownMatch[1].trim();
+                } else {
+                    const curlyMatch = resultText.match(/\{[\s\S]*\}/);
+                    if (curlyMatch) jsonString = curlyMatch[0].trim();
                 }
-            }
+                if (!jsonString) {
+                    console.error('❌ AI 응답에서 JSON을 찾을 수 없습니다. 원본:', resultText);
+                    return null;
+                }
+                try {
+                    return JSON.parse(jsonString);
+                } catch (pErr) {
+                    try {
+                        return JSON.parse(tryRepairJson(jsonString));
+                    } catch (rErr) {
+                        console.error('❌ JSON 복구 및 파싱 실패. 문자열:', jsonString);
+                        return null;
+                    }
+                }
+            };
 
-            if (!jsonString) {
-                console.error('❌ AI 응답에서 JSON을 찾을 수 없습니다. 원본 응답:', resultText);
+            const generalJson = parseJsonFromAi(generalData);
+            const financialJson = parseJsonFromAi(financialData);
+
+            if (!generalJson && !financialJson) {
                 throw new Error('AI로부터 유효한 JSON 형식을 받지 못했습니다. 콘솔 로그를 확인해주세요.');
             }
 
-            let jsonData;
-            try {
-                jsonData = JSON.parse(jsonString);
-            } catch (pErr) {
-                console.warn('⚠️ JSON 파싱 1차 실패. 복구를 시도합니다...');
-                try {
-                    // 잘린 JSON 복구 시도 (닫히지 않은 괄호 강제 삽입)
-                    const repairedJson = tryRepairJson(jsonString);
-                    jsonData = JSON.parse(repairedJson);
-
-                } catch (rErr) {
-                    console.error('❌ JSON 복구 및 파싱 최종 실패. 추출된 문자열:', jsonString);
-                    throw new Error('AI 응답이 도중에 끊겼거나 형식이 올바르지 않습니다. (추출 실패)');
-                }
+            // 병합: 재무정보는 financialJson, 나머지는 generalJson
+            const jsonData = Object.assign({}, generalJson || {});
+            if (financialJson && Array.isArray(financialJson.financial_info)) {
+                jsonData.financial_info = financialJson.financial_info;
             }
             
 
@@ -945,14 +995,16 @@ $(document).ready(function () {
     $dropZone.on('dragleave', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        $(this).removeClass('drag-over');
+        if (!this.contains(e.originalEvent.relatedTarget)) {
+            $(this).removeClass('drag-over');
+        }
     });
 
     $dropZone.on('drop', function(e) {
         e.preventDefault();
         e.stopPropagation();
         $(this).removeClass('drag-over');
-        
+
         const files = e.originalEvent.dataTransfer.files;
         if (files.length > 0) {
             handleFileUpload(files);

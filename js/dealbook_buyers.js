@@ -547,10 +547,13 @@ $(document).ready(function () {
     $('#training-drop-zone').on('dragover', function(e) {
         e.preventDefault();
         $(this).addClass('drag-over');
-    }).on('dragleave drop', function() {
-        $(this).removeClass('drag-over');
+    }).on('dragleave', function(e) {
+        if (!this.contains(e.originalEvent.relatedTarget)) {
+            $(this).removeClass('drag-over');
+        }
     }).on('drop', async function(e) {
         e.preventDefault();
+        $(this).removeClass('drag-over');
         const files = e.originalEvent.dataTransfer.files;
         for (const file of files) {
             if (!(await filetypecheck(file))) continue;
