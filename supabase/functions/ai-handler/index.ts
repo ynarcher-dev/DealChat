@@ -43,6 +43,8 @@ function getRateLimitKey(req: Request): string {
 const ALLOWED_ORIGINS = [
     "https://afitwguexwihnepyutqw.supabase.co",
     "http://dealchat-web.s3-website.ap-northeast-2.amazonaws.com",
+    "https://dealchat.co.kr",
+    "https://www.dealchat.co.kr",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://127.0.0.1:5500",

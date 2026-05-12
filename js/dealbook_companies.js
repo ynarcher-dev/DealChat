@@ -219,7 +219,7 @@ $(document).ready(function () {
 
             $('#ceo-name').val(company.ceo_name || '');
             $('#company-email').val(company.email || '');
-            $('#establishment-date').val(company.establishment_date || '');
+            $('#establishment-date').val(company.establishment_date && company.establishment_date !== '-' ? company.establishment_date : '');
             $('#company-address').val(company.address || '');
             $('#financial-analysis').val(company.financial_analysis || '');
             $('#manager-memo').val(company.manager_memo || '');
@@ -319,23 +319,12 @@ $(document).ready(function () {
     async function loadAvailableFiles() {
         if (isNew) return; // 신규 작성 시에는 개별 파일 로드 생략
         try {
-            // entity_id 기준으로 먼저 조회, 없으면 user_id 기준으로 폴백
-            let data = null;
-            let error = null;
-
-            ({ data, error } = await _supabase
+            const { data, error } = await _supabase
                 .from('files')
                 .select('*')
-                .eq('entity_id', companyId));
-
-            if (error || !data || data.length === 0) {
-                // entity_id 컬럼이 없거나 매칭 결과가 없으면 user_id로 폴백
-                ({ data, error } = await _supabase
-                    .from('files')
-                    .select('*')
-                    .eq('user_id', user_id));
-                if (error) throw error;
-            }
+                .eq('entity_id', companyId)
+                .eq('entity_type', 'company');
+            if (error) throw error;
 
             availableFiles = data || [];
             renderCompanyFiles();
@@ -347,12 +336,7 @@ $(document).ready(function () {
     function renderCompanyFiles() {
         $('#source-list-training').empty();
 
-        // entity_id로 정확히 매칭되는 파일 먼저 시도, 없으면 전체 user 파일 표시
-        let companyFiles = availableFiles.filter(f => f.entity_id === companyId);
-        if (companyFiles.length === 0) {
-            companyFiles = availableFiles;
-        }
-
+        const companyFiles = availableFiles.filter(f => f.entity_id === companyId);
         companyFiles.forEach(file => {
             addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, file.parsedtext || file.parsedText, null, '#1A73E8', file.storage_type || 's3');
         });
@@ -525,7 +509,7 @@ $(document).ready(function () {
             summary: $summaryText.val(),
             ceo_name: $('#ceo-name').val(),
             email: $('#company-email').val(),
-            establishment_date: $('#establishment-date').val() || null,
+            establishment_date: $('#establishment-date').val() || '-',
             address: $('#company-address').val(),
             financial_info: financial_info,
             investment_info: investment_info,
@@ -672,7 +656,7 @@ $(document).ready(function () {
 
             if (jsonData.ceo_name) $('#ceo-name').val(jsonData.ceo_name);
             if (jsonData.email) $('#company-email').val(jsonData.email);
-            if (jsonData.establishment_date) $('#establishment-date').val(jsonData.establishment_date);
+            if (jsonData.establishment_date && jsonData.establishment_date !== '-') $('#establishment-date').val(jsonData.establishment_date);
             if (jsonData.address) $('#company-address').val(jsonData.address);
             if (jsonData.summary) $('#summary').val(jsonData.summary);
             if (jsonData.key_products) $('#key-products').val(jsonData.key_products);

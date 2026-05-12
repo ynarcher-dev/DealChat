@@ -22,11 +22,27 @@ aws s3 sync . "s3://$BUCKET_NAME" `
     --exclude ".git/*" `
     --exclude ".gemini/*" `
     --exclude ".antigravity/*" `
+    --exclude ".claude/*" `
+    --exclude ".vscode/*" `
     --exclude "supabase/*" `
     --exclude "node_modules/*" `
     --exclude "scripts/*" `
+    --exclude "tests/*" `
+    --exclude "_to_delete/*" `
     --exclude ".DS_Store" `
-    --exclude "*.ps1"
+    --exclude "*desktop.ini" `
+    --exclude "*.ps1" `
+    --exclude "*.sql" `
+    --exclude "*.log" `
+    --exclude ".gitignore" `
+    --exclude "package.json" `
+    --exclude "package-lock.json" `
+    --exclude "jest.config.js" `
+    --exclude "babel.config.json" `
+    --exclude "account_test.txt" `
+    --exclude "temp_header.js" `
+    --exclude "README.md" `
+    --exclude "LICENSE"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Deployment successful!" -ForegroundColor Green
