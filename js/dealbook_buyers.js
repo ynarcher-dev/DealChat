@@ -403,7 +403,7 @@ $(document).ready(function () {
     $('#send-btn').on('click', sendMessage);
     $chatInput.on('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     $(document).on('click', '.prompt-chip', function() {
-        const text = $(this).text();
+        const text = $(this).attr('data-prompt') || $(this).text();
         $chatInput.val(text);
         sendMessage();
     });

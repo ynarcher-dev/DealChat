@@ -1,6 +1,12 @@
 /**
  * financial_utils.js
  * 재무 정보 전치 테이블 (가로=년도, 세로=항목) 유틸리티
+ *
+ * 내부 표현(편집 사이클): { years: [str], items: [{ key, label, vals: [str] }] }
+ *   - vals 는 years 와 같은 길이의 위치 배열. 빈 년도/빈 라벨이 있어도 어긋나지 않음.
+ * 외부 표현(저장/로드, wire): { years: [str], items: [{ key, label, values: { yearStr: val } }] }
+ *   - collectFinancialData() 가 저장용으로 wire 포맷(빈 값 필터)을 돌려준다.
+ *   - migrateFinancialInfo() 는 wire/레거시를 내부 표현으로 변환한다.
  */
 
 const MAX_YEARS = 5;
@@ -15,30 +21,28 @@ const DEFAULT_ITEMS = [
 ];
 
 /**
- * 기존 배열 형식 → 새 객체 형식으로 마이그레이션
- * oldData가 이미 새 형식이면 그대로 반환
+ * 외부에서 들어온 데이터(wire/레거시/null)를 내부 표현으로 변환
  */
 export function migrateFinancialInfo(data) {
     if (!data) return newEmptyFinancialData();
 
-    // 이미 새 형식 ({ years, items })
-    if (data && !Array.isArray(data) && Array.isArray(data.years) && Array.isArray(data.items)) {
-        return data;
+    // wire 포맷
+    if (!Array.isArray(data) && Array.isArray(data.years) && Array.isArray(data.items)) {
+        return wireToInternal(data);
     }
 
-    // 기존 배열 형식 (구버전 호환)
+    // 레거시 배열 포맷
     if (Array.isArray(data) && data.length > 0) {
         const years = [...new Set(data.map(f => String(f.year || '').trim()).filter(Boolean))]
             .sort((a, b) => parseInt(a) - parseInt(b))
             .slice(0, MAX_YEARS);
 
         const items = DEFAULT_ITEMS.map(def => {
-            const values = {};
-            data.forEach(f => {
-                const y = String(f.year || '').trim();
-                if (y) values[y] = f[def.key] || '';
+            const vals = years.map(y => {
+                const found = data.find(f => String(f.year || '').trim() === y);
+                return found ? (found[def.key] || '') : '';
             });
-            return { key: def.key, label: def.label, values };
+            return { key: def.key, label: def.label, vals };
         });
 
         return { years, items };
@@ -48,65 +52,108 @@ export function migrateFinancialInfo(data) {
 }
 
 function newEmptyFinancialData() {
+    // 칸은 하나 생성하되 값을 비워둠
+    const years = [''];
     return {
-        years: [''], // 칸은 하나 생성하되 값을 비워둠
-        items: DEFAULT_ITEMS.map(d => ({ key: d.key, label: d.label, values: {} }))
+        years,
+        items: DEFAULT_ITEMS.map(d => ({ key: d.key, label: d.label, vals: [''] }))
     };
 }
 
+function wireToInternal(wire) {
+    const years = Array.isArray(wire.years) ? [...wire.years] : [];
+    const items = (wire.items || []).map(it => {
+        const values = it.values || {};
+        const vals = years.map(y => values[y] != null ? values[y] : '');
+        return { key: it.key, label: it.label, vals };
+    });
+    return { years, items };
+}
+
 /**
- * DOM에서 재무 데이터 수집 → JSONB 구조 반환
+ * DOM에서 내부 표현으로 무손실 수집 (편집 사이클 내부에서만 사용)
+ *   - 빈 년도 / 빈 라벨도 위치 그대로 유지
+ *   - 셀 값은 data-year-index 로 위치 매칭
  */
-export function collectFinancialData(containerId = 'financial-table-container') {
+function collectInternalState(containerId) {
     const $container = $(`#${containerId}`);
     if (!$container.length) return { years: [], items: [] };
 
     const years = [];
     $container.find('.fin-year-header').each(function() {
-        const y = $(this).val().trim();
-        if (y) years.push(y);
+        years.push($(this).val().trim());
     });
 
     const items = [];
     $container.find('.fin-item-row').each(function() {
-        const key = $(this).data('key') || `custom_${Date.now()}_${Math.random()}`;
-        const label = $(this).find('.fin-item-label').val().trim();
-        const values = {};
-        years.forEach((y, idx) => {
-            const val = $(this).find(`.fin-cell[data-year-index="${idx}"]`).val() || '';
-            values[y] = val.replace(/,/g, '').trim();
+        const $row = $(this);
+        const key = $row.data('key') || `custom_${Date.now()}_${Math.random()}`;
+        const label = $row.find('.fin-item-label').val() || '';
+        const vals = years.map((_, idx) => {
+            const val = $row.find(`.fin-cell[data-year-index="${idx}"]`).val() || '';
+            return val.replace(/,/g, '').trim();
         });
-        if (label) items.push({ key: String(key), label, values });
+        items.push({ key: String(key), label, vals });
     });
 
     return { years, items };
 }
 
 /**
- * 재무 전치 테이블을 DOM에 렌더링 (편집 모드)
+ * 저장용: 내부 표현 → wire 포맷, 빈 년도/빈 라벨 제거
+ */
+export function collectFinancialData(containerId = 'financial-table-container') {
+    const internal = collectInternalState(containerId);
+
+    // 살릴 년도 index 만 추림
+    const keptIdx = [];
+    const years = [];
+    internal.years.forEach((y, idx) => {
+        if (y) { keptIdx.push(idx); years.push(y); }
+    });
+
+    const items = internal.items
+        .filter(it => it.label && it.label.trim())
+        .map(it => {
+            const values = {};
+            keptIdx.forEach((origIdx, newIdx) => {
+                const y = years[newIdx];
+                values[y] = (it.vals[origIdx] || '').toString();
+            });
+            return { key: it.key, label: it.label.trim(), values };
+        });
+
+    return { years, items };
+}
+
+/**
+ * 재무 전치 테이블 렌더 (내부 표현 입력)
+ *   - 외부에서 호출 시에는 반드시 migrateFinancialInfo() 결과를 넘겨라
  */
 export function renderFinancialTable(data, containerId = 'financial-table-container') {
     const $container = $(`#${containerId}`);
     if (!$container.length) return;
 
-    const { years, items } = data;
+    // 안전망: wire/레거시가 들어오면 내부 표현으로 변환
+    const internal = (data && data.items && data.items[0] && Array.isArray(data.items[0].vals))
+        ? data
+        : migrateFinancialInfo(data);
+
+    const { years, items } = internal;
     $container.empty().removeData('report-applied');
 
-    // ── 테이블 래퍼 (가로 스크롤 방지용) ────────────────────────
     const $table = $(`<div class="fin-table" style="display:flex; flex-direction:column; gap:0;"></div>`);
 
     // ── 헤더 행 (구분 | 년도들) ─────────────────────────────────
     const $headerRow = $(`<div class="fin-header-row" style="display:flex; align-items:center; gap:6px; margin-bottom:6px;"></div>`);
 
-    // "구분" 라벨 (고정 폭)
     $headerRow.append(`<div class="fin-label-cell fin-header-cell" style="
         flex:0 0 120px; min-width:120px; font-size:11px; color:#64748b; font-weight:700;
         text-transform:uppercase; letter-spacing:0.02em; padding:8px 4px 8px 28px;">구분</div>`);
 
-    // 년도 헤더 입력들
     years.forEach((y, idx) => {
         const $yearWrap = $(`<div style="flex:1; min-width:0; position:relative; display:flex; align-items:center; gap:2px;"></div>`);
-        $yearWrap.append(`<input type="text" class="fin-year-header" data-index="${idx}" value="${y}" maxlength="4"
+        $yearWrap.append(`<input type="text" class="fin-year-header" data-index="${idx}" value="${escapeHtml(y)}" maxlength="4"
             style="flex:1; min-width:0; padding:6px 4px; border:1px solid #e2e8f0; border-radius:6px;
             font-size:12px; font-weight:700; text-align:center; background:#f8fafc; outline:none;"
             placeholder="연도">`);
@@ -121,7 +168,6 @@ export function renderFinancialTable(data, containerId = 'financial-table-contai
         $headerRow.append($yearWrap);
     });
 
-    // 년도 추가 버튼
     if (years.length < MAX_YEARS) {
         $headerRow.append(`<button type="button" id="add-year-btn"
             style="flex-shrink:0; width:28px; height:28px; border:1.5px dashed #cbd5e1; border-radius:6px;
@@ -135,12 +181,10 @@ export function renderFinancialTable(data, containerId = 'financial-table-contai
 
     $table.append($headerRow);
 
-    // ── 항목 행들 ──────────────────────────────────────────────────
     items.forEach((item) => {
         $table.append(buildItemRow(item, years));
     });
 
-    // ── 항목 추가 버튼 ────────────────────────────────────────────
     $table.append(`
         <button type="button" id="add-item-btn" class="db-add-row-btn" style="margin-top:6px; align-self:flex-start;">
             <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
@@ -150,7 +194,6 @@ export function renderFinancialTable(data, containerId = 'financial-table-contai
 
     $container.append($table);
 
-    // ── 이벤트 바인딩 ─────────────────────────────────────────────
     bindFinancialTableEvents($container);
 }
 
@@ -158,7 +201,6 @@ function buildItemRow(item, years) {
     const $row = $(`<div class="fin-item-row" data-key="${item.key}"
         style="display:flex; align-items:center; gap:6px; padding:2px 0; cursor:default;" draggable="true"></div>`);
 
-    // 드래그 핸들 + 라벨 입력 (고정 폭)
     const $labelCell = $(`<div class="fin-label-cell"
         style="flex:0 0 120px; min-width:120px; display:flex; align-items:center; gap:2px;"></div>`);
 
@@ -167,7 +209,6 @@ function buildItemRow(item, years) {
         <span class="material-symbols-outlined" style="font-size:16px;">drag_indicator</span>
     </span>`);
 
-    // 모든 항목 편집 가능
     $labelCell.append(`<input type="text" class="fin-item-label" value="${escapeHtml(item.label)}" placeholder="항목명"
         style="flex:1; min-width:0; padding:4px 6px; border:1px solid transparent; border-radius:4px;
         font-size:13px; color:#334155; font-weight:500; background:transparent; outline:none;
@@ -175,9 +216,8 @@ function buildItemRow(item, years) {
 
     $row.append($labelCell);
 
-    // 년도별 값 셀
-    years.forEach((y, idx) => {
-        const val = item.values[y] || '';
+    years.forEach((_, idx) => {
+        const val = (item.vals && item.vals[idx] != null) ? item.vals[idx] : '';
         $row.append(`<input type="text" class="fin-cell format-number" data-year-index="${idx}" value="${formatDisplay(val)}"
             style="flex:1; min-width:0; padding:7px 6px; border:1px solid #e2e8f0; border-radius:6px;
             font-size:13px; text-align:right; background:#ffffff; outline:none; box-sizing:border-box;
@@ -185,7 +225,6 @@ function buildItemRow(item, years) {
             placeholder="—">`);
     });
 
-    // 삭제 버튼 (모든 항목)
     $row.append(`<button type="button" class="btn-remove-item" title="항목 삭제"
         style="background:none; border:none; cursor:pointer; color:#cbd5e1; width:28px; padding:0;
         display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:color 0.2s;">
@@ -196,36 +235,50 @@ function buildItemRow(item, years) {
 }
 
 function bindFinancialTableEvents($container) {
+    // 컨테이너당 한 번만 바인딩 — 매 렌더 시 재바인딩되면 delegated 핸들러가
+    // 누적되어 클릭 한 번에 N번 발화하는 문제 방지
+    if ($container.data('fin-events-bound')) return;
+    $container.data('fin-events-bound', true);
+
     const containerId = $container.attr('id');
 
-    // 년도 삭제 — 수집 후 재렌더
+    // 년도 삭제 — 내부 표현 기반 splice (위치 정확)
     $container.on('click', '.btn-remove-year', function() {
-        const data = collectFinancialData(containerId);
+        const data = collectInternalState(containerId);
         const idx = parseInt($(this).data('index'));
-        const removedYear = data.years[idx];
+        if (isNaN(idx) || idx < 0 || idx >= data.years.length) return;
         data.years.splice(idx, 1);
-        data.items.forEach(item => { delete item.values[removedYear]; });
+        data.items.forEach(it => it.vals.splice(idx, 1));
         renderFinancialTable(data, containerId);
     });
 
-    // 년도 추가
+    // 년도 추가 — 빈 칸 하나만 추가 (사용자가 직접 입력)
     $container.on('click', '#add-year-btn', function() {
-        const data = collectFinancialData(containerId);
+        const data = collectInternalState(containerId);
         if (data.years.length >= MAX_YEARS) return;
-        const lastYear = data.years.length > 0 ? parseInt(data.years[data.years.length - 1]) || new Date().getFullYear() : new Date().getFullYear();
-        data.years.push(String(lastYear + 1));
+        data.years.push('');
+        data.items.forEach(it => it.vals.push(''));
         renderFinancialTable(data, containerId);
     });
 
-    // 항목 삭제
+    // 항목 삭제 — 내부 표현으로 위치 기반 제거 후 재렌더
     $container.on('click', '.btn-remove-item', function() {
-        $(this).closest('.fin-item-row').remove();
+        const data = collectInternalState(containerId);
+        const $row = $(this).closest('.fin-item-row');
+        const rowIdx = $row.parent().find('.fin-item-row').index($row);
+        if (rowIdx < 0 || rowIdx >= data.items.length) return;
+        data.items.splice(rowIdx, 1);
+        renderFinancialTable(data, containerId);
     });
 
-    // 항목 추가
+    // 항목 추가 — 빈 년도 보존, vals 도 동일 길이로 추가
     $container.on('click', '#add-item-btn', function() {
-        const data = collectFinancialData(containerId);
-        data.items.push({ key: `custom_${Date.now()}`, label: '', values: {} });
+        const data = collectInternalState(containerId);
+        data.items.push({
+            key: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            label: '',
+            vals: data.years.map(() => '')
+        });
         renderFinancialTable(data, containerId);
         $container.find('.fin-item-row').last().find('.fin-item-label').focus();
     });
@@ -233,7 +286,6 @@ function bindFinancialTableEvents($container) {
     // 숫자 포맷 (콤마) — 음수 허용
     $container.on('input', '.fin-cell', function() {
         let raw = $(this).val().replace(/[^0-9.-]/g, '');
-        // 음수 기호는 맨 앞만
         if (raw.startsWith('-')) raw = '-' + raw.slice(1).replace(/-/g, '');
         else raw = raw.replace(/-/g, '');
         if (raw === '' || raw === '-') { $(this).val(raw); return; }
@@ -288,7 +340,6 @@ function bindFinancialTableEvents($container) {
         return false;
     });
 
-    // 셀 포커스 스타일
     $container.on('focus', '.fin-cell, .fin-year-header', function() {
         $(this).css('border-color', 'var(--page-theme-color)');
     }).on('blur', '.fin-cell, .fin-year-header', function() {
@@ -310,8 +361,8 @@ function escapeHtml(str) {
 }
 
 /**
- * 새 형식({years, items}) → 구 배열 형식([{year, revenue, ...}])으로 변환
- * 이미 배열이면 그대로 반환
+ * wire 포맷 → 레거시 배열 ([{year, revenue, ...}])
+ * 외부(my_companies.js, total_companies.js)에서 DB 데이터를 그대로 받음
  */
 export function toFinancialArray(data) {
     if (!data) return [];
@@ -320,7 +371,13 @@ export function toFinancialArray(data) {
         return data.years.map(year => {
             const row = { year };
             data.items.forEach(item => {
-                row[item.key] = item.values[year] || '';
+                // wire 포맷(values) / 내부 표현(vals) 양쪽 지원
+                if (item.values) {
+                    row[item.key] = item.values[year] || '';
+                } else if (Array.isArray(item.vals)) {
+                    const idx = data.years.indexOf(year);
+                    row[item.key] = idx >= 0 ? (item.vals[idx] || '') : '';
+                }
             });
             return row;
         });

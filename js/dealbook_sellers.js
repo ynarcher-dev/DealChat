@@ -839,7 +839,7 @@ $(document).ready(function () {
     $('#send-btn').on('click', sendMessage);
     $('#chat-input').on('keypress', (e) => { if (e.which === 13 && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     $(document).on('click', '.prompt-chip', function() {
-        const text = $(this).text();
+        const text = $(this).attr('data-prompt') || $(this).text();
         $('#chat-input').val(text);
         sendMessage();
     });

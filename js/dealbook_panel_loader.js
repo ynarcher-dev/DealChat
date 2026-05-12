@@ -51,9 +51,7 @@
                     <h1 class="welcome-title">무엇을 도와드릴까요?</h1>
                     <p class="welcome-subtitle">업로드한 소스를 바탕으로 질문에 답하거나 요약해 드립니다.</p>
                     <div class="suggested-prompts">
-                        <button class="prompt-chip">이 문서들의 핵심 내용을 요약해줘</button>
-                        <button class="prompt-chip">시장 기회 요인을 분석해줘</button>
-                        <button class="prompt-chip">리스크 요인이 뭐야?</button>
+                        <button class="prompt-chip" id="prompt-chip-company-opinion">이 기업에 대한 의견을 요약해줘</button>
                     </div>
                 </div>
             </section>
@@ -154,5 +152,18 @@
     const mount = document.getElementById('dealbook-panels-mount');
     if (mount) {
         mount.insertAdjacentHTML('afterbegin', chatPanel + rightPanel);
+
+        const companyOpinionChip = document.getElementById('prompt-chip-company-opinion');
+        if (companyOpinionChip) {
+            companyOpinionChip.dataset.prompt = `이 기업의 강점에 대해 심사역 관점에서 디테일하게 써줄 수 있을까?
+단, 기업명은 '동사'로 치환해서 작성해주고, 주요 서비스나 아이템에 대해서는 직접적인 언급을 않고 내용을 위주로 작성해줘.
+그리고 모든 내용은 다음의 규칙을 준수해줘
+
+[소제목]
+본문
+
+[소제목] 부분은 너가 본문 내용에 맞춰서 임의의 소제목을 써줘야해
+그리고 소제목과 본문 사이는 줄바꿈처리도 해줘`;
+        }
     }
 })();

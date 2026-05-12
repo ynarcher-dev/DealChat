@@ -903,7 +903,7 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.prompt-chip', function() {
-        const text = $(this).text();
+        const text = $(this).attr('data-prompt') || $(this).text();
         $chatInput.val(text);
         sendMessage();
     });
