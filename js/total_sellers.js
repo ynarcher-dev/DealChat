@@ -50,6 +50,25 @@ function saveSignedNda(sellerId) {
     utilsSaveSignedNda('seller', sellerId, currentuser_id);
 }
 
+async function fetchSignedNdaIds() {
+    if (!currentuser_id) {
+        signedNdaIds = [];
+        return;
+    }
+    try {
+        const { data, error } = await _supabase
+            .from('nda_logs')
+            .select('item_id')
+            .eq('user_id', currentuser_id)
+            .eq('item_type', 'seller');
+        if (error) throw error;
+        signedNdaIds = (data || []).map(r => String(r.item_id));
+    } catch (e) {
+        console.warn('NDA 서명 이력 조회 실패:', e);
+        signedNdaIds = [];
+    }
+}
+
 $(document).ready(function () {
     currentUserData = checkAuth();
     if (!currentUserData) return;
@@ -178,7 +197,9 @@ async function loadInitialData() {
             const dateB = new Date(a.updated_at || a.created_at || 0);
             return dateA - dateB;
         }) : [];
-        
+
+        await fetchSignedNdaIds();
+
         // 블라인드 가벨 할당
         assignBlindLabels(allSellers);
 
@@ -196,7 +217,7 @@ async function loadInitialData() {
 
 function loadSellers() {
     _supabase.from('sellers').select('*, companies(*)').is('deleted_at', null)
-        .then(res => {
+        .then(async res => {
             const data = res?.data || res;
             if (res.error) throw res.error;
             allSellers = Array.isArray(data) ? data.map(parseSellerData).sort((a, b) => {
@@ -204,6 +225,8 @@ function loadSellers() {
                 const dateB = new Date(a.updated_at || a.created_at || 0);
                 return dateA - dateB;
             }) : [];
+
+            await fetchSignedNdaIds();
 
             // 블라인드 가벨 할당
             assignBlindLabels(allSellers);
@@ -319,6 +342,10 @@ function renderSellers() {
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
+                            ${(!isAuthorized && !isRestricted) ? `
+                            <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; margin-top: 4px;">
+                                <span class="material-symbols-outlined" style="font-size: 11px;">lock</span>NDA 필요
+                            </span>` : ''}
                         </div>
                     </div>
                 </td>

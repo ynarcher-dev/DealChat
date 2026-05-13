@@ -94,7 +94,7 @@
                                 기업명(매도자)<span style="color: #ef4444; margin-left: 2px;">*</span>
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="blind-check-name" class="blind-check" data-field="name" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="blind-check-name" class="blind-check" data-field="name" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 blind
                             </label>
                         </div>
@@ -153,7 +153,7 @@
                                 대표자명
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="blind-check-ceo" class="blind-check" data-field="ceo" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="blind-check-ceo" class="blind-check" data-field="ceo" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 blind
                             </label>
                         </div>
@@ -166,7 +166,7 @@
                                 이메일
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="blind-check-email" class="blind-check" data-field="email" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="blind-check-email" class="blind-check" data-field="email" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 blind
                             </label>
                         </div>
@@ -183,7 +183,7 @@
                                 설립일자
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="blind-check-establishment" class="blind-check" data-field="establishment" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="blind-check-establishment" class="blind-check" data-field="establishment" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 blind
                             </label>
                         </div>
@@ -196,7 +196,7 @@
                                 주소
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="blind-check-address" class="blind-check" data-field="address" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="blind-check-address" class="blind-check" data-field="address" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 blind
                             </label>
                         </div>
@@ -213,17 +213,23 @@
                                 매칭 희망가 (억)
                             </p>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
-                                <input type="checkbox" id="negotiable-check" style="width: 14px; height: 14px; cursor: pointer;">
+                                <input type="checkbox" id="negotiable-check" checked style="width: 14px; height: 14px; cursor: pointer;">
                                 협의
                             </label>
                         </div>
                         <input type="text" id="seller-price" class="format-number db-field-input" placeholder="예: 100 (숫자만) 또는 협의" oninput="if(this.value !== '협의') this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1');">
                     </div>
                     <div style="flex: 1;">
-                        <p class="db-field-label">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">handshake</span>
-                            매도 방식
-                        </p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <p class="db-field-label" style="margin-bottom: 0;">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">handshake</span>
+                                매도 방식
+                            </p>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b;">
+                                <input type="checkbox" id="method-negotiable-check" checked style="width: 14px; height: 14px; cursor: pointer;">
+                                협의
+                            </label>
+                        </div>
                         <input type="text" id="seller-method" class="db-field-input" placeholder="예: 경영권 매각, 지분 매각 등">
                     </div>
                 </div>
@@ -253,7 +259,7 @@
                             재무 정보
                         </p>
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b; font-weight: 400;">
-                            <input type="checkbox" id="blind-check-fin-summary" class="blind-check" data-field="fin_summary" style="width: 14px; height: 14px; cursor: pointer;">
+                            <input type="checkbox" id="blind-check-fin-summary" class="blind-check" data-field="fin_summary" checked style="width: 14px; height: 14px; cursor: pointer;">
                             요약만 보기
                         </label>
                     </div>
@@ -268,7 +274,7 @@
                             재무 분석
                         </p>
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #64748b; font-weight: 400;">
-                            <input type="checkbox" id="blind-check-fin-analysis" class="blind-check" data-field="fin_analysis" style="width: 14px; height: 14px; cursor: pointer;">
+                            <input type="checkbox" id="blind-check-fin-analysis" class="blind-check" data-field="fin_analysis" checked style="width: 14px; height: 14px; cursor: pointer;">
                             blind
                         </label>
                     </div>

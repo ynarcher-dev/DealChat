@@ -84,7 +84,7 @@ $(document).ready(function () {
     // 블라인드 설정 전역 변수
     let isBlindActive = true;
     let blindKeywords = [];
-    let blindPersonal = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false, fin_analysis: false };
+    let blindPersonal = { name: true, ceo: true, email: true, establishment: true, address: true, fin_summary: true, fin_analysis: true };
     
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
@@ -214,10 +214,10 @@ $(document).ready(function () {
         // 신규 매도자 생성 시 복수의 티저(글)를 작성할 수 있도록 
         // 기존의 sellerData를 강제로 불러와서 덮어씌우는(isNew = false) 로직을 제거하고,
         // 매도자 전용 필드를 초기화합니다.
-        $('#seller-price').val('');
-        $('#negotiable-check').prop('checked', false);
-        $('#seller-price').prop('readonly', false).css('background', '#ffffff');
-        $('#seller-method').val('');
+        $('#seller-price').val('협의').prop('readonly', true).css('background', '#f8fafc');
+        $('#negotiable-check').prop('checked', true);
+        $('#seller-method').val('협의').prop('readonly', true).css('background', '#f8fafc');
+        $('#method-negotiable-check').prop('checked', true);
         $('#seller-memo').val('');
         $('#seller-manager-memo').val('');
         if (typeof setChip === 'function') setChip('대기');
@@ -256,6 +256,7 @@ $(document).ready(function () {
 
         // 체크박스 및 토글 처리
         $('#negotiable-check').prop('disabled', !isEnabled);
+        $('#method-negotiable-check').prop('disabled', !isEnabled);
         $('.blind-check').prop('disabled', !isEnabled);
 
 
@@ -316,6 +317,12 @@ $(document).ready(function () {
         const $priceInput = $('#seller-price');
         if ($(this).is(':checked')) $priceInput.val('협의').prop('readonly', true).css('background', '#f8fafc');
         else $priceInput.val('').prop('readonly', false).css('background', '#ffffff').focus();
+    });
+
+    $('#method-negotiable-check').on('change', function() {
+        const $methodInput = $('#seller-method');
+        if ($(this).is(':checked')) $methodInput.val('협의').prop('readonly', true).css('background', '#f8fafc');
+        else $methodInput.val('').prop('readonly', false).css('background', '#ffffff').focus();
     });
 
     // 블라인드 설정 핸들러
@@ -410,7 +417,7 @@ $(document).ready(function () {
             window.currentSellerData = currentSellerData;
             $('#btn-delete-seller').show();
             blindKeywords = Array.isArray(seller.blind_keywords) ? seller.blind_keywords : [];
-            const defaultBlind = { name: false, ceo: false, email: false, establishment: false, address: false, fin_summary: false, fin_analysis: false };
+            const defaultBlind = { name: true, ceo: true, email: true, establishment: true, address: true, fin_summary: true, fin_analysis: true };
             blindPersonal = { ...defaultBlind, ...(seller.blind_personal || {}) };
             renderBlindTags();
             $('#blind-check-name').prop('checked', blindPersonal.name);
@@ -440,6 +447,9 @@ $(document).ready(function () {
             if ($('#seller-price').val() === '협의') {
                 $('#negotiable-check').prop('checked', true);
                 $('#seller-price').prop('readonly', true).css('background', '#f8fafc');
+            } else {
+                $('#negotiable-check').prop('checked', false);
+                $('#seller-price').prop('readonly', false).css('background', '#ffffff');
             }
             $('#seller-summary').val(seller.summary || company.summary || '');
             $('#seller-key-products').val(seller.key_products || company.key_products || '');
@@ -449,6 +459,13 @@ $(document).ready(function () {
             $('#private-memo').val(seller.private_memo || '');
             setChip(seller.status || '대기');
             $('#seller-method').val((['대기', '진행중', '완료'].includes(seller.sale_method)) ? '' : (seller.sale_method || ''));
+            if ($('#seller-method').val() === '협의') {
+                $('#method-negotiable-check').prop('checked', true);
+                $('#seller-method').prop('readonly', true).css('background', '#f8fafc');
+            } else {
+                $('#method-negotiable-check').prop('checked', false);
+                $('#seller-method').prop('readonly', false).css('background', '#ffffff');
+            }
 
             const finData = seller.financial_info || company.financial_info || null;
             renderFinancialTable(migrateFinancialInfo(finData), 'financial-table-container');
@@ -499,7 +516,7 @@ $(document).ready(function () {
         const industry = $('#seller-industry').val() === '기타' ? $('#seller-industry-etc').val().trim() : $('#seller-industry').val();
         const summary = $('#seller-summary').val().trim();
         const price = $('#seller-price').val().trim();
-        const method = $('#seller-method').val().trim() || '협의';
+        const method = $('#seller-method').val().trim();
         const sale_info = $('#seller-memo').val().trim() || '매각 가능성 검토를 위한 기초 시장 조사 단계';
         const manager_memo = $('#seller-manager-memo').val().trim();
         const status = $('.btn-status-chip.active').text().trim();
