@@ -499,8 +499,8 @@ $(document).ready(function () {
         const industry = $('#seller-industry').val() === '기타' ? $('#seller-industry-etc').val().trim() : $('#seller-industry').val();
         const summary = $('#seller-summary').val().trim();
         const price = $('#seller-price').val().trim();
-        const method = $('#seller-method').val().trim();
-        const sale_info = $('#seller-memo').val().trim();
+        const method = $('#seller-method').val().trim() || '협의';
+        const sale_info = $('#seller-memo').val().trim() || '매각 가능성 검토를 위한 기초 시장 조사 단계';
         const manager_memo = $('#seller-manager-memo').val().trim();
         const status = $('.btn-status-chip.active').text().trim();
         const ceo = $('#seller-ceo').val().trim();
@@ -895,16 +895,67 @@ $(document).ready(function () {
 - email: 이메일
 - establishment: 설립일자 (YYYY-MM-DD 형식)
 - address: 주소
-- summary: 회사소개 (300자 내외 요약)
-- keyProducts: 주요 제품/서비스 (핵심 기술 및 제품 라인업)
+- summary: 회사소개
+  · **헤드라인·넘버링·bullet 없이 평문 한 문장으로만 작성**
+  · 예시: "유망 브랜드를 발굴, 육성하고 글로벌 인프라와 지분 투자를 통해 성장시키는 외식 기업"
+  · 핵심 사업·제품·차별점을 압축한 한 줄
+  · 어조: 객관적·서술형. 과장 형용사 금지("혁신적인", "최고의", "독보적인" 등)
+  · 재무 수치 포함 금지
+- keyProducts: 주요 제품/서비스
+  · 형식: 줄마다 "숫자) 제품/서비스명 — 설명" 형태로 한 줄씩
+    예시(줄바꿈 포함된 단일 문자열):
+      1) 제품A — 한 줄 설명
+      2) 제품B — 한 줄 설명
+      3) 제품C — 한 줄 설명
+  · **최대 4개 항목**. 정보가 부족하면 그 이하 허용
+  · 각 줄은 80자 이내, 기능·용도 중심. 마케팅 카피 금지
+  · 재무 수치 포함 금지
 - financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
+- manager_memo: 담당자 의견 — **M&A 관점에서 동사가 보유한 강점**을 투자심사역 시각으로 분석
+  · 형식: 항목마다 두 줄 — 첫 줄에 "숫자) 헤드라인", 둘째 줄에 "- 평가 본문". 관점별로 헤드라인을 따로 둠. **항목 사이는 빈 줄 1줄로 구분**
+    예시(줄바꿈 포함된 단일 문자열):
+      1) 운영 연속성·PMI 용이성: 인수 직후 가치 훼손 리스크가 낮은 운영 기반
+      - 다년간 누적된 운영 노하우와 표준화된 프로세스가 정착되어 있어, 인수 후 별도 통합 비용 없이 운영 연속성을 즉시 확보할 수 있는 점은 M&A 거래에서 핵심 강점으로 평가됨. 인수자 입장에서 PMI(Post-Merger Integration) 리스크가 낮다는 것은 거래 클로징 이후의 가치 훼손 가능성을 줄여주는 중요한 요소로 작용함
+
+      2) 무형자산·진입장벽: 모방이 어려운 구조적 해자 보유
+      - 진입장벽이 높은 영역에서 확보한 라이선스·인허가·인증 자산은 신규 진입자가 단기간에 모방하기 어려운 구조적 해자로 작용하여, 인수자 관점에서 시간·비용 절감 효과가 큰 무형자산으로 판단됨. 특히 동사의 이러한 자산은 향후 인접 시장으로의 확장 시에도 발판으로 기능할 수 있어 전략적 가치가 높음
+
+      3) 비즈니스 모델·시너지 여지: 결합 시 수익성 빠른 개선 가능
+      - 고정비 비중이 낮고 변동비 위주의 구조로 설계되어 있어, 인수자가 보유한 인프라·유통망·고객 베이스와 결합 시 단위당 수익성을 빠르게 끌어올릴 수 있는 시너지 여지가 충분히 존재하는 것으로 평가됨. 전략적 인수자(SI) 관점에서는 즉각적인 수익성 개선이 가능한 구조라는 점에서 입찰 매력도가 높을 것으로 분석됨
+
+      4) 인력·조직 안정성: 매니지먼트 의존도 낮아 엑싯 밸류에이션 보호 용이
+      - 핵심 인력의 장기 근속 비율과 키 매니저의 역할 분산 수준이 양호하여, 인수 후 핵심 인력 이탈로 인한 기업 가치 훼손 리스크가 상대적으로 낮은 것으로 분석됨. 재무적 인수자(FI) 입장에서도 매니지먼트 의존도가 낮다는 것은 엑싯 시점의 밸류에이션 보호 측면에서 긍정적으로 평가됨
+  · **각 항목(헤드라인+본문) 사이에는 반드시 빈 줄 1줄을 삽입.** 즉 단일 문자열 내에서 항목 구분자는 "\n\n"
+  · **투자심사역(IB·PE·전략적 투자자) 관점에서, 동사를 M&A 대상으로 검토할 때의 강점을 디테일하게 서술**
+  · **헤드라인은 "관점명: 해당 관점의 평가 요지"** 형태로 작성. 단순 관점명("무형자산")만 적는 것 금지
+  · **최대 4개 항목**, 각 항목 본문은 **2~4문장 분량으로 상세히 작성**. 짧은 한 문장 금지 — 근거·맥락·시사점이 보이는 깊이 있는 서술
+  · 다룰 수 있는 관점(모두 다룰 필요는 없고, 동사 특성에 가장 부합하는 강점을 중심으로 4개 선택):
+    - 시장 포지셔닝·진입장벽·해자(moat)
+    - 비즈니스 모델의 수익 구조·확장성·시너지 가능성
+    - 운영 효율성·고객 베이스의 질·전환비용·록인(lock-in)
+    - 인력·조직 안정성·핵심 인력 의존도
+    - 무형자산(IP·라이선스·브랜드·데이터·계약 관계)의 가치
+    - 재무 구조 안정성·캐시플로우 예측 가능성·PMI 용이성
+    - 인수자 유형별 전략적 적합도(SI vs FI), 엑싯 시나리오의 명확성
+  · **기업명은 직접 언급 금지 — 반드시 "동사"로 치환하여 서술** (예: "동사의 운영 모델은~", "동사가 보유한~")
+  · **주요 서비스명·제품명·아이템명·브랜드명도 직접 언급 금지.** 그 대신 해당 서비스/제품이 가진 **특성·구조·역할 등 내용 중심으로 서술**
+    (예: "○○ 플랫폼은~" 금지 → "동사의 핵심 서비스는 ~한 구조로 운영되어~" 식)
+  · 학습 데이터(산업 트렌드, M&A 시장 통념, 일반적 투자심사 기준)를 적극 활용하여 깊이 있게 작성
+  · 단정적 표현 지양, "~로 평가됨", "~판단됨", "~경향이 있음", "~로 분석됨" 같은 **투자심사 보고서 톤**의 완화된 표현 사용
+
+[출력 형식 — keyProducts / manager_memo 공통 ※매우 중요]
+- 각 항목은 **줄바꿈 문자(\n)로 구분된 단일 JSON 문자열**로 반환
+- **절대 배열([...])로 반환하지 마세요.** 예: ["1) 항목", "2) 항목"] (X) → "1) 항목\n2) 항목" (O)
+- 정보가 부족하면 최대 개수 미만 허용
 
 **주의사항**:
-1. "담당자 의견"이나 매도 방식 등은 분석 결과가 확실한 경우에만 포함하세요.
+1. 매도 방식 등 별도 항목은 분석 결과가 확실한 경우에만 포함하세요.
 2. 금액이나 숫자는 단위 구분 쉼표 없이 숫자만 추출하세요. (예: 1,000,000 -> 1000000)
-3. 알 수 없는 정보는 빈 문자열("") 또는 0으로 반환하세요.
+3. 알 수 없는 정보는 빈 문자열("") 또는 0으로 반환하세요. 단, manager_memo는 학습 데이터를 기반으로 가능한 한 작성하세요.
 4. 반드시 유효한 JSON 형식으로만 답변하세요. 다른 설명은 생략하세요.
-5. **[중요] 'companyName' 필드에는 실제 기업명을 추출하되, 'summary', 'keyProducts' 등 그 외 본문 항목에서는 기업명을 직접 언급하지 마세요.** 필요한 경우 '해당 기업'과 같은 중립적인 표현을 사용하거나 주어를 생략하세요.
+5. **[중요] 'companyName' 필드에는 실제 기업명을 추출하되, 그 외 본문 항목에서는 기업명을 직접 언급하지 마세요.**
+   - 'summary', 'keyProducts'에서는 주어를 생략하거나 '해당 기업'과 같은 중립적 표현 사용
+   - 'manager_memo'에서는 반드시 **'동사'**로 치환하여 서술 (M&A 투자심사 보고서 톤)
             `.trim();
 
             const res = await addAiResponse(prompt, ctx, getCurrentModelId());
@@ -925,6 +976,11 @@ $(document).ready(function () {
             }
 
             if (json) {
+                // [방어 코드] 일부 모델이 텍스트 필드를 배열로 반환하는 경우 \n으로 join
+                ['summary', 'keyProducts', 'manager_memo'].forEach(f => {
+                    if (Array.isArray(json[f])) json[f] = json[f].join('\n');
+                });
+
                 // [신규] 본문 항목에서 기업명 언급 제거 후처리
                 const cName = json.companyName;
                 if (cName && cName.length > 1) {
@@ -961,6 +1017,7 @@ $(document).ready(function () {
                 if (json.address) $('#seller-address').val(json.address);
                 if (json.summary) $('#seller-summary').val(json.summary);
                 if (json.keyProducts) $('#seller-key-products').val(json.keyProducts);
+                if (json.manager_memo) $('#seller-manager-memo').val(json.manager_memo);
                 if (json.financial_info && Array.isArray(json.financial_info) && json.financial_info.length > 0) {
                     renderFinancialTable(migrateFinancialInfo(json.financial_info), 'financial-table-container');
                 }
