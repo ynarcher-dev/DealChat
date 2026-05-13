@@ -667,15 +667,23 @@ $(document).ready(function () {
 [출력 형식]
 {
   "financial_info": [
-    { "year": "YYYY", "revenue": "숫자", "profit": "숫자", "net_profit": "숫자", "total_assets": "숫자", "total_liabilities": "숫자", "total_equity": "숫자" }
+    { "year": "YYYY", "revenue": "숫자", "profit": "숫자", "profit_label": "라벨원문", "net_profit": "숫자", "net_profit_label": "라벨원문", "total_assets": "숫자", "total_liabilities": "숫자", "total_equity": "숫자" }
   ]
 }
 
 [필드 정의]
 - year: 연도 (예: "2023"). 회계연도/사업연도 표기를 우선 사용.
 - revenue: 매출액 / 영업수익
-- profit: 영업이익
-- net_profit: 당기순이익
+- profit: 영업손익 줄의 값 (재무제표에 적힌 그대로의 양수). 라벨이 "영업이익"/"영업손익"/"영업손실"인 줄.
+- profit_label: profit을 추출한 줄의 라벨 원문 그대로. (예: "영업이익", "영업손익", "영업손실", "영업이익(손실)")
+- net_profit: 당기순손익 줄의 값 (재무제표에 적힌 그대로의 양수). 라벨이 "당기순이익"/"당기순손익"/"당기순손실"인 줄 — 손익계산서의 **최종 줄**(법인세 차감 후).
+- net_profit_label: net_profit을 추출한 줄의 라벨 원문 그대로. (예: "당기순이익", "당기순손익", "당기순손실", "당기순이익(손실)")
+
+[혼동하기 쉬운 항목 — net_profit으로 잡지 말 것]
+  · "법인세비용차감전순이익" / "법인세비용차감전손익" — 세전 값이라 당기순이익과 다름
+  · "계속영업이익" / "중단영업이익" — 별도 항목
+  · 위 항목들은 net_profit이 아닙니다. 그 아래(또는 별도)에 "당기순이익/당기순손익/당기순손실" 줄이 있으면 그것을 사용하세요.
+  · 정상적인 손익계산서라면 거의 항상 당기순이익 줄이 존재합니다. 적극적으로 찾아 추출하세요.
 - total_assets: 총자산 (자산총계)
 - total_liabilities: 총부채 (부채총계)
 - total_equity: 총자본 (자본총계)
@@ -687,13 +695,15 @@ $(document).ready(function () {
    - "(단위: 백만원)"이고 표 값이 "1,200"이면 → "1200000000"
    - "(단위: 천원)"이고 표 값이 "1,200"이면 → "1200000"
    - 단위 표시가 없으면 표 값 자체를 숫자로 변환 (예: "1,234,567" → "1234567")
-4. 음수(괄호 또는 마이너스 부호로 표기)는 마이너스 부호로 반환하세요. (예: "(123)" → "-123")
-5. 알 수 없거나 비어있는 셀은 빈 문자열("")로.
-6. 천 단위 쉼표는 모두 제거하세요.
-7. 같은 연도가 여러 번 나타나면 가장 신뢰도 높은 표(예: 정식 재무상태표/손익계산서) 값을 사용하세요.
-8. 회계 계정이 없으면 추측하지 말고 ""로.
-9. financial_info 외의 다른 필드는 절대 포함하지 마세요.
-10. 반드시 유효한 JSON 객체만 출력하세요. 마크다운 펜스, 설명, 주석 모두 금지.
+4. **profit / net_profit는 부호 변환 금지.** 재무제표에 "영업손실 (123)" 또는 "영업손실 △123"으로 적혀 있어도 값은 양수 "123"으로 반환하고, profit_label에 "영업손실"을 그대로 적으세요. 부호 처리는 클라이언트에서 라벨을 보고 결정합니다.
+5. **profit_label / net_profit_label은 재무제표 라벨을 글자 그대로 복사.** 변형·번역·요약 금지. (예: 문서가 "영업이익(손실)"이면 그대로 "영업이익(손실)").
+6. 그 외 항목(revenue, total_assets, total_liabilities, total_equity)에서 음수(괄호·△·마이너스)가 있으면 마이너스 부호로 반환하세요. (예: "(123)" → "-123")
+7. 알 수 없거나 비어있는 셀은 빈 문자열("")로. profit_label / net_profit_label도 라벨을 못 읽으면 ""로.
+8. 천 단위 쉼표는 모두 제거하세요.
+9. 같은 연도가 여러 번 나타나면 가장 신뢰도 높은 표(예: 정식 재무상태표/손익계산서) 값을 사용하세요.
+10. 회계 계정이 없으면 추측하지 말고 ""로.
+11. financial_info 외의 다른 필드는 절대 포함하지 마세요.
+12. 반드시 유효한 JSON 객체만 출력하세요. 마크다운 펜스, 설명, 주석 모두 금지.
 
 [추가 안전장치]
 - 문서에 표 형태 재무 데이터가 전혀 없으면 { "financial_info": [] } 를 반환하세요.
@@ -887,17 +897,9 @@ $(document).ready(function () {
             }
 
             // UI 데이터(재무/투자)를 수집 후 순수 함수로 텍스트 변환
+            // 재무는 wire 포맷({years, items})을 그대로 buildFinancialString에 전달하여
+            // 사용자가 라벨을 "영업손실" 등으로 수정한 경우에도 그대로 반영되게 함
             const finData = collectFinancialData('financial-table-container');
-            const financialRows = [];
-            if (finData && finData.years && finData.items) {
-                finData.years.forEach(year => {
-                    const row = { year };
-                    finData.items.forEach(item => {
-                        row[item.key] = item.values[year] || '';
-                    });
-                    financialRows.push(row);
-                });
-            }
 
             const investmentRows = [];
             $('.investment-row').each(function() {
@@ -914,7 +916,7 @@ $(document).ready(function () {
                 name:             $notebookTitleText.text(),
                 industry:         $industryText.val(),
                 summary:          $summaryText.val(),
-                financialStr:     buildFinancialString(financialRows),
+                financialStr:     buildFinancialString(finData),
                 investmentStr:    buildInvestmentString(investmentRows),
                 financialAnalysis: $('#financial-analysis').val(),
                 managerMemo:      $('#manager-memo').val(),

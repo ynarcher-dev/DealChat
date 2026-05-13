@@ -20,6 +20,91 @@ const DEFAULT_ITEMS = [
     { key: 'total_equity',      label: '총 자본' },
 ];
 
+// 라벨에 따라 부호가 결정되는 항목 — AI 추출 시 라벨(_label) 값을 보고
+// 손실 라벨이면 셀 값을 음수로 변환한다. 그 외 항목은 라벨 변형이 없으므로 제외.
+//   invalidPatterns: 이 패턴 중 하나라도 매치되면 명백히 잘못된 라벨로 간주하고 거부
+//     (예: net_profit에 "법인세비용차감전손익"이 들어온 경우)
+//   화이트리스트 대신 블랙리스트 — AI가 살짝 변형된 정상 라벨을 써도 통과시켜
+//   AI가 위축되어 빈 값을 반환하는 것을 막는다.
+const LABEL_AWARE_KEYS = {
+    profit: {
+        unified: '영업손익',
+        defaultLabel: '영업이익',
+        invalidPatterns: [/법인세/, /차감전/, /계속영업/, /중단영업/, /당기순/, /순이익/, /순손실/, /순손익/],
+    },
+    net_profit: {
+        unified: '당기순손익',
+        defaultLabel: '당기순이익',
+        invalidPatterns: [/법인세/, /차감전/, /계속영업/, /중단영업/, /^영업/],
+    },
+};
+
+/**
+ * 라벨에 "손실" 키워드가 포함되어 있는지 (예: "영업손실", "당기순손실")
+ */
+function isLossLabel(label) {
+    return /손실/.test(String(label || ''));
+}
+
+/**
+ * 해당 key에 명백히 부적합한 라벨인지 검사 — 블랙리스트 방식
+ *   - 빈 라벨은 false(= 부적합 아님). 라벨 없음은 별도 처리(레거시 경로)
+ *   - 명백한 잘못된 라벨(예: net_profit에 "법인세비용차감전손익")만 true
+ */
+function isInvalidLabelFor(key, label) {
+    const meta = LABEL_AWARE_KEYS[key];
+    if (!meta) return false;
+    const l = String(label || '').trim();
+    if (!l) return false;
+    return meta.invalidPatterns.some(p => p.test(l));
+}
+
+/**
+ * 연도별 라벨 배열을 받아 행(row) 라벨을 결정한다.
+ *   - 비어있지 않은 라벨이 없으면 기본 라벨
+ *   - 모두 같은 라벨이면 그 라벨
+ *   - 손실/이익이 섞여 있으면 통합 라벨 (예: "영업손익")
+ *   - 그 외(부분적으로만 비어있음)는 최빈 라벨
+ */
+function decideRowLabel(key, perYearLabels) {
+    const meta = LABEL_AWARE_KEYS[key];
+    if (!meta) return null;
+    const labels = perYearLabels.filter(l => l && String(l).trim());
+    if (labels.length === 0) return meta.defaultLabel;
+    const unique = [...new Set(labels)];
+    if (unique.length === 1) return unique[0];
+    const hasLoss = labels.some(isLossLabel);
+    const hasProfit = labels.some(l => !isLossLabel(l));
+    if (hasLoss && hasProfit) return meta.unified;
+    // 모두 손실이지만 표기만 다른 경우(예: "영업손실" vs "영업손실(누적)") → 최빈값
+    const freq = {};
+    labels.forEach(l => { freq[l] = (freq[l] || 0) + 1; });
+    return Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0];
+}
+
+/**
+ * 셀 값을 양수 절댓값으로 정규화 — 괄호·△·마이너스 표기를 모두 흡수.
+ * 행 라벨이 손실·이익을 이미 명시하는 경우(예: "영업손실" / "영업이익") 사용.
+ */
+function toAbsoluteValue(rawVal) {
+    const s = String(rawVal == null ? '' : rawVal).replace(/,/g, '').trim();
+    if (s === '' || s === '-') return '';
+    const cleaned = s.replace(/[()△]/g, '').replace(/^-/, '');
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return s;
+    return String(Math.abs(num));
+}
+
+/**
+ * 통합 라벨(예: "영업손익") 행에서 사용 — 연도별 라벨로 부호를 결정.
+ * 손실 라벨이면 음수, 이익 라벨이면 양수. 입력의 표기 부호는 무시하고 라벨로 재부여.
+ */
+function applySignByLabel(rawVal, label) {
+    const abs = toAbsoluteValue(rawVal);
+    if (abs === '') return '';
+    return isLossLabel(label) ? String(-Math.abs(parseFloat(abs))) : abs;
+}
+
 /**
  * 외부에서 들어온 데이터(wire/레거시/null)를 내부 표현으로 변환
  */
@@ -38,11 +123,58 @@ export function migrateFinancialInfo(data) {
             .slice(0, MAX_YEARS);
 
         const items = DEFAULT_ITEMS.map(def => {
-            const vals = years.map(y => {
+            const isLabelAware = !!LABEL_AWARE_KEYS[def.key];
+            const labelKey = `${def.key}_label`;
+
+            // Pass 1: 연도별 원본 (값, 라벨) 수집
+            //   - 라벨 인식 항목인데 _label이 허용 패턴과 안 맞으면
+            //     (예: AI가 "법인세비용차감전손익"을 net_profit 라벨로 잘못 잡은 경우)
+            //     해당 연도의 값과 라벨을 통째로 버린다 — 잘못된 값 표시보다 빈 칸이 안전
+            const perYearLabels = [];
+            const rawVals = years.map(y => {
                 const found = data.find(f => String(f.year || '').trim() === y);
-                return found ? (found[def.key] || '') : '';
+                if (!found) { perYearLabels.push(''); return ''; }
+
+                const rawLabel = found[labelKey] || '';
+                const rawVal = found[def.key];
+
+                if (isLabelAware && isInvalidLabelFor(def.key, rawLabel)) {
+                    // 명백히 잘못된 라벨 — 값도 신뢰할 수 없음 (다른 줄의 값일 가능성)
+                    perYearLabels.push('');
+                    return '';
+                }
+
+                perYearLabels.push(rawLabel);
+                return rawVal == null ? '' : String(rawVal);
             });
-            return { key: def.key, label: def.label, vals };
+
+            // 행 라벨 결정
+            const rowLabel = isLabelAware
+                ? (decideRowLabel(def.key, perYearLabels) || def.label)
+                : def.label;
+
+            // Pass 2: 부호 처리
+            //   - 라벨 인식 대상이 아닌 항목(매출/자산/부채/자본): 값 그대로
+            //   - _label 정보가 전혀 없는 레거시 데이터: 값 그대로 (기존 DB 보존)
+            //   - 행 라벨이 통합 라벨(영업손익/당기순손익)인 경우: 연도별 라벨로 부호 부여
+            //   - 행 라벨이 단일 라벨(영업이익 또는 영업손실 등)인 경우: 값은 항상 양수 절댓값
+            //     (라벨이 이미 손실/이익을 의미하므로 음수로 만들면 이중 부정)
+            const meta = LABEL_AWARE_KEYS[def.key];
+            const hasAnyLabel = perYearLabels.some(l => l && l.trim());
+            const isUnifiedRow = !!(meta && rowLabel === meta.unified);
+
+            const vals = rawVals.map((rawVal, idx) => {
+                if (!rawVal) return '';
+                if (!isLabelAware || !hasAnyLabel) return rawVal;
+                if (isUnifiedRow) {
+                    const yLabel = perYearLabels[idx] || rowLabel;
+                    return applySignByLabel(rawVal, yLabel);
+                }
+                // 단일 라벨 행 — 라벨이 부호 의미를 이미 담고 있음
+                return toAbsoluteValue(rawVal);
+            });
+
+            return { key: def.key, label: rowLabel, vals };
         });
 
         return { years, items };
@@ -199,13 +331,13 @@ export function renderFinancialTable(data, containerId = 'financial-table-contai
 
 function buildItemRow(item, years) {
     const $row = $(`<div class="fin-item-row" data-key="${item.key}"
-        style="display:flex; align-items:center; gap:6px; padding:2px 0; cursor:default;" draggable="true"></div>`);
+        style="display:flex; align-items:center; gap:6px; padding:2px 0; cursor:default;"></div>`);
 
     const $labelCell = $(`<div class="fin-label-cell"
         style="flex:0 0 120px; min-width:120px; display:flex; align-items:center; gap:2px;"></div>`);
 
-    $labelCell.append(`<span class="drag-handle" title="순서 변경"
-        style="color:#cbd5e1; cursor:grab; flex-shrink:0; display:flex; align-items:center; user-select:none;">
+    $labelCell.append(`<span class="drag-handle" title="드래그하여 순서 변경"
+        style="color:#cbd5e1; cursor:grab; flex-shrink:0; display:flex; align-items:center; user-select:none; padding:2px;">
         <span class="material-symbols-outlined" style="font-size:16px;">drag_indicator</span>
     </span>`);
 
@@ -306,37 +438,60 @@ function bindFinancialTableEvents($container) {
     });
 
     // ── 드래그 앤 드롭 순서 변경 ──────────────────────────────────
+    // 행 전체에 draggable=true 를 두면 라벨/값 input 클릭 시 텍스트 선택이
+    // 드래그를 가로채므로, 드래그 핸들 mousedown 시점에만 draggable 을 켠다.
     let dragSrc = null;
+
+    $container.on('mousedown', '.drag-handle', function() {
+        $(this).closest('.fin-item-row').attr('draggable', 'true');
+    });
+
+    const clearDraggable = () => {
+        $container.find('.fin-item-row').removeAttr('draggable');
+    };
 
     $container.on('dragstart', '.fin-item-row', function(e) {
         dragSrc = this;
-        e.originalEvent.dataTransfer.effectAllowed = 'move';
+        const dt = e.originalEvent.dataTransfer;
+        dt.effectAllowed = 'move';
+        // Firefox 는 setData 가 없으면 dragstart 가 무시된다
+        try { dt.setData('text/plain', $(this).data('key') || ''); } catch (_) {}
         $(this).css('opacity', '0.4');
     });
 
     $container.on('dragend', '.fin-item-row', function() {
         $(this).css('opacity', '1');
-        $container.find('.fin-item-row').css('border-top', '');
+        $container.find('.fin-item-row').css({ 'border-top': '', 'border-bottom': '' });
+        clearDraggable();
+        dragSrc = null;
     });
 
     $container.on('dragover', '.fin-item-row', function(e) {
+        if (!dragSrc || dragSrc === this) return;
         e.preventDefault();
         e.originalEvent.dataTransfer.dropEffect = 'move';
-        $container.find('.fin-item-row').css('border-top', '');
-        $(this).css('border-top', '2px solid var(--page-theme-color)');
+        // 커서가 행의 위쪽 절반이면 위에, 아래쪽 절반이면 아래에 표시
+        const rect = this.getBoundingClientRect();
+        const before = (e.originalEvent.clientY - rect.top) < rect.height / 2;
+        $container.find('.fin-item-row').css({ 'border-top': '', 'border-bottom': '' });
+        $(this).css(before ? 'border-top' : 'border-bottom', '2px solid var(--page-theme-color)');
         return false;
     });
 
     $container.on('dragleave', '.fin-item-row', function() {
-        $(this).css('border-top', '');
+        $(this).css({ 'border-top': '', 'border-bottom': '' });
     });
 
     $container.on('drop', '.fin-item-row', function(e) {
         e.stopPropagation();
-        if (dragSrc !== this) {
-            $(dragSrc).insertBefore($(this));
+        e.preventDefault();
+        if (dragSrc && dragSrc !== this) {
+            const rect = this.getBoundingClientRect();
+            const before = (e.originalEvent.clientY - rect.top) < rect.height / 2;
+            if (before) $(dragSrc).insertBefore(this);
+            else $(dragSrc).insertAfter(this);
         }
-        $container.find('.fin-item-row').css('border-top', '');
+        $container.find('.fin-item-row').css({ 'border-top': '', 'border-bottom': '' });
         return false;
     });
 

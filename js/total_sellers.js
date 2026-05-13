@@ -284,28 +284,22 @@ function renderSellers() {
         const isSigned = signedNdaIds.includes(String(seller.id)) || signedNdas.includes(String(seller.id));
         const isAuthorized = isOwner || isSigned;
 
-        const isNameBlinded = (seller.is_blind_active && seller.blind_personal?.name);
-        
-        let displayName = (seller.company_name || '정보 없음');
+        // total_ 목록에서는 NDA/블라인드/소유 여부와 무관하게 항상 시리얼 표시
+        let displayName = seller.blind_name_structured || seller.company_name || '정보 없음';
         if (status === '완료') {
             displayName = '완료';
         } else if (status === '진행중') {
             displayName = '진행중';
-        } else if (isNameBlinded) {
-            // NDA 체결 전에는 "NDA 필요"가 우선적으로 보이고 (아래 템플릿 로직),
-            // 체결 후 블라인드 상태일 때만 이 가명이 보입니다.
-            displayName = seller.blind_name_structured || 'Blind';
         }
 
         let displaySummary = seller.summary || "";
 
-        // 본문 마스킹 (키워드 기반)
         if (seller.is_blind_active && seller.blind_keywords) {
             displaySummary = applyKeywordsMasking(displaySummary, seller.blind_keywords);
         }
 
-        // 이름 블라인드 시 본문의 이름도 마스킹
-        if (isNameBlinded && seller.company_name) {
+        // 목록에서는 항상 회사명 마스킹 (실명 노출 방지)
+        if (seller.company_name) {
             const escapedName = seller.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
             displaySummary = displaySummary.replace(nameRegex, (match) => maskWithCircles(match));
@@ -321,13 +315,10 @@ function renderSellers() {
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <div class="d-flex align-items-center gap-3" style="min-width: 0;">
                         <div class="company-icon-square" style="width: 36px; height: 36px; background: ${isRestricted ? '#cbd5e1' : '#8b5cf6'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 10px rgba(139, 92, 246, ${isRestricted ? '0.1' : '0.2'});">
-                            <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${!isAuthorized ? 'lock' : getIndustryIcon(seller.industry)}</span>
+                            <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${getIndustryIcon(seller.industry)}</span>
                         </div>
                         <div style="flex: 1; min-width: 0;">
-                            ${(!isAuthorized && !isRestricted)
-                                ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#8b5cf6;background:#f5f3ff;border:1px solid #8b5cf633;border-radius:8px;padding:3px 10px;white-space:nowrap;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`
-                                : `<span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>`
-                            }
+                            <span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
                         </div>
                     </div>
                 </td>
@@ -390,15 +381,15 @@ window.showSellerDetail = function (id) {
     const isNameBlinded = (seller.is_blind_active && seller.blind_personal?.name);
     const status = seller.status || '대기';
 
-    let displayName = (seller.company_name || '정보 없음');
+    // NDA 미체결 시에도 목록과 동일하게 시리얼로 노출.
+    // NDA 체결 후에만 (블라인드 미적용 시) 실명 공개.
+    let displayName = seller.blind_name_structured || seller.company_name || '정보 없음';
     if (status === '완료') {
         displayName = '완료';
     } else if (status === '진행중') {
         displayName = '진행중';
-    } else if (!isAuthorized) {
-        displayName = 'NDA 필요';
-    } else if (isNameBlinded) {
-        displayName = seller.blind_name_structured || 'Blind';
+    } else if (isAuthorized && !isNameBlinded) {
+        displayName = seller.company_name || '정보 없음';
     }
 
     let displaySummary = seller.summary || "";
@@ -456,6 +447,9 @@ window.showSellerDetail = function (id) {
             displayIndustry = seller.industry.replace('기타: ', '');
         }
         industryContainer.append(`<span class="industry-tag-td" style="background:#f5f3ff; color:#8b5cf6; border:1px solid #8b5cf633;">${escapeHtml(displayIndustry)}</span>`);
+    }
+    if (!isAuthorized && !isRestricted) {
+        industryContainer.append(`<span class="industry-tag-td" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`);
     }
 
     const authorDisplayName = authorData.name;
@@ -567,9 +561,8 @@ function applyFilters() {
         // [1] 공개된 것만 노출 - 비공개(is_draft: true)는 무조건 필터링
         if (seller.is_draft) return false;
 
-        // [2] 키워드 필터
+        // [2] 키워드 필터: 목록에 노출되는 정보(시리얼/산업/요약)만 매칭하여 실명 정보 누출 방지
         const matchesKeyword = !keyword ||
-            (seller.company_name && seller.company_name.toLowerCase().includes(keyword)) ||
             (seller.industry && seller.industry.toLowerCase().includes(keyword)) ||
             (seller.blind_name_structured && seller.blind_name_structured.toLowerCase().includes(keyword)) ||
             (seller.blind_label && seller.blind_label.toLowerCase().includes(keyword)) ||
@@ -683,31 +676,20 @@ function exportToCSV() {
         const isSigned = signedNdaIds.includes(String(s.id)) || localSigned.includes(String(s.id));
         const isAuthorized = isOwner || isSigned;
         const status = s.status || '대기';
-        const isRestricted = (status === '진행중' || status === '완료');
 
-        const isNameBlinded = (s.is_blind_active && s.blind_personal?.name);
-        
-        // 마스킹 조건: 진행현황(완료/진행중)이 최우선, 그 다음이 작성자의 기업명 블라인드 체크
-        let company_name = (s.company_name || '');
-        if (status === '완료') {
-            company_name = '완료';
-        } else if (status === '진행중') {
-            company_name = '진행중';
-        } else if (!isAuthorized) {
-            company_name = 'NDA 필요';
-        } else if (isNameBlinded) {
-            company_name = s.blind_name_structured || 'Blind';
-        }
-        
+        // 목록 정책과 동일: NDA/블라인드/소유 여부와 무관하게 항상 시리얼 표기
+        let company_name = s.blind_name_structured || '';
+        if (status === '완료') company_name = '완료';
+        else if (status === '진행중') company_name = '진행중';
+
         let summary = s.summary || '';
-        
-        // 키워드 마스킹
+
         if (s.is_blind_active && s.blind_keywords) {
             summary = applyKeywordsMasking(summary, s.blind_keywords);
         }
 
-        // 이름 블라인드 또는 NDA 미체결 시 본문의 이름도 마스킹
-        if ((isNameBlinded || !isAuthorized) && s.company_name) {
+        // 목록 정책과 동일: 항상 회사명 마스킹
+        if (s.company_name) {
             const escapedName = s.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameRegex = new RegExp(escapedName, 'gi');
             summary = summary.replace(nameRegex, (match) => maskWithCircles(match));
@@ -715,7 +697,7 @@ function exportToCSV() {
 
         const author = userMap[s.user_id]?.name || 'Unknown';
         const date = (() => { const d = new Date(s.created_at); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; })();
-        
+
         const shouldMaskPrice = !isAuthorized;
         const price = shouldMaskPrice ? '-' : (s.matching_price || s.sale_price || '');
         

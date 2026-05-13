@@ -158,17 +158,47 @@ export function resolveMgmtStatus(status, otherVal) {
 }
 
 /**
- * 재무 데이터 배열을 AI 컨텍스트용 텍스트로 변환합니다.
+ * 재무 데이터를 AI 컨텍스트용 텍스트로 변환합니다.
  *
- * @param {Array<{year: string, revenue: string, profit: string, net: string}>} rows
+ * 입력은 두 가지를 모두 받을 수 있음:
+ *   - wire 포맷 { years: [str], items: [{ key, label, values: { yearStr: val } }] }
+ *     → 항목 라벨이 영업손실/당기순손익 등으로 바뀌어도 그대로 반영됨 (권장)
+ *   - 레거시 배열 [{year, revenue, profit, net_profit, ...}] (하위호환)
+ *
+ * @param {Object|Array} data
  * @returns {string}
  */
-export function buildFinancialString(rows) {
-    if (!rows || rows.length === 0) return '';
-    return rows
-        .filter(r => r.year || r.revenue || r.profit || r.net)
-        .map(r => `- ${r.year}년: 매출 ${r.revenue}원, 영업이익 ${r.profit}원, 순이익 ${r.net}원`)
-        .join('\n');
+export function buildFinancialString(data) {
+    if (!data) return '';
+
+    // wire 포맷 — 라벨을 동적으로 사용
+    if (!Array.isArray(data) && data.years && data.items) {
+        return data.years
+            .map(year => {
+                const parts = [];
+                data.items.forEach(item => {
+                    const val = item.values && item.values[year];
+                    if (val === '' || val == null) return;
+                    parts.push(`${item.label} ${val}원`);
+                });
+                return parts.length ? `- ${year}년: ${parts.join(', ')}` : null;
+            })
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    // 레거시 배열 — 하위 호환
+    if (Array.isArray(data) && data.length > 0) {
+        return data
+            .filter(r => r.year || r.revenue || r.profit || r.net_profit || r.net)
+            .map(r => {
+                const net = r.net_profit != null && r.net_profit !== '' ? r.net_profit : r.net;
+                return `- ${r.year}년: 매출 ${r.revenue}원, 영업이익 ${r.profit}원, 순이익 ${net}원`;
+            })
+            .join('\n');
+    }
+
+    return '';
 }
 
 /**

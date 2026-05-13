@@ -262,6 +262,12 @@ body.report-mode .sidebar-section-edit-btn {
     background: #f8fafc;
     border-radius: 6px;
 }
+#financial-table-container .fin-item-row:hover .drag-handle {
+    color: #64748b;
+}
+#financial-table-container .drag-handle:active {
+    cursor: grabbing;
+}
 
 /* ── 리포트 모드: 전치 테이블 편집 UI 안전 숨김 ── */
 body.report-mode .fin-header-row,

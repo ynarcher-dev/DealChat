@@ -513,5 +513,11 @@ export function initNdaGate(supabase, itemId, itemType, userData, options = {}) 
         location.href = returnUrl;
     });
 
+    // X(btn-close) 버튼도 동일하게 이전 페이지로 리디렉션
+    // (기본 data-bs-dismiss 동작만으로는 dealbook 입력 필드가 그대로 노출됨)
+    $('#nda-modal .btn-close').off('click.ndaGate').on('click.ndaGate', () => {
+        location.href = returnUrl;
+    });
+
     ndaModal.show();
 }

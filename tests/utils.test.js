@@ -232,15 +232,21 @@ describe('resolveMgmtStatus', () => {
 // ─── buildFinancialString ──────────────────────────────────────────────────────
 
 describe('buildFinancialString', () => {
-    test('정상 데이터 → 형식에 맞는 문자열', () => {
-        const rows = [{ year: '2023', revenue: '1000', profit: '100', net: '50' }];
+    // ── 레거시 배열 입력 (하위 호환) ─────────────────────────────────
+    test('레거시 배열: 정상 데이터 → 형식에 맞는 문자열', () => {
+        const rows = [{ year: '2023', revenue: '1000', profit: '100', net_profit: '50' }];
         expect(buildFinancialString(rows)).toBe('- 2023년: 매출 1000원, 영업이익 100원, 순이익 50원');
     });
 
-    test('여러 행 → 줄바꿈으로 구분', () => {
+    test('레거시 배열: net 키도 net_profit 대용으로 인식', () => {
+        const rows = [{ year: '2023', revenue: '1000', profit: '100', net: '50' }];
+        expect(buildFinancialString(rows)).toContain('순이익 50원');
+    });
+
+    test('레거시 배열: 여러 행 → 줄바꿈으로 구분', () => {
         const rows = [
-            { year: '2022', revenue: '800', profit: '80', net: '40' },
-            { year: '2023', revenue: '1000', profit: '100', net: '50' },
+            { year: '2022', revenue: '800', profit: '80', net_profit: '40' },
+            { year: '2023', revenue: '1000', profit: '100', net_profit: '50' },
         ];
         const result = buildFinancialString(rows);
         expect(result).toContain('2022년');
@@ -248,10 +254,10 @@ describe('buildFinancialString', () => {
         expect(result.split('\n')).toHaveLength(2);
     });
 
-    test('모든 값이 빈 행은 제외', () => {
+    test('레거시 배열: 모든 값이 빈 행은 제외', () => {
         const rows = [
-            { year: '', revenue: '', profit: '', net: '' },
-            { year: '2023', revenue: '500', profit: '50', net: '25' },
+            { year: '', revenue: '', profit: '', net_profit: '' },
+            { year: '2023', revenue: '500', profit: '50', net_profit: '25' },
         ];
         const result = buildFinancialString(rows);
         expect(result.split('\n')).toHaveLength(1);
@@ -265,6 +271,57 @@ describe('buildFinancialString', () => {
     test('null/undefined → 빈 문자열', () => {
         expect(buildFinancialString(null)).toBe('');
         expect(buildFinancialString(undefined)).toBe('');
+    });
+
+    // ── wire 포맷 입력 (동적 라벨) ───────────────────────────────────
+    test('wire 포맷: 항목 라벨을 그대로 사용 (단일 손실 라벨은 값이 양수)', () => {
+        const data = {
+            years: ['2023'],
+            items: [
+                { key: 'revenue',    label: '매출액',   values: { '2023': '1000' } },
+                { key: 'profit',     label: '영업손실', values: { '2023': '100' } },
+                { key: 'net_profit', label: '당기순손실', values: { '2023': '50' } },
+            ],
+        };
+        const result = buildFinancialString(data);
+        // 라벨이 손실을 명시하고 있으므로 값은 양수 (이중 부정 회피)
+        expect(result).toBe('- 2023년: 매출액 1000원, 영업손실 100원, 당기순손실 50원');
+    });
+
+    test('wire 포맷: 라벨이 통합("영업손익")일 때도 그대로 출력', () => {
+        const data = {
+            years: ['2022', '2023'],
+            items: [
+                { key: 'profit', label: '영업손익', values: { '2022': '100', '2023': '-50' } },
+            ],
+        };
+        const result = buildFinancialString(data);
+        expect(result).toContain('영업손익 100원');
+        expect(result).toContain('영업손익 -50원');
+    });
+
+    test('wire 포맷: 빈 값 항목은 해당 연도 라인에서 생략', () => {
+        const data = {
+            years: ['2023'],
+            items: [
+                { key: 'revenue', label: '매출액', values: { '2023': '1000' } },
+                { key: 'profit',  label: '영업이익', values: { '2023': '' } },
+            ],
+        };
+        const result = buildFinancialString(data);
+        expect(result).toBe('- 2023년: 매출액 1000원');
+    });
+
+    test('wire 포맷: 모든 값이 비어있는 연도는 라인 자체를 제외', () => {
+        const data = {
+            years: ['2022', '2023'],
+            items: [
+                { key: 'revenue', label: '매출액', values: { '2022': '', '2023': '1000' } },
+            ],
+        };
+        const result = buildFinancialString(data);
+        expect(result.split('\n')).toHaveLength(1);
+        expect(result).toContain('2023년');
     });
 });
 

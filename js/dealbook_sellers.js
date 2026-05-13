@@ -529,11 +529,6 @@ $(document).ready(function () {
 
     async function saveSeller(isDraft, $btn) {
         if (!$('#seller-price').val().trim() && !$('#negotiable-check').is(':checked')) $('#negotiable-check').prop('checked', true).trigger('change');
-        
-        // [추가] '저장하기' 시 블라인드 체크박스 자동 활성화 (비공개 저장은 제외)
-        if (!isDraft) {
-            $('#blind-check-name, #blind-check-ceo, #blind-check-email, #blind-check-establishment, #blind-check-address, #blind-check-fin-summary, #blind-check-fin-analysis').prop('checked', true).trigger('change');
-        }
 
         const payload = buildPayload(isDraft);
         if (!payload) return;
@@ -910,7 +905,11 @@ $(document).ready(function () {
   · **최대 4개 항목**. 정보가 부족하면 그 이하 허용
   · 각 줄은 80자 이내, 기능·용도 중심. 마케팅 카피 금지
   · 재무 수치 포함 금지
-- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업이익(숫자만)", "net_profit": "당기순이익(숫자만)", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
+- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업손익 값(숫자만, 양수)", "profit_label": "영업 라인 라벨 원문", "net_profit": "당기순손익 값(숫자만, 양수)", "net_profit_label": "당기순 라인 라벨 원문", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
+  · profit / net_profit 값은 재무제표에 적힌 그대로의 양수로 추출하세요 (괄호·△·마이너스 표기는 모두 무시하고 절댓값). 부호 변환은 클라이언트에서 처리합니다.
+  · profit_label: 영업 라인 라벨 원문 그대로 (예: "영업이익", "영업손익", "영업손실", "영업이익(손실)")
+  · net_profit_label: 손익계산서 최종 줄 라벨 원문 그대로 (예: "당기순이익", "당기순손익", "당기순손실", "당기순이익(손실)")
+  · 혼동 주의: "법인세비용차감전순이익/차감전손익", "계속영업이익", "중단영업이익" 등은 당기순이익이 아닙니다. 그 아래에 "당기순이익/당기순손익/당기순손실" 줄이 있으면 그것을 사용하세요. 정상 손익계산서에는 거의 항상 당기순이익 줄이 존재하니 적극적으로 찾아 추출하세요.
 - manager_memo: 담당자 의견 — **M&A 관점에서 동사가 보유한 강점**을 투자심사역 시각으로 분석
   · 형식: 항목마다 두 줄 — 첫 줄에 "숫자) 헤드라인", 둘째 줄에 "- 평가 본문". 관점별로 헤드라인을 따로 둠. **항목 사이는 빈 줄 1줄로 구분**
     예시(줄바꿈 포함된 단일 문자열):
