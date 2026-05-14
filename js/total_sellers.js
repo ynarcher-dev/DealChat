@@ -663,7 +663,11 @@ function applyFilters() {
         if (!matchesKeyword) return false;
 
         // [3] 산업 필터
-        const matchesIndustry = selectedIndustries.length === 0 || selectedIndustries.includes(seller.industry);
+        const sellerIndustry = seller.industry || "기타";
+        const matchesIndustry = selectedIndustries.length === 0 || selectedIndustries.some(ind => {
+            if (ind === '기타') return sellerIndustry === '기타' || sellerIndustry.startsWith('기타: ');
+            return sellerIndustry === ind;
+        });
         if (!matchesIndustry) return false;
 
         // [4] 진행현황 필터

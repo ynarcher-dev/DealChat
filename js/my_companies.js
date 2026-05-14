@@ -390,11 +390,13 @@ function applyFilters() {
         });
         if (!matchesInd) return false;
 
-        const matchesMgmt = selectedMgmt.length === 0 || (c.mgmt_status && selectedMgmt.some(m => {
-            const normalizedStatus = c.mgmt_status.replace(/\s+/g, '');
+        const companyMgmt = c.mgmt_status || "";
+        const matchesMgmt = selectedMgmt.length === 0 || selectedMgmt.some(m => {
+            const normalizedStatus = companyMgmt.replace(/\s+/g, '');
             const normalizedMatch = m.replace(/\s+/g, '');
+            if (normalizedMatch === '기타') return !['발굴기업', '보육기업', '투자기업'].includes(normalizedStatus);
             return normalizedStatus === normalizedMatch;
-        }));
+        });
         if (!matchesMgmt) return false;
 
         // Visibility match - public (!is_draft), private (is_draft)

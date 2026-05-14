@@ -596,7 +596,11 @@ function applyFilters() {
             (buyer.summary && buyer.summary.toLowerCase().includes(keyword));
         if (!matchesKeyword) return false;
 
-        const matchesIndustry = selectedIndustries.length === 0 || selectedIndustries.includes(buyer.industry);
+        const buyerIndustry = buyer.industry || "기타";
+        const matchesIndustry = selectedIndustries.length === 0 || selectedIndustries.some(ind => {
+            if (ind === '기타') return buyerIndustry === '기타' || buyerIndustry.startsWith('기타: ');
+            return buyerIndustry === ind;
+        });
         if (!matchesIndustry) return false;
 
         const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(buyer.status);

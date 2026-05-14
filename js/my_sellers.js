@@ -341,7 +341,11 @@ function applyFilters() {
 
     filteredSellers = allSellers.filter(s => {
         const matchesKeyword = !keyword || (s.company_name && s.company_name.toLowerCase().includes(keyword)) || (s.summary && s.summary.toLowerCase().includes(keyword));
-        const matchesIndustry = industries.length === 0 || industries.includes(s.industry);
+        const sellerIndustry = s.industry || "기타";
+        const matchesIndustry = industries.length === 0 || industries.some(ind => {
+            if (ind === '기타') return sellerIndustry === '기타' || sellerIndustry.startsWith('기타: ');
+            return sellerIndustry === ind;
+        });
         const matchesMethod = methods.length === 0 || methods.includes(s.status);
         const matchesVis = selectedVis.length === 0 || selectedVis.some(v => {
             if (v === 'public') return !s.is_draft;

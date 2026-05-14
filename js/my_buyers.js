@@ -335,7 +335,11 @@ function applyFilters() {
 
     filteredBuyers = allBuyers.filter(b => {
         const matchesKeyword = !keyword || (b.company_name && b.company_name.toLowerCase().includes(keyword)) || (b.summary && b.summary.toLowerCase().includes(keyword));
-        const matchesIndustry = industries.length === 0 || industries.includes(b.interest_industry);
+        const buyerIndustry = b.industry || b.interest_industry || "기타";
+        const matchesIndustry = industries.length === 0 || industries.some(ind => {
+            if (ind === '기타') return buyerIndustry === '기타' || buyerIndustry.startsWith('기타: ');
+            return buyerIndustry === ind;
+        });
         const matchesStatus = statuses.length === 0 || statuses.includes(b.status);
         const matchesVis = selectedVis.length === 0 || selectedVis.some(v => {
             if (v === 'public') return !b.is_draft;

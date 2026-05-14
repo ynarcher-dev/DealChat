@@ -304,12 +304,12 @@ function applyFilters() {
 
         // Management Status match
         const companyMgmt = company.mgmt_status || "";
-        const matchesMgmt = selectedMgmt.length === 0 || (companyMgmt && selectedMgmt.some(m => {
+        const matchesMgmt = selectedMgmt.length === 0 || selectedMgmt.some(m => {
             const normalizedStatus = companyMgmt.replace(/\s+/g, '');
             const normalizedMatch = m.replace(/\s+/g, '');
             if (normalizedMatch === '기타') return !['발굴기업', '보육기업', '투자기업'].includes(normalizedStatus);
             return normalizedStatus === normalizedMatch;
-        }));
+        });
         if (!matchesMgmt) return false;
 
         // Investment Stage match - Bypass if 'all' is selected or nothing is selected
