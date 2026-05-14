@@ -3,12 +3,13 @@ import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
 import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles, isWithinHours, getRevenueRange } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
-import { 
-    getIndustryIcon, 
-    addSelectedUser, 
-    renderSelectedTags, 
-    initShareUserSearch, 
-    submitShareHandler, 
+import { showToast } from './toast_utils.js';
+import {
+    getIndustryIcon,
+    addSelectedUser,
+    renderSelectedTags,
+    initShareUserSearch,
+    submitShareHandler,
     fetchFiles,
     initUserMap,
     renderListLoader,
@@ -308,9 +309,9 @@ function renderSellers() {
 
     pageItems.forEach(seller => {
         const createdDate = new Date(seller.created_at || Date.now());
-        const updatedDate = seller.updated_at ? new Date(seller.updated_at) : null;
-        const d = (updatedDate && updatedDate.getTime() !== createdDate.getTime()) ? updatedDate : createdDate;
-        const dateDisplay = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+        const updatedDate = seller.updated_at ? new Date(seller.updated_at) : createdDate;
+        const fmt = (x) => `${x.getFullYear()}.${String(x.getMonth()+1).padStart(2,'0')}.${String(x.getDate()).padStart(2,'0')}`;
+        const dateDisplay = `${fmt(createdDate)}<br>/${fmt(updatedDate)}`;
 
         const authorData = userMap[seller.user_id] || DEFAULT_MANAGER;
         
@@ -405,7 +406,7 @@ function renderSellers() {
                         </div>
                     </div>
                 </td>
-                <td class="date-td" style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important; font-size: 13px; color: #94a3b8; font-family: 'Outfit', sans-serif;">${dateDisplay}</td>
+                <td class="date-td" style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important; font-size: 13px; color: #94a3b8; font-family: 'Outfit', sans-serif; line-height: 1.5;">${dateDisplay}</td>
                 <td style="padding: 20px 24px !important; text-align: center !important; vertical-align: middle !important; white-space: nowrap;" onclick="event.stopPropagation();">
                     ${(isRestricted || !isAuthorized || currentUserData.role === 'buyer') ? '' : `
                     <button class="row-action-btn" style="margin-left: 0;" title="매도자 공유하기" onclick="openShareModal('${seller.id}')">
@@ -450,6 +451,10 @@ window.toggleSellerFavorite = async function (btn) {
                 .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'seller' });
             if (error) throw error;
         }
+        showToast(wasFav ? '즐겨찾기에서 해제했습니다.' : '즐겨찾기에 추가했습니다.', {
+            icon: 'star',
+            iconColor: wasFav ? '#cbd5e1' : FAVORITE_ON_COLOR
+        });
     } catch (e) {
         console.error('Favorite toggle failed:', e);
         if (wasFav) {
@@ -458,7 +463,7 @@ window.toggleSellerFavorite = async function (btn) {
             favoriteSellerMap.delete(itemId);
         }
         renderSellers();
-        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+        showToast('즐겨찾기 처리 중 오류가 발생했습니다.', { icon: 'error', iconColor: '#ef4444' });
     }
 };
 

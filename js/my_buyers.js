@@ -3,12 +3,13 @@ import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
 import { escapeHtml } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
-import { 
-    getIndustryIcon, 
-    addSelectedUser, 
-    renderSelectedTags, 
-    initShareUserSearch, 
-    submitShareHandler, 
+import { showToast } from './toast_utils.js';
+import {
+    getIndustryIcon,
+    addSelectedUser,
+    renderSelectedTags,
+    initShareUserSearch,
+    submitShareHandler,
     fetchFiles,
     initUserMap,
     renderListLoader
@@ -162,8 +163,9 @@ function renderBuyers() {
 
     const htmlParts = [];
     pageItems.forEach(buyer => {
-        const d = new Date(buyer.updated_at || buyer.created_at);
-        const date = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+        const fmtDate = (ts) => { const x = new Date(ts); return `${x.getFullYear()}.${String(x.getMonth()+1).padStart(2,'0')}.${String(x.getDate()).padStart(2,'0')}`; };
+        const createdStr = fmtDate(buyer.created_at);
+        const updatedStr = fmtDate(buyer.updated_at || buyer.created_at);
         const authorData = userMap[buyer.user_id] || DEFAULT_MANAGER;
 
         const isDraft = buyer.is_draft || false;
@@ -205,7 +207,7 @@ function renderBuyers() {
                         </div>
                     </div>
                 </td>
-                <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; font-size: 13px; color: #94a3b8; font-family: 'Outfit', sans-serif;">${date}</td>
+                <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; font-size: 13px; color: #94a3b8; font-family: 'Outfit', sans-serif; line-height: 1.5;">${createdStr}<br>/${updatedStr}</td>
                 <td style="padding: 20px 24px !important;" onclick="event.stopPropagation();">
                     <button class="row-action-btn btn-hover-teal" onclick="window.openShareModal('${buyer.id}')"><span class="material-symbols-outlined" style="font-size: 18px;">share</span></button>
                 </td>
@@ -243,6 +245,10 @@ window.toggleBuyerFavorite = async function (btn) {
                 .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'buyer' });
             if (error) throw error;
         }
+        showToast(wasFav ? '즐겨찾기에서 해제했습니다.' : '즐겨찾기에 추가했습니다.', {
+            icon: 'star',
+            iconColor: wasFav ? '#cbd5e1' : FAVORITE_ON_COLOR
+        });
     } catch (e) {
         console.error('Favorite toggle failed:', e);
         if (wasFav) {
@@ -251,7 +257,7 @@ window.toggleBuyerFavorite = async function (btn) {
             favoriteBuyerMap.delete(itemId);
         }
         renderBuyers();
-        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+        showToast('즐겨찾기 처리 중 오류가 발생했습니다.', { icon: 'error', iconColor: '#ef4444' });
     }
 };
 

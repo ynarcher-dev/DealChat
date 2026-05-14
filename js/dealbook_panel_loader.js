@@ -145,6 +145,13 @@
             <div class="panel-content"
                 style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; padding: 20px;">
                 ${isDoubleSrc ? doubleSrc : singleSrc}
+                <div class="db-ai-fill-section" style="margin-bottom: 0;">
+                    <button id="ai-auto-fill-btn" class="db-ai-fill-btn">
+                        <span class="material-symbols-outlined">auto_awesome</span>
+                        <span>분석된 파일로 AI가 자동 입력하기</span>
+                    </button>
+                    <p class="db-ai-fill-desc">* 업로드된 파일 내용을 바탕으로 기본 정보를 추출합니다.</p>
+                </div>
                 <input type="file" id="file-upload" multiple style="display: none;" accept=".pdf,.doc,.docx,.txt">
             </div>
         </aside>`;
