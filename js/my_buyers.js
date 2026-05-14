@@ -26,8 +26,12 @@ let allBuyers = [];
 let userMap = {};
 let filteredBuyers = [];
 let currentuser_id = null;
+let favoriteBuyerMap = new Map();
 window.currentShareBuyerId = null;
 let selectedReceivers = [];
+
+const FAVORITE_ON_COLOR = '#f59e0b';
+const FAVORITE_OFF_COLOR = '#cbd5e1';
 
 $(document).ready(function () {
     const userData = checkAuth();
@@ -113,12 +117,17 @@ async function loadInitialData(user_id) {
     $('#buyer-list-container').html(renderListLoader(8, '#0d9488'));
 
     try {
-        userMap = await initUserMap(_supabase);
+        const [_userMap, buyersRes, favoritesRes] = await Promise.all([
+            initUserMap(_supabase),
+            _supabase.from('buyers').select('*').eq('user_id', user_id).is('deleted_at', null),
+            _supabase.from('favorites').select('item_id, created_at').eq('user_id', user_id).eq('item_type', 'buyer').order('created_at', { ascending: false })
+        ]);
+        userMap = _userMap;
+        if (buyersRes.error) throw buyersRes.error;
+        if (favoritesRes.error) console.warn('Favorites load failed:', favoritesRes.error);
 
-        const { data: buyers, error: buyersError } = await _supabase.from('buyers').select('*').eq('user_id', user_id).is('deleted_at', null);
-        if (buyersError) throw buyersError;
-
-        allBuyers = buyers || [];
+        favoriteBuyerMap = new Map((favoritesRes.data || []).map(f => [f.item_id, f.created_at]));
+        allBuyers = buyersRes.data || [];
         updateFilterOptions();
         applyFilters();
     } catch (error) {
@@ -138,23 +147,35 @@ function renderBuyers() {
         return;
     }
 
+    // 즐겨찾기 우선 정렬
+    const favs = [];
+    const others = [];
+    filteredBuyers.forEach(b => {
+        if (favoriteBuyerMap.has(b.id)) favs.push(b);
+        else others.push(b);
+    });
+    favs.sort((a, b) => String(favoriteBuyerMap.get(b.id)).localeCompare(String(favoriteBuyerMap.get(a.id))));
+    const sorted = favs.concat(others);
+
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const pageItems = filteredBuyers.slice(startIndex, startIndex + itemsPerPage);
+    const pageItems = sorted.slice(startIndex, startIndex + itemsPerPage);
 
     const htmlParts = [];
     pageItems.forEach(buyer => {
         const d = new Date(buyer.updated_at || buyer.created_at);
         const date = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
         const authorData = userMap[buyer.user_id] || DEFAULT_MANAGER;
-        
+
         const isDraft = buyer.is_draft || false;
+        const isFav = favoriteBuyerMap.has(buyer.id);
+        const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
         const rowHtml = `
             <tr onclick="showBuyerDetail('${buyer.id}')" style="cursor: pointer;">
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
                     <div class="d-flex align-items-center gap-3" style="min-width: 0;">
-                        <div style="width: 36px; height: 36px; background: ${isDraft ? '#e2e8f0' : '#0d9488'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="color: ${isDraft ? '#94a3b8' : '#ffffff'}; font-size: 20px;">${getIndustryIcon(buyer.interest_industry)}</span>
-                        </div>
+                        <button type="button" class="favorite-toggle-btn" data-item-id="${buyer.id}" onclick="event.stopPropagation(); window.toggleBuyerFavorite(this);" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기'}" style="width: 36px; height: 36px; background: transparent; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: none; padding: 0; cursor: pointer;">
+                            <span class="material-symbols-outlined favorite-toggle-icon" style="color: ${starColor}; font-size: 24px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: color 0.15s ease;">star</span>
+                        </button>
                         <div style="flex: 1; min-width: 0;">
                             <span class="fw-bold text-truncate" style="display:block;font-size:14px;color:${isDraft ? '#94a3b8' : 'inherit'};">${escapeHtml(buyer.company_name || "이름 없음")}</span>
                             ${isDraft ? `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#cbd5e1;margin-top:2px;"><span class="material-symbols-outlined" style="font-size:11px;">lock</span>비공개</span>` : ''}
@@ -194,6 +215,45 @@ function renderBuyers() {
     });
     container.html(htmlParts.join(''));
 }
+
+window.toggleBuyerFavorite = async function (btn) {
+    const itemId = btn.dataset.itemId;
+    if (!itemId || !currentuser_id) return;
+
+    const wasFav = favoriteBuyerMap.has(itemId);
+    const prevValue = favoriteBuyerMap.get(itemId);
+
+    if (wasFav) {
+        favoriteBuyerMap.delete(itemId);
+    } else {
+        favoriteBuyerMap.set(itemId, new Date().toISOString());
+    }
+    renderBuyers();
+
+    try {
+        if (wasFav) {
+            const { error } = await _supabase.from('favorites')
+                .delete()
+                .eq('user_id', currentuser_id)
+                .eq('item_id', itemId)
+                .eq('item_type', 'buyer');
+            if (error) throw error;
+        } else {
+            const { error } = await _supabase.from('favorites')
+                .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'buyer' });
+            if (error) throw error;
+        }
+    } catch (e) {
+        console.error('Favorite toggle failed:', e);
+        if (wasFav) {
+            favoriteBuyerMap.set(itemId, prevValue);
+        } else {
+            favoriteBuyerMap.delete(itemId);
+        }
+        renderBuyers();
+        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+    }
+};
 
 window.showBuyerDetail = function (id) {
     const $loader = $('#transition-loader');

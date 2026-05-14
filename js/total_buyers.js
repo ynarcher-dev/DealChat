@@ -34,9 +34,13 @@ let userMap = {};
 let filteredBuyers = [];
 let currentuser_id = null;
 let currentUserData = null;
+let favoriteBuyerMap = new Map();
 window.currentShareBuyerId = null;
 let selectedReceivers = [];
 let signedNdaIds = []; // Supabase에서 가져온 NDA 체결 ID 목록
+
+const FAVORITE_ON_COLOR = '#f59e0b';
+const FAVORITE_OFF_COLOR = '#cbd5e1';
 
 // ==========================================
 // NDA 체결 상태 관리
@@ -173,9 +177,17 @@ async function loadInitialData() {
     $('#buyer-list-container').html(renderListLoader(8, '#0d9488'));
 
     try {
-        userMap = await initUserMap(_supabase);
-        const { data: buyers, error: bError } = await _supabase.from('buyers').select('*').is('deleted_at', null);
-        if (bError) throw bError;
+        const [_userMap, buyersRes, favoritesRes] = await Promise.all([
+            initUserMap(_supabase),
+            _supabase.from('buyers').select('*').is('deleted_at', null),
+            _supabase.from('favorites').select('item_id, created_at').eq('user_id', currentuser_id).eq('item_type', 'buyer').order('created_at', { ascending: false })
+        ]);
+        userMap = _userMap;
+        if (buyersRes.error) throw buyersRes.error;
+        if (favoritesRes.error) console.warn('Favorites load failed:', favoritesRes.error);
+
+        favoriteBuyerMap = new Map((favoritesRes.data || []).map(f => [f.item_id, f.created_at]));
+        const buyers = buyersRes.data;
 
         allBuyers = Array.isArray(buyers) ? buyers.map(parseBuyerData).sort((a, b) => {
             const dateA = new Date(b.updated_at || b.created_at || 0);
@@ -259,9 +271,19 @@ function renderBuyers() {
         return;
     }
 
+    // 즐겨찾기 우선 정렬
+    const favs = [];
+    const others = [];
+    filteredBuyers.forEach(b => {
+        if (favoriteBuyerMap.has(b.id)) favs.push(b);
+        else others.push(b);
+    });
+    favs.sort((a, b) => String(favoriteBuyerMap.get(b.id)).localeCompare(String(favoriteBuyerMap.get(a.id))));
+    const sorted = favs.concat(others);
+
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, filteredBuyers.length);
-    const pageItems = filteredBuyers.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + itemsPerPage, sorted.length);
+    const pageItems = sorted.slice(startIndex, endIndex);
 
     const signedNdas = getSignedNdas();
 
@@ -288,40 +310,31 @@ function renderBuyers() {
         const isSigned = signedNdaIds.includes(String(buyer.id)) || signedNdas.includes(String(buyer.id));
         const isAuthorized = isOwner || isSigned;
         
-        // total_ 목록에서는 NDA/블라인드/소유 여부와 무관하게 항상 시리얼 표시
-        let displayName = buyer.blind_name_structured || buyer.company_name || '정보 없음';
-        if (status === '완료') {
-            displayName = '완료';
-        } else if (status === '진행중') {
-            displayName = '진행중';
-        }
+        let displayName = buyer.company_name || '정보 없음';
 
         let displaySummary = buyer.summary || "";
 
         if (isRestricted) {
             displaySummary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
-        } else if (buyer.company_name) {
-            // 목록에서는 항상 회사명 마스킹 (실명 노출 방지)
-            const escapedName = buyer.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const nameRegex = new RegExp(escapedName, 'gi');
-            displaySummary = displaySummary.replace(nameRegex, 'OOO');
         }
 
         // 가용자금은 상태와 무관하게 노출 (진행중/완료 포함)하되, 상태에 따라 색상 처리
         const displayPrice = (isAuthorized || isRestricted) ? (buyer.price ? `${buyer.price}억` : '-') : '비공개';
         const priceColor = isRestricted ? "#94a3b8" : "#1e293b";
 
+        const isFav = favoriteBuyerMap.has(buyer.id);
+        const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
         const rowHtml = `
             <tr onclick="showBuyerDetail('${buyer.id}')" style="cursor: pointer; ${isRestricted ? 'background-color: #fbfcfd;' : ''}">
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <div class="d-flex align-items-center gap-3" style="min-width: 0;">
-                        <div style="width: 36px; height: 36px; background: ${isRestricted ? '#94a3b8' : '#0d9488'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${getIndustryIcon(buyer.industry)}</span>
-                        </div>
+                        <button type="button" class="favorite-toggle-btn" data-item-id="${buyer.id}" onclick="event.stopPropagation(); window.toggleBuyerFavorite(this);" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기'}" style="width: 36px; height: 36px; background: transparent; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: none; padding: 0; cursor: pointer;">
+                            <span class="material-symbols-outlined favorite-toggle-icon" style="color: ${starColor}; font-size: 24px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: color 0.15s ease;">star</span>
+                        </button>
                         <div style="flex: 1; min-width: 0;">
                             <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
                                 <span class="fw-bold text-truncate" style="font-size: 14px; min-width: 0; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
-                                ${(!isRestricted && isWithinHours(buyer.created_at, 72)) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
+                                ${(!isRestricted && isWithinHours(buyer.updated_at || buyer.created_at, 72)) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
                             </div>
                             ${(!isAuthorized && !isRestricted) ? `
                             <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; margin-top: 4px;">
@@ -369,6 +382,45 @@ function renderBuyers() {
 // Detail Modal
 // ==========================================
 
+window.toggleBuyerFavorite = async function (btn) {
+    const itemId = btn.dataset.itemId;
+    if (!itemId || !currentuser_id) return;
+
+    const wasFav = favoriteBuyerMap.has(itemId);
+    const prevValue = favoriteBuyerMap.get(itemId);
+
+    if (wasFav) {
+        favoriteBuyerMap.delete(itemId);
+    } else {
+        favoriteBuyerMap.set(itemId, new Date().toISOString());
+    }
+    renderBuyers();
+
+    try {
+        if (wasFav) {
+            const { error } = await _supabase.from('favorites')
+                .delete()
+                .eq('user_id', currentuser_id)
+                .eq('item_id', itemId)
+                .eq('item_type', 'buyer');
+            if (error) throw error;
+        } else {
+            const { error } = await _supabase.from('favorites')
+                .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'buyer' });
+            if (error) throw error;
+        }
+    } catch (e) {
+        console.error('Favorite toggle failed:', e);
+        if (wasFav) {
+            favoriteBuyerMap.set(itemId, prevValue);
+        } else {
+            favoriteBuyerMap.delete(itemId);
+        }
+        renderBuyers();
+        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+    }
+};
+
 window.showBuyerDetail = function (id) {
     const buyer = allBuyers.find(b => String(b.id) === String(id));
     if (!buyer) return;
@@ -389,18 +441,7 @@ window.showBuyerDetail = function (id) {
     const status = buyer.status || '대기';
     const isRestricted = (status === '진행중' || status === '완료');
     
-    const isNameBlinded = (buyer.is_blind_active && buyer.blind_personal?.name);
-    
-    // NDA 미체결 시에도 목록과 동일하게 시리얼로 노출.
-    // NDA 체결 후에만 (블라인드 미적용 시) 실명 공개.
-    let displayName = buyer.blind_name_structured || buyer.company_name || '정보 없음';
-    if (status === '완료') {
-        displayName = '완료';
-    } else if (status === '진행중') {
-        displayName = '진행중';
-    } else if (isAuthorized && !isNameBlinded) {
-        displayName = buyer.company_name || '정보 없음';
-    }
+    let displayName = buyer.company_name || '정보 없음';
 
     let displaySummary = buyer.summary || "";
 
@@ -642,19 +683,11 @@ function exportToCSV() {
         const isRestricted = (status === '진행중' || status === '완료');
         const shouldMask = !isOwner && (isRestricted || !isSigned);
 
-        // 목록 정책과 동일: NDA/블라인드/소유 여부와 무관하게 항상 시리얼 표기
-        let company_name = b.blind_name_structured || '';
-        if (status === '완료') company_name = '완료';
-        else if (status === '진행중') company_name = '진행중';
+        const company_name = b.company_name || '';
 
         let summary = b.summary || '';
         if (isRestricted) {
             summary = (status === '진행중') ? '진행 중인 딜입니다.' : '완료된 딜입니다.';
-        } else if (b.company_name) {
-            // 목록 정책과 동일: 항상 회사명 마스킹
-            const escapedName = b.company_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const nameRegex = new RegExp(escapedName, 'gi');
-            summary = summary.replace(nameRegex, 'OOO');
         }
         const author = userMap[b.user_id]?.name || 'Unknown';
         const date = (() => { const d = new Date(b.created_at); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; })();

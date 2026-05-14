@@ -9,6 +9,7 @@ import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportS
 import { autoResizeTextarea } from './textarea_utils.js';
 import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
 import { getSignedFileUrl } from './file_render_utils.js';
+import { assignBlindLabels } from './my_list_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -85,6 +86,7 @@ $(document).ready(function () {
     let isBlindActive = true;
     let blindKeywords = [];
     let blindPersonal = { name: true, ceo: true, email: true, establishment: true, address: true, fin_summary: true, fin_analysis: true };
+    let blindNameStructured = null; // total_sellers와 동일 포맷의 매물번호 (예: "IT A-007")
     
     const $chatMessages = $('#chat-messages');
     const $welcomeScreen = $('.welcome-screen');
@@ -382,9 +384,20 @@ $(document).ready(function () {
 
         try {
             let seller = null;
-            const { data: fullData } = await _supabase.from('sellers').select('*, companies(*)').eq('id', sellerId).maybeSingle();
-            
+            const [sellerRes, allSellersRes] = await Promise.all([
+                _supabase.from('sellers').select('*, companies(*)').eq('id', sellerId).maybeSingle(),
+                _supabase.from('sellers').select('id, industry, created_at').is('deleted_at', null)
+            ]);
+            const fullData = sellerRes.data;
+
             if (fullData) seller = fullData;
+
+            // total_sellers와 동일한 시리얼(매물번호) 계산
+            if (Array.isArray(allSellersRes.data)) {
+                assignBlindLabels(allSellersRes.data);
+                const me = allSellersRes.data.find(s => String(s.id) === String(sellerId));
+                if (me && me.blind_name_structured) blindNameStructured = me.blind_name_structured;
+            }
 
             if (!seller) {
                 alert('정보를 찾을 수 없거나 접근 권한이 없습니다.');
@@ -1067,13 +1080,16 @@ $(document).ready(function () {
         if (!isBlindActive && !anyPersonal) return;
 
         const blindBadge = '<span class="badge-blind">blind</span>';
+        const blindNameHtml = blindNameStructured
+            ? `<span class="seller-blind-serial">${escapeForDisplay(blindNameStructured)}</span>`
+            : blindBadge;
         const regex = (isBlindActive && blindKeywords.length) ? new RegExp(blindKeywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi') : null;
 
-        // 1-a. 기업명: 뱃지 형태로 표시 (행을 숨기지 않음)
+        // 1-a. 기업명: 매물번호(시리얼)로 표시 (행을 숨기지 않음)
         if (blindPersonal.name) {
             const $name = $('#seller-name-editor'), $rep = $name.next('.report-text-field');
-            if ($rep.length) $rep.html(blindBadge);
-            else $name.html(blindBadge);
+            if ($rep.length) $rep.html(blindNameHtml);
+            else $name.html(blindNameHtml);
         }
 
         // 1-b. 개별 필드 블라인드 -> 해당 flex:1 컬럼 또는 width:100% 컨테이너 숨김

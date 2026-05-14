@@ -28,6 +28,10 @@ let userMap = {};
 let filteredCompanies = [];
 let currentuser_id = null;
 let currentSort = 'latest';
+let favoriteCompanyMap = new Map();
+
+const FAVORITE_ON_COLOR = '#f59e0b';
+const FAVORITE_OFF_COLOR = '#cbd5e1';
 
 window.currentShareCompanyId = null;
 let selectedReceivers = [];
@@ -144,13 +148,18 @@ async function loadCompanies(user_id) {
     $('#company-list-container').html(renderListLoader(8, '#1A73E8'));
 
     try {
-        // 내 기업 정보 및 전체 사용자 정보 로드
-        userMap = await initUserMap(_supabase);
+        // 내 기업 정보, 사용자 정보, 즐겨찾기 병렬 로드
+        const [_userMap, companiesRes, favoritesRes] = await Promise.all([
+            initUserMap(_supabase),
+            _supabase.from('companies').select('*').eq('user_id', user_id).is('deleted_at', null),
+            _supabase.from('favorites').select('item_id, created_at').eq('user_id', user_id).eq('item_type', 'company').order('created_at', { ascending: false })
+        ]);
+        userMap = _userMap;
+        if (companiesRes.error) throw companiesRes.error;
+        if (favoritesRes.error) console.warn('Favorites load failed:', favoritesRes.error);
 
-        const { data: companies, error: companiesError } = await _supabase.from('companies').select('*').eq('user_id', user_id).is('deleted_at', null);
-        if (companiesError) throw companiesError;
-
-        allCompanies = companies || [];
+        favoriteCompanyMap = new Map((favoritesRes.data || []).map(f => [f.item_id, f.created_at]));
+        allCompanies = companiesRes.data || [];
         updateFilterOptions();
         applyFilters();
     } catch (error) {
@@ -211,22 +220,34 @@ function renderCompanies() {
     $container.empty();
     if (filteredCompanies.length === 0) { $container.html('<tr><td colspan="8" class="text-center py-5 text-muted">일치하는 기업 정보가 없습니다.</td></tr>'); return; }
     
+    // 즐겨찾기 우선 정렬 (별 누른 항목을 최상단으로, 그 안에서는 별 누른 시간 최신순)
+    const favs = [];
+    const others = [];
+    filteredCompanies.forEach(c => {
+        if (favoriteCompanyMap.has(c.id)) favs.push(c);
+        else others.push(c);
+    });
+    favs.sort((a, b) => String(favoriteCompanyMap.get(b.id)).localeCompare(String(favoriteCompanyMap.get(a.id))));
+    const sorted = favs.concat(others);
+
     const start = (currentPage - 1) * itemsPerPage;
-    const end = Math.min(start + itemsPerPage, filteredCompanies.length);
-    const items = filteredCompanies.slice(start, end);
+    const end = Math.min(start + itemsPerPage, sorted.length);
+    const items = sorted.slice(start, end);
 
     items.forEach(c => {
         const d = new Date(c.updated_at || c.created_at);
         const date = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
         const authorData = userMap[c.user_id] || DEFAULT_MANAGER;
         const metrics = getLatestMetrics(c);
-        
+
+        const isFav = favoriteCompanyMap.has(c.id);
+        const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
         $container.append(`<tr onclick="goToCompanyDetail('${c.id}')" style="cursor: pointer;">
             <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
                 <div class="d-flex align-items-center gap-3" style="min-width: 0;">
-                    <div style="width: 36px; height: 36px; background: ${c.is_draft ? '#e2e8f0' : '#1A73E8'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <span class="material-symbols-outlined" style="color: ${c.is_draft ? '#94a3b8' : '#ffffff'}; font-size: 20px;">${getIndustryIcon(c.industry)}</span>
-                    </div>
+                    <button type="button" class="favorite-toggle-btn" data-item-id="${c.id}" onclick="event.stopPropagation(); window.toggleCompanyFavorite(this);" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기'}" style="width: 36px; height: 36px; background: transparent; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: none; padding: 0; cursor: pointer;">
+                        <span class="material-symbols-outlined favorite-toggle-icon" style="color: ${starColor}; font-size: 24px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: color 0.15s ease;">star</span>
+                    </button>
                     <div style="flex: 1; min-width: 0;">
                         <span class="fw-bold text-truncate" style="display:block;font-size:14px;color:${c.is_draft ? '#94a3b8' : 'inherit'};">${escapeHtml(c.company_name || c.name)}</span>
                         ${c.is_draft ? `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#cbd5e1;margin-top:2px;"><span class="material-symbols-outlined" style="font-size:11px;">lock</span>비공개</span>` : ''}
@@ -250,7 +271,6 @@ function renderCompanies() {
             </td>
             <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
                 <div class="summary-td" style="color: ${c.is_draft ? '#94a3b8' : '#1A73E8'}; font-weight: 500;">${escapeHtml(c.private_memo || "-")}</div>
-                ${c.mgmt_status ? `<div><span class="mgmt-status-badge border" style="background: ${c.is_draft ? '#f8fafc' : '#f0f7ff'}; color: ${c.is_draft ? '#94a3b8' : '#1A73E8'}; border-color: ${c.is_draft ? '#e2e8f0' : '#dbeafe'} !important;">#${escapeHtml(c.mgmt_status.replace(/\s+/g, ''))}</span></div>` : ''}
             </td>
             <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;" data-user-id="${c.user_id}" class="author-cell-clickable" onclick="event.stopPropagation(); if (window.showProfileModal) { window.showProfileModal('${c.user_id}'); }">
                 <div class="author-td">
@@ -268,6 +288,45 @@ function renderCompanies() {
         </tr>`);
     });
 }
+window.toggleCompanyFavorite = async function (btn) {
+    const itemId = btn.dataset.itemId;
+    if (!itemId || !currentuser_id) return;
+
+    const wasFav = favoriteCompanyMap.has(itemId);
+    const prevValue = favoriteCompanyMap.get(itemId);
+
+    if (wasFav) {
+        favoriteCompanyMap.delete(itemId);
+    } else {
+        favoriteCompanyMap.set(itemId, new Date().toISOString());
+    }
+    renderCompanies();
+
+    try {
+        if (wasFav) {
+            const { error } = await _supabase.from('favorites')
+                .delete()
+                .eq('user_id', currentuser_id)
+                .eq('item_id', itemId)
+                .eq('item_type', 'company');
+            if (error) throw error;
+        } else {
+            const { error } = await _supabase.from('favorites')
+                .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'company' });
+            if (error) throw error;
+        }
+    } catch (e) {
+        console.error('Favorite toggle failed:', e);
+        if (wasFav) {
+            favoriteCompanyMap.set(itemId, prevValue);
+        } else {
+            favoriteCompanyMap.delete(itemId);
+        }
+        renderCompanies();
+        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+    }
+};
+
 window.goToCompanyDetail = function (id) {
     const $loader = $('#transition-loader');
     $loader.css('display', 'flex');

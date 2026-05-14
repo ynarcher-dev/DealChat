@@ -612,6 +612,7 @@ $(document).ready(function () {
             titleSelector: '#buyer-name-editor',
             hideSelectors: ['#private-memo-section'],
             textareaIds: ['buyer-summary', 'buyer-interest-summary'],
+            inputIds: ['buyer-name-editor'],
             afterApply: () => {
                 injectReportSectionIcons({
                     'status-chip-group': 'account_tree',

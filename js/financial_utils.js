@@ -118,8 +118,9 @@ export function migrateFinancialInfo(data) {
 
     // 레거시 배열 포맷
     if (Array.isArray(data) && data.length > 0) {
+        // 최신 연도가 가장 왼쪽에 오도록 내림차순 정렬
         const years = [...new Set(data.map(f => String(f.year || '').trim()).filter(Boolean))]
-            .sort((a, b) => parseInt(a) - parseInt(b))
+            .sort((a, b) => (parseInt(b) || 0) - (parseInt(a) || 0))
             .slice(0, MAX_YEARS);
 
         const items = DEFAULT_ITEMS.map(def => {
@@ -193,7 +194,16 @@ function newEmptyFinancialData() {
 }
 
 function wireToInternal(wire) {
-    const years = Array.isArray(wire.years) ? [...wire.years] : [];
+    // 최신 연도가 가장 왼쪽에 오도록 내림차순 정렬 (빈 연도는 끝으로)
+    const years = (Array.isArray(wire.years) ? [...wire.years] : [])
+        .slice()
+        .sort((a, b) => {
+            const na = parseInt(a), nb = parseInt(b);
+            if (isNaN(na) && isNaN(nb)) return 0;
+            if (isNaN(na)) return 1;
+            if (isNaN(nb)) return -1;
+            return nb - na;
+        });
     const items = (wire.items || []).map(it => {
         const values = it.values || {};
         const vals = years.map(y => values[y] != null ? values[y] : '');
@@ -237,20 +247,21 @@ function collectInternalState(containerId) {
 export function collectFinancialData(containerId = 'financial-table-container') {
     const internal = collectInternalState(containerId);
 
-    // 살릴 년도 index 만 추림
-    const keptIdx = [];
-    const years = [];
+    // 살릴 년도와 그 위치를 함께 추리고, 최신순(내림차순)으로 정렬
+    const entries = [];
     internal.years.forEach((y, idx) => {
-        if (y) { keptIdx.push(idx); years.push(y); }
+        if (y) entries.push({ year: y, idx });
     });
+    entries.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+
+    const years = entries.map(e => e.year);
 
     const items = internal.items
         .filter(it => it.label && it.label.trim())
         .map(it => {
             const values = {};
-            keptIdx.forEach((origIdx, newIdx) => {
-                const y = years[newIdx];
-                values[y] = (it.vals[origIdx] || '').toString();
+            entries.forEach(({ year, idx }) => {
+                values[year] = (it.vals[idx] || '').toString();
             });
             return { key: it.key, label: it.label.trim(), values };
         });
@@ -384,12 +395,12 @@ function bindFinancialTableEvents($container) {
         renderFinancialTable(data, containerId);
     });
 
-    // 년도 추가 — 빈 칸 하나만 추가 (사용자가 직접 입력)
+    // 년도 추가 — 최신 연도는 가장 왼쪽에 위치하므로 맨 앞에 빈 칸 추가
     $container.on('click', '#add-year-btn', function() {
         const data = collectInternalState(containerId);
         if (data.years.length >= MAX_YEARS) return;
-        data.years.push('');
-        data.items.forEach(it => it.vals.push(''));
+        data.years.unshift('');
+        data.items.forEach(it => it.vals.unshift(''));
         renderFinancialTable(data, containerId);
     });
 

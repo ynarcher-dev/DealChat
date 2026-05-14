@@ -139,6 +139,18 @@ body.report-mode .report-industry-text {
     font-weight: 500;
 }
 
+/* input → div 변환 (기업명/대표자명/이메일/설립일자/주소/매칭희망가/매도방식 등) */
+body.report-mode .report-text-field {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: var(--report-text);
+    font-weight: 500;
+    padding: 0;
+    margin: 0;
+}
+
 /* ── 4. 테이블 스타일 ────────────────────────────── */
 body.report-mode .report-table-header {
     background: var(--report-table-header) !important;
@@ -248,6 +260,7 @@ body.report-mode .drag-handle,
 body.report-mode .blind-check,
 body.report-mode label:has(.blind-check),
 body.report-mode label:has(#negotiable-check),
+body.report-mode label:has(#method-negotiable-check),
 body.report-mode button,
 body.report-mode .action-buttons,
 body.report-mode .sidebar-section-edit-btn {

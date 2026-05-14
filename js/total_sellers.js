@@ -34,9 +34,13 @@ let filteredSellers = [];
 let userMap = {};
 let currentuser_id = null;
 let currentUserData = null;
+let favoriteSellerMap = new Map();
 window.currentShareSellerId = null;
 let selectedReceivers = [];
 let signedNdaIds = []; // Supabase에서 가져온 NDA 체결 ID 목록
+
+const FAVORITE_ON_COLOR = '#f59e0b';
+const FAVORITE_OFF_COLOR = '#cbd5e1';
 
 // ==========================================
 // NDA 체결 상태 관리
@@ -188,9 +192,17 @@ $(document).ready(function () {
 async function loadInitialData() {
     $('#seller-list-container').html(renderListLoader(8, '#8b5cf6'));
     try {
-        userMap = await initUserMap(_supabase);
-        const { data: sellers, error: sError } = await _supabase.from('sellers').select('*, companies(*)').is('deleted_at', null);
-        if (sError) throw sError;
+        const [_userMap, sellersRes, favoritesRes] = await Promise.all([
+            initUserMap(_supabase),
+            _supabase.from('sellers').select('*, companies(*)').is('deleted_at', null),
+            _supabase.from('favorites').select('item_id, created_at').eq('user_id', currentuser_id).eq('item_type', 'seller').order('created_at', { ascending: false })
+        ]);
+        userMap = _userMap;
+        if (sellersRes.error) throw sellersRes.error;
+        if (favoritesRes.error) console.warn('Favorites load failed:', favoritesRes.error);
+
+        favoriteSellerMap = new Map((favoritesRes.data || []).map(f => [f.item_id, f.created_at]));
+        const sellers = sellersRes.data;
 
         allSellers = Array.isArray(sellers) ? sellers.map(parseSellerData).sort((a, b) => {
             const dateA = new Date(b.updated_at || b.created_at || 0);
@@ -278,9 +290,19 @@ function renderSellers() {
         return;
     }
 
+    // 즐겨찾기 우선 정렬
+    const favs = [];
+    const others = [];
+    filteredSellers.forEach(s => {
+        if (favoriteSellerMap.has(s.id)) favs.push(s);
+        else others.push(s);
+    });
+    favs.sort((a, b) => String(favoriteSellerMap.get(b.id)).localeCompare(String(favoriteSellerMap.get(a.id))));
+    const sorted = favs.concat(others);
+
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, filteredSellers.length);
-    const pageItems = filteredSellers.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + itemsPerPage, sorted.length);
+    const pageItems = sorted.slice(startIndex, endIndex);
 
     const signedNdas = getSignedNdas();
 
@@ -333,17 +355,19 @@ function renderSellers() {
         const priceDisplay = isPriceNegotiable ? (seller.matching_price || '협의') : `${seller.matching_price}억`;
         const priceColor = isRestricted ? "#94a3b8" : "#000000";
 
+        const isFav = favoriteSellerMap.has(seller.id);
+        const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
         const rowHtml = `
             <tr onclick="showSellerDetail('${seller.id}')" style="cursor: pointer; ${isRestricted ? 'background-color: #fbfcfd;' : ''}">
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <div class="d-flex align-items-center gap-3" style="min-width: 0;">
-                        <div class="company-icon-square" style="width: 36px; height: 36px; background: ${isRestricted ? '#cbd5e1' : '#8b5cf6'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 10px rgba(139, 92, 246, ${isRestricted ? '0.1' : '0.2'});">
-                            <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${getIndustryIcon(seller.industry)}</span>
-                        </div>
+                        <button type="button" class="favorite-toggle-btn" data-item-id="${seller.id}" onclick="event.stopPropagation(); window.toggleSellerFavorite(this);" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기'}" style="width: 36px; height: 36px; background: transparent; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: none; padding: 0; cursor: pointer;">
+                            <span class="material-symbols-outlined favorite-toggle-icon" style="color: ${starColor}; font-size: 24px; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; transition: color 0.15s ease;">star</span>
+                        </button>
                         <div style="flex: 1; min-width: 0;">
                             <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
                                 <span class="fw-bold text-truncate" style="font-size: 14px; min-width: 0; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
-                                ${(!isRestricted && isWithinHours(seller.created_at, 72)) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
+                                ${(!isRestricted && isWithinHours(seller.updated_at || seller.created_at, 72)) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
                             </div>
                             ${(!isAuthorized && !isRestricted) ? `
                             <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; margin-top: 4px;">
@@ -390,6 +414,45 @@ function renderSellers() {
 // ==========================================
 // Detail Modal
 // ==========================================
+
+window.toggleSellerFavorite = async function (btn) {
+    const itemId = btn.dataset.itemId;
+    if (!itemId || !currentuser_id) return;
+
+    const wasFav = favoriteSellerMap.has(itemId);
+    const prevValue = favoriteSellerMap.get(itemId);
+
+    if (wasFav) {
+        favoriteSellerMap.delete(itemId);
+    } else {
+        favoriteSellerMap.set(itemId, new Date().toISOString());
+    }
+    renderSellers();
+
+    try {
+        if (wasFav) {
+            const { error } = await _supabase.from('favorites')
+                .delete()
+                .eq('user_id', currentuser_id)
+                .eq('item_id', itemId)
+                .eq('item_type', 'seller');
+            if (error) throw error;
+        } else {
+            const { error } = await _supabase.from('favorites')
+                .insert({ user_id: currentuser_id, item_id: itemId, item_type: 'seller' });
+            if (error) throw error;
+        }
+    } catch (e) {
+        console.error('Favorite toggle failed:', e);
+        if (wasFav) {
+            favoriteSellerMap.set(itemId, prevValue);
+        } else {
+            favoriteSellerMap.delete(itemId);
+        }
+        renderSellers();
+        alert('즐겨찾기 처리 중 오류가 발생했습니다.');
+    }
+};
 
 window.showSellerDetail = function (id) {
     const seller = allSellers.find(s => String(s.id) === String(id));

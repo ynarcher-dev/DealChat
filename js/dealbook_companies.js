@@ -1096,6 +1096,7 @@ $(document).ready(function () {
             reportTitle: '기업 정보 - DealChat',
             titleSelector: '#notebook-title-editor',
             textareaIds: ['summary', 'key-products', 'financial-analysis', 'manager-memo'],
+            inputIds: ['notebook-title-editor'],
             afterApply: () => {
                 reformatReportTable($('#investment-rows'), '.investment-row', [
                     { header: '년도',      selector: '.inv-year',       flex: 1,   align: 'center' },

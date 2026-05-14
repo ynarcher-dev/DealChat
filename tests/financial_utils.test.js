@@ -48,7 +48,9 @@ describe('migrateFinancialInfo — 레거시 배열 + 라벨 인식', () => {
         const result = migrateFinancialInfo(aiOutput);
         const profit = findItem(result, 'profit');
         expect(profit.label).toBe('영업손익');
-        expect(profit.vals).toEqual(['100', '-50']);
+        // 연도는 최신순(내림차순) 정렬: [2023, 2022]
+        expect(result.years).toEqual(['2023', '2022']);
+        expect(profit.vals).toEqual(['-50', '100']);
     });
 
     test('당기순이익도 동일하게 통합 라벨 "당기순손익" 사용', () => {
@@ -59,7 +61,9 @@ describe('migrateFinancialInfo — 레거시 배열 + 라벨 인식', () => {
         const result = migrateFinancialInfo(aiOutput);
         const np = findItem(result, 'net_profit');
         expect(np.label).toBe('당기순손익');
-        expect(np.vals).toEqual(['30', '-20']);
+        // 연도는 최신순(내림차순) 정렬: [2023, 2022]
+        expect(result.years).toEqual(['2023', '2022']);
+        expect(np.vals).toEqual(['-20', '30']);
     });
 
     test('단일 손실 라벨일 때 괄호/△ 표기는 절댓값으로 정규화 (라벨이 부호 의미 담당)', () => {
@@ -69,8 +73,9 @@ describe('migrateFinancialInfo — 레거시 배열 + 라벨 인식', () => {
         ];
         const result = migrateFinancialInfo(aiOutput);
         const profit = findItem(result, 'profit');
-        // 연도는 정렬됨 (2022, 2023). 행 라벨이 "영업손실"이므로 값은 양수 절댓값
-        expect(profit.vals).toEqual(['80', '100']);
+        // 연도는 최신순(내림차순) 정렬: [2023, 2022]. 행 라벨이 "영업손실"이므로 값은 양수 절댓값
+        expect(result.years).toEqual(['2023', '2022']);
+        expect(profit.vals).toEqual(['100', '80']);
         expect(profit.label).toBe('영업손실');
     });
 
@@ -172,9 +177,10 @@ describe('migrateFinancialInfo — 레거시 배열 + 라벨 인식', () => {
         ];
         const result = migrateFinancialInfo(aiOutput);
         const np = findItem(result, 'net_profit');
-        // 2022만 유효 → 행 라벨 "당기순이익", 2023은 빈 칸
+        // 2022만 유효 → 행 라벨 "당기순이익", 2023은 빈 칸. 연도는 최신순(내림차순): [2023, 2022]
         expect(np.label).toBe('당기순이익');
-        expect(np.vals).toEqual(['30', '']);
+        expect(result.years).toEqual(['2023', '2022']);
+        expect(np.vals).toEqual(['', '30']);
     });
 
     test('빈/null 입력 → 빈 데이터 반환', () => {
@@ -183,10 +189,11 @@ describe('migrateFinancialInfo — 레거시 배열 + 라벨 인식', () => {
         expect(migrateFinancialInfo(undefined).years).toEqual(['']);
     });
 
-    test('연도가 5개 초과면 5개로 잘림 (오름차순)', () => {
+    test('연도가 5개 초과면 최신 5개만 남고 내림차순 정렬', () => {
         const data = ['2020','2021','2022','2023','2024','2025'].map(y => ({ year: y, profit: '10', profit_label: '영업이익' }));
         const result = migrateFinancialInfo(data);
-        expect(result.years).toEqual(['2020','2021','2022','2023','2024']);
+        // 최신 5개를 최신순으로 유지
+        expect(result.years).toEqual(['2025','2024','2023','2022','2021']);
     });
 });
 
@@ -202,6 +209,18 @@ describe('migrateFinancialInfo — wire 포맷', () => {
         const profit = findItem(result, 'profit');
         expect(profit.label).toBe('영업손실');
         expect(profit.vals).toEqual(['-100']);
+    });
+
+    test('wire 입력의 연도 순서가 뒤섞여 있어도 최신순(내림차순)으로 정렬되고 값도 함께 재배치', () => {
+        const wire = {
+            years: ['2021', '2023', '2022'],
+            items: [
+                { key: 'revenue', label: '매출액', values: { '2021': '100', '2022': '200', '2023': '300' } },
+            ],
+        };
+        const result = migrateFinancialInfo(wire);
+        expect(result.years).toEqual(['2023', '2022', '2021']);
+        expect(findItem(result, 'revenue').vals).toEqual(['300', '200', '100']);
     });
 });
 
