@@ -381,7 +381,7 @@ function renderSellers() {
                     </div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
-                    <span class="industry-tag-td" style="white-space: nowrap; ${industryStyle}">${escapeHtml(seller.industry)}</span>
+                    <span class="industry-tag-td" style="white-space: nowrap; ${industryStyle}">${escapeHtml((seller.industry || "기타").replace(/^기타:\s*/, ''))}</span>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <span style="font-weight: 700; color: ${priceColor}; font-size: 14px;">${priceDisplay}</span>
@@ -408,11 +408,9 @@ function renderSellers() {
                 </td>
                 <td class="date-td" style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important; font-size: 13px; color: #94a3b8; font-family: 'Outfit', sans-serif; line-height: 1.5;">${dateDisplay}</td>
                 <td style="padding: 20px 24px !important; text-align: center !important; vertical-align: middle !important; white-space: nowrap;" onclick="event.stopPropagation();">
-                    ${(isRestricted || !isAuthorized || currentUserData.role === 'buyer') ? '' : `
-                    <button class="row-action-btn" style="margin-left: 0;" title="매도자 공유하기" onclick="openShareModal('${seller.id}')">
+                    <button class="row-action-btn ${(!isOwner || isRestricted || currentUserData.role === 'buyer') ? 'can-not-share' : ''}" style="margin-left: 0;" title="매도자 공유하기" onclick="openShareModal('${seller.id}')">
                         <span class="material-symbols-outlined" style="font-size: 18px;">share</span>
                     </button>
-                    `}
                 </td>
             </tr>
         `;
@@ -548,11 +546,10 @@ window.showSellerDetail = function (id) {
     const industryContainer = $('#detail-industry-container');
     industryContainer.empty();
     if (seller.industry) {
-        let displayIndustry = seller.industry;
-        if (seller.industry.startsWith('기타: ')) {
-            displayIndustry = seller.industry.replace('기타: ', '');
+        let displayIndustry = (seller.industry || "기타").replace(/^기타:\s*/, '');
+        if (displayIndustry) {
+            industryContainer.append(`<span class="industry-tag-td" style="background:#f5f3ff; color:#8b5cf6; border:1px solid #8b5cf633;">${escapeHtml(displayIndustry)}</span>`);
         }
-        industryContainer.append(`<span class="industry-tag-td" style="background:#f5f3ff; color:#8b5cf6; border:1px solid #8b5cf633;">${escapeHtml(displayIndustry)}</span>`);
     }
     if (!isAuthorized && !isRestricted) {
         industryContainer.append(`<span class="industry-tag-td" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`);
@@ -597,9 +594,28 @@ window.showSellerDetail = function (id) {
 // ==========================================
 
 window.openShareModal = function (sellerId) {
-    window.currentShareSellerId = sellerId;
     const seller = allSellers.find(s => String(s.id) === String(sellerId));
     if (!seller) return;
+
+    // [추가] 공유 권한 체크
+    const isOwner = String(seller.user_id) === String(currentuser_id);
+    if (!isOwner) {
+        alert("작성자만 공유 가능합니다.");
+        return;
+    }
+
+    const status = seller.status || '대기';
+    if (status === '진행중' || status === '완료') {
+        alert(status === '진행중' ? "거래가 진행 중인 정보는 공유할 수 없습니다." : "거래가 완료된 정보는 공유할 수 없습니다.");
+        return;
+    }
+
+    if (currentUserData.role === 'buyer') {
+        alert("매수자 계정은 공유 기능을 사용할 수 없습니다.");
+        return;
+    }
+
+    window.currentShareSellerId = sellerId;
 
     // 초기화
     selectedReceivers = [];

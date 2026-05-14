@@ -2532,6 +2532,11 @@ body.theme-mode-buyers {
     color: #ffffff !important;
 }
 
+.row-action-btn.can-not-share:hover {
+    background-color: #f1f5f9 !important;
+    color: #94a3b8 !important;
+}
+
 /* Share option hover ??themed */
 .share-option-btn {
     cursor: pointer;

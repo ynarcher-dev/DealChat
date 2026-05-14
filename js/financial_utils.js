@@ -261,7 +261,7 @@ export function collectFinancialData(containerId = 'financial-table-container') 
         .map(it => {
             const values = {};
             entries.forEach(({ year, idx }) => {
-                values[year] = (it.vals[idx] || '').toString();
+                values[year] = (it.vals[idx] || '0').toString();
             });
             return { key: it.key, label: it.label.trim(), values };
         });
@@ -365,7 +365,7 @@ function buildItemRow(item, years) {
             style="flex:1; min-width:0; padding:7px 6px; border:1px solid #e2e8f0; border-radius:6px;
             font-size:13px; text-align:right; background:#ffffff; outline:none; box-sizing:border-box;
             transition:border-color 0.2s;"
-            placeholder="—">`);
+            placeholder="0">`);
     });
 
     $row.append(`<button type="button" class="btn-remove-item" title="항목 삭제"
@@ -510,6 +510,10 @@ function bindFinancialTableEvents($container) {
         $(this).css('border-color', 'var(--page-theme-color)');
     }).on('blur', '.fin-cell, .fin-year-header', function() {
         $(this).css('border-color', '#e2e8f0');
+        // 빈 값일 경우 자동으로 0 입력 (fin-cell 전용)
+        if ($(this).hasClass('fin-cell') && $(this).val().trim() === '') {
+            $(this).val('0');
+        }
     });
 }
 

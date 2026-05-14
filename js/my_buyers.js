@@ -185,7 +185,7 @@ function renderBuyers() {
                     </div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
-                    <span class="industry-tag-td" style="background: ${isDraft ? '#f1f5f9' : '#f0fdfa'}; color: ${isDraft ? '#94a3b8' : '#0d9488'}; border: 1px solid ${isDraft ? '#e2e8f0' : '#ccfbf1'};">${escapeHtml(buyer.industry || "기타")}</span>
+                    <span class="industry-tag-td" style="background: ${isDraft ? '#f1f5f9' : '#f0fdfa'}; color: ${isDraft ? '#94a3b8' : '#0d9488'}; border: 1px solid ${isDraft ? '#e2e8f0' : '#ccfbf1'};">${escapeHtml((buyer.industry || "기타").replace(/^기타:\s*/, ''))}</span>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <div style="font-size: 13px; font-weight: 700; color: ${isDraft ? '#64748b' : '#000000'};">

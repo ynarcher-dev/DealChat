@@ -345,7 +345,7 @@ function renderBuyers() {
                     </div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
-                    <span class="industry-tag-td" style="white-space: nowrap; ${industryStyle}">${escapeHtml(buyer.industry)}</span>
+                    <span class="industry-tag-td" style="white-space: nowrap; ${industryStyle}">${escapeHtml((buyer.industry || "기타").replace(/^기타:\s*/, ''))}</span>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <span style="font-weight: 700; color: ${priceColor}; font-size: 14px;">${displayPrice}</span>
@@ -482,7 +482,10 @@ window.showBuyerDetail = function (id) {
     const industryContainer = $('#detail-industry-container');
     industryContainer.empty();
     if (buyer.industry) {
-        industryContainer.append(`<span class="industry-tag-td" style="background:#f0fdfa; color:#0d9488; border:1px solid #0d948833;">${escapeHtml(buyer.industry)}</span>`);
+        let displayIndustry = (buyer.industry || "기타").replace(/^기타:\s*/, '');
+        if (displayIndustry) {
+            industryContainer.append(`<span class="industry-tag-td" style="background:#f0fdfa; color:#0d9488; border:1px solid #0d948833;">${escapeHtml(displayIndustry)}</span>`);
+        }
     }
     if (!isAuthorized && !isRestricted) {
         industryContainer.append(`<span class="industry-tag-td" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;"><span class="material-symbols-outlined" style="font-size:14px;">lock</span>NDA 필요</span>`);

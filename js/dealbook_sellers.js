@@ -204,7 +204,26 @@ $(document).ready(function () {
         document.title = `${companyName || '매도인'} - 매도인 정보`;
         $('#sidebar-header-title').text(companyName || '매도인 정보');
         
-        $('#seller-industry').val(company.industry || '기타').trigger('change');
+        // [산업군 로직 개선] 커스텀 산업군 및 '기타: ' 접두사 대응
+        const industryVal = company.industry || '';
+        const $industrySelect = $('#seller-industry');
+        const $industryEtc = $('#seller-industry-etc');
+
+        if (industryVal.startsWith('기타: ')) {
+            $industrySelect.val('기타').trigger('change');
+            $industryEtc.val(industryVal.replace('기타: ', ''));
+        } else {
+            const hasOption = $industrySelect.find(`option[value="${industryVal}"]`).length > 0;
+            if (hasOption && industryVal !== '기타') {
+                $industrySelect.val(industryVal).trigger('change');
+            } else if (industryVal) {
+                $industrySelect.val('기타').trigger('change');
+                $industryEtc.val(industryVal === '기타' ? '' : industryVal);
+            } else {
+                $industrySelect.val('선택해주세요').trigger('change');
+            }
+        }
+
         $('#seller-ceo').val(company.ceoName || '');
         $('#seller-email').val(company.companyEmail || '');
         $('#seller-establishment').val(company.establishmentDate || '');
@@ -544,8 +563,26 @@ $(document).ready(function () {
             const updatedDate = new Date(seller.updated_at || seller.created_at).toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
             $('#memo-update-date').text(`최종 수정: ${updatedDate}`);
             $('#seller-name-editor').text(sellerName);
-            $('#seller-industry').val(seller.industry || company.industry || '기타').trigger('change');
-            if ($('#seller-industry').val() === '기타') $('#seller-industry-etc').val(seller.industry || company.industry || '');
+            // [산업군 로직 개선] 커스텀 산업군 및 '기타: ' 접두사 대응
+            const industryVal = seller.industry || company.industry || '';
+            const $industrySelect = $('#seller-industry');
+            const $industryEtc = $('#seller-industry-etc');
+
+            if (industryVal.startsWith('기타: ')) {
+                $industrySelect.val('기타').trigger('change');
+                $industryEtc.val(industryVal.replace('기타: ', ''));
+            } else {
+                const hasOption = $industrySelect.find(`option[value="${industryVal}"]`).length > 0;
+                if (hasOption && industryVal !== '기타') {
+                    $industrySelect.val(industryVal).trigger('change');
+                } else if (industryVal) {
+                    $industrySelect.val('기타').trigger('change');
+                    $industryEtc.val(industryVal === '기타' ? '' : industryVal);
+                } else {
+                    $industrySelect.val('선택해주세요').trigger('change');
+                }
+            }
+
 
             $('#seller-ceo').val(seller.ceo_name || company.ceo_name || '');
             $('#seller-email').val(seller.email || company.email || '');
@@ -636,7 +673,9 @@ $(document).ready(function () {
 
     function buildPayload(isDraft) {
         const name = $('#seller-name-editor').text().trim();
-        const industry = $('#seller-industry').val() === '기타' ? $('#seller-industry-etc').val().trim() : $('#seller-industry').val();
+        const rawIndustryEtc = $('#seller-industry-etc').val().trim();
+        const industry = $('#seller-industry').val() === '기타' ? (rawIndustryEtc ? `기타: ${rawIndustryEtc}` : '기타') : $('#seller-industry').val();
+
         const summary = $('#seller-summary').val().trim();
         const price = $('#seller-price').val().trim();
         const method = $('#seller-method').val().trim();

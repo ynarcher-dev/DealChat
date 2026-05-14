@@ -77,6 +77,8 @@ const TYPE_CONFIG = {
 };
 
 function getIndustryShortName(industry) {
+    if (!industry || industry === '기타') return '';
+    const cleanIndustry = industry.replace(/^기타:\s*/, '');
     const shortMap = {
         'AI': 'AI', 'IT·정보통신': 'IT·정보통신', 'SaaS·솔루션': 'SaaS',
         '게임': '게임', '공공·국방': '공공·국방', '관광·레저': '관광·레저',
@@ -87,9 +89,9 @@ function getIndustryShortName(industry) {
         '뷰티·패션': '뷰티·패션', '에너지·환경': '에너지·환경',
         '외식·음료·소상공인': '외식·음료', '우주·항공': '우주·항공',
         '유통·물류': '유통·물류', '제조·건설': '제조·건설',
-        '플랫폼·커뮤니티': '플랫폼', '기타': '기타'
+        '플랫폼·커뮤니티': '플랫폼'
     };
-    return shortMap[industry] || industry;
+    return shortMap[cleanIndustry] || cleanIndustry;
 }
 
 let allLogs = [];
@@ -313,8 +315,8 @@ function renderCurrentPage() {
         const isRestricted = (log.itemStatus === '진행중' || log.itemStatus === '완료' || log.itemName === '삭제된 항목');
         
         const shortIndustry = getIndustryShortName(log.itemIndustry);
-        const industryHtml = log.itemIndustry
-            ? `<span class="industry-tag-td" style="background:${isRestricted ? '#f1f5f9' : typeCfg.bg}; color:${isRestricted ? '#94a3b8' : typeCfg.color}; border:1px solid ${isRestricted ? '#e2e8f0' : typeCfg.color + '33'};">${shortIndustry}</span>`
+        const industryHtml = shortIndustry
+            ? `<span class="industry-tag-td" style="background:${isRestricted ? '#f1f5f9' : typeCfg.bg}; color:${isRestricted ? '#94a3b8' : typeCfg.color}; border:1px solid ${isRestricted ? '#e2e8f0' : typeCfg.color + '33'};">${escapeHtml(shortIndustry)}</span>`
             : `<span style="color:#cbd5e1; font-size:12px;">-</span>`;
 
         const $row = $(`

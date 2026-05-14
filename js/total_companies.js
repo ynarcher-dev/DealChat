@@ -494,7 +494,12 @@ window.showCompanyDetail = function (id) {
     $('#detail-company-investment').text(metrics.investment.value !== '-' ? metrics.investment.value + '억' : '-');
 
     const indContainer = $('#detail-industry-container').empty();
-    if (c.industry) indContainer.append(`<span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill" style="font-weight: 600; font-size: 13px; color: #1A73E8 !important; background-color: rgba(26, 115, 232, 0.1) !important;">#${escapeHtml(c.industry)}</span>`);
+    if (c.industry) {
+        let displayIndustry = (c.industry || "기타").replace(/^기타:\s*/, '');
+        if (displayIndustry) {
+            indContainer.append(`<span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill" style="font-weight: 600; font-size: 13px; color: #1A73E8 !important; background-color: rgba(26, 115, 232, 0.1) !important;">#${escapeHtml(displayIndustry)}</span>`);
+        }
+    }
 
     const createdDate = new Date(c.created_at);
     const updatedDate = c.updated_at ? new Date(c.updated_at) : null;
