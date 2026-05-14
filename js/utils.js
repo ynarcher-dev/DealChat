@@ -259,3 +259,44 @@ export function isWithinHours(timestamp, hours = 72) {
     if (isNaN(t)) return false;
     return (Date.now() - t) < hours * 3600 * 1000;
 }
+
+/**
+ * 재무 데이터에서 가장 최근 연도의 매출액을 찾아 억 단위 범위(Range) 텍스트로 변환합니다.
+ * @param {Object} data - financial_info 객체 ({ years: [...], items: [...] })
+ * @returns {string} - 예: "50~100" 또는 "-"
+ */
+export function getRevenueRange(data) {
+    if (!data || !data.years || !data.items || data.years.length === 0) return '-';
+
+    let latestYear = null;
+    const numericYears = data.years.map(y => parseInt(y, 10)).filter(n => !isNaN(n));
+    if (numericYears.length > 0) {
+        latestYear = String(Math.max(...numericYears));
+    } else {
+        latestYear = data.years[data.years.length - 1];
+    }
+
+    if (!latestYear) return '-';
+
+    const matched = data.items.find(item => item.label && item.label.includes('매출'));
+    if (!matched || !matched.values) return '-';
+
+    const rawVal = matched.values[latestYear];
+    if (rawVal === null || rawVal === undefined || rawVal === '' || rawVal === '-' || rawVal === '—') return '-';
+
+    const cleaned = String(rawVal).replace(/,/g, '').trim();
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return '-';
+
+    const eok = num / 100000000;
+    
+    if (eok < 5) return '5 미만';
+    if (eok < 10) return '5~10';
+    if (eok < 30) return '10~30';
+    if (eok < 50) return '30~50';
+    if (eok < 100) return '50~100';
+    if (eok < 300) return '100~300';
+    if (eok < 500) return '300~500';
+    if (eok < 1000) return '500~1,000';
+    return '1,000 이상';
+}

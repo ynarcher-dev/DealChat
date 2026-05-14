@@ -1,7 +1,7 @@
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, getRevenueRange } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { 
     getIndustryIcon, 
@@ -49,13 +49,13 @@ $(document).ready(function () {
     });
 
 
-    $(document).on('change', '.industry-checkbox, .method-checkbox, .visibility-checkbox, .negotiable-checkbox', () => {
+    $(document).on('change', '.industry-checkbox, .method-checkbox, .visibility-checkbox, .negotiable-checkbox, .revenue-checkbox', () => {
         currentPage = 1;
         applyFilters();
     });
 
     $('#reset-filters').on('click', function () {
-        $('.industry-checkbox, .method-checkbox, .visibility-checkbox, .negotiable-checkbox').prop('checked', false);
+        $('.industry-checkbox, .method-checkbox, .visibility-checkbox, .negotiable-checkbox, .revenue-checkbox').prop('checked', false);
         $('#filter-min-price, #filter-max-price').val('');
         applyFilters();
     });
@@ -177,6 +177,8 @@ function renderSellers() {
         const authorData = userMap[seller.user_id] || DEFAULT_MANAGER;
         const isFav = favoriteSellerMap.has(seller.id);
         const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
+        const revenueRangeHtml = getRevenueRange(seller.financial_info);
+
         const rowHtml = `
             <tr onclick="showSellerDetail('${seller.id}')" style="cursor: pointer;">
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
@@ -196,6 +198,11 @@ function renderSellers() {
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <div style="font-size: 13px; font-weight: 700; color: ${isDraft ? '#64748b' : '#000000'};">
                         ${(seller.matching_price || seller.sale_price) ? ((seller.matching_price || seller.sale_price) === '협의' ? '협의' : (seller.matching_price || seller.sale_price) + '억') : '-'}
+                    </div>
+                </td>
+                <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important; text-align: center;">
+                    <div style="font-size: 13px; font-weight: 700; color: ${isDraft ? '#64748b' : '#000000'}; line-height: 1.4;">
+                        ${revenueRangeHtml}
                     </div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc;">
@@ -338,6 +345,7 @@ function applyFilters() {
     const methods = $('.method-checkbox:checked').map(function() { return this.value; }).get();
     const selectedVis = $('.visibility-checkbox:checked').map(function() { return this.value; }).get();
     const negotiableOnly = $('.negotiable-checkbox').is(':checked');
+    const selectedRevenues = $('.revenue-checkbox:checked').map(function() { return this.value; }).get();
 
     filteredSellers = allSellers.filter(s => {
         const matchesKeyword = !keyword || (s.company_name && s.company_name.toLowerCase().includes(keyword)) || (s.summary && s.summary.toLowerCase().includes(keyword));
@@ -353,7 +361,8 @@ function applyFilters() {
             return false;
         });
         const matchesNegotiable = !negotiableOnly || (s.matching_price && String(s.matching_price).includes('협의'));
-        return matchesKeyword && matchesIndustry && matchesMethod && matchesVis && matchesNegotiable;
+        const matchesRevenue = selectedRevenues.length === 0 || selectedRevenues.includes(getRevenueRange(s.financial_info));
+        return matchesKeyword && matchesIndustry && matchesMethod && matchesVis && matchesNegotiable && matchesRevenue;
     });
 
     applySort($('.sort-option.active').data('sort') || 'latest');
@@ -389,11 +398,12 @@ function applySort(type) {
 
 function exportToCSV() {
     if (filteredSellers.length === 0) { alert('데이터가 없습니다.'); return; }
-     const headers = ['매도자명', '산업', '희망가격', '상태', '비공개 메모', '등록일'];
+     const headers = ['매도자명', '산업', '희망가격', '매출규모(억)', '상태', '비공개 메모', '등록일'];
      const rows = filteredSellers.map(s => [
         s.company_name || '',
         s.industry || '',
         s.matching_price || s.sale_price || '',
+        getRevenueRange(s.financial_info),
          s.status || '',
          s.private_memo || s.summary || '',
          (() => { const d = new Date(s.created_at); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; })()

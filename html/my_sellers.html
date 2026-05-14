@@ -133,24 +133,37 @@
                         </div>
                     </div>
 
-                    <!-- Price Range Filter (UI Only) -->
-                    <div class="row g-4">
-                        <div class="col-md-6">
+                    <!-- Price & Revenue Range Filters -->
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
                             <label class="filter-range-label">희망가 범위 (억)</label>
                             <div class="d-flex align-items-center gap-2">
-                                <input type="number" id="filter-min-price" class="form-control filter-range-input" placeholder="최소">
+                                <input type="number" id="filter-min-price" class="form-control filter-range-input" placeholder="최소" style="width: 120px;">
                                 <span class="text-muted">~</span>
-                                <input type="number" id="filter-max-price" class="form-control filter-range-input" placeholder="최대">
+                                <input type="number" id="filter-max-price" class="form-control filter-range-input" placeholder="최대" style="width: 120px;">
+                                
+                                <div class="filter-item ms-2 mb-0" style="margin: 0 !important;">
+                                    <input type="checkbox" class="btn-check negotiable-checkbox" id="filter-negotiable" value="협의" autocomplete="off">
+                                    <label class="industry-checkbox-label d-flex align-items-center gap-1 mb-0" for="filter-negotiable"
+                                        style="padding: 10px 15px; height: 42px; white-space: nowrap;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">handshake</span>
+                                        협의 포함
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <div class="filter-item">
-                                <input type="checkbox" class="btn-check negotiable-checkbox" id="filter-negotiable" value="협의" autocomplete="off">
-                                <label class="industry-checkbox-label d-flex align-items-center gap-2" for="filter-negotiable"
-                                    style="padding: 10px 20px;">
-                                    <span class="material-symbols-outlined" style="font-size: 16px;">handshake</span>
-                                    협의 포함
-                                </label>
+                        <div class="col-md-8">
+                            <label class="filter-range-label">매출 규모 (억)</label>
+                            <div class="d-flex flex-nowrap gap-2">
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-5-my" value="5 미만" autocomplete="off"><label class="industry-checkbox-label" for="rev-5-my" style="white-space:nowrap;padding:10px 10px;">5 미만</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-10-my" value="5~10" autocomplete="off"><label class="industry-checkbox-label" for="rev-10-my" style="white-space:nowrap;padding:10px 10px;">5~10</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-30-my" value="10~30" autocomplete="off"><label class="industry-checkbox-label" for="rev-30-my" style="white-space:nowrap;padding:10px 10px;">10~30</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-50-my" value="30~50" autocomplete="off"><label class="industry-checkbox-label" for="rev-50-my" style="white-space:nowrap;padding:10px 10px;">30~50</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-100-my" value="50~100" autocomplete="off"><label class="industry-checkbox-label" for="rev-100-my" style="white-space:nowrap;padding:10px 10px;">50~100</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-300-my" value="100~300" autocomplete="off"><label class="industry-checkbox-label" for="rev-300-my" style="white-space:nowrap;padding:10px 10px;">100~300</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-500-my" value="300~500" autocomplete="off"><label class="industry-checkbox-label" for="rev-500-my" style="white-space:nowrap;padding:10px 10px;">300~500</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-1000-my" value="500~1,000" autocomplete="off"><label class="industry-checkbox-label" for="rev-1000-my" style="white-space:nowrap;padding:10px 8px;">500~1,000</label></div>
+                                <div class="filter-item"><input type="checkbox" class="btn-check revenue-checkbox" id="rev-max-my" value="1,000 이상" autocomplete="off"><label class="industry-checkbox-label" for="rev-max-my" style="white-space:nowrap;padding:10px 8px;">1,000 이상</label></div>
                             </div>
                         </div>
                     </div>
@@ -193,12 +206,13 @@
                         <table class="table table-hover m-0" style="table-layout: fixed; vertical-align: middle;">
                             <thead>
                                 <tr>
-                                    <th class="list-th" style="width: 240px;">매도자명</th>
+                                    <th class="list-th" style="width: 220px;">매도자명</th>
                                     <th class="list-th" style="width: 140px;">산업</th>
-                                    <th class="list-th" style="width: 90px;">희망가</th>
+                                    <th class="list-th" style="width: 90px;">희망가 (억)</th>
+                                    <th class="list-th" style="width: 110px;">매출규모 (억)</th>
                                     <th class="list-th" style="width: 100px;">진행 현황</th>
-                                    <th class="list-th" style="width: 300px;">비공개 메모 (작성자만 확인 가능)</th>
-                                    <th class="list-th" style="width: 180px;">담당자</th>
+                                    <th class="list-th" style="width: 240px;">비공개 메모 (작성자만 확인 가능)</th>
+                                    <th class="list-th" style="width: 150px;">담당자</th>
                                     <th class="list-th" style="width: 110px;">등록/수정</th>
                                     <th class="list-th" style="width: 70px;">공유</th>
                                 </tr>

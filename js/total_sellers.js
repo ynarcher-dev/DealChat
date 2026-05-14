@@ -1,7 +1,7 @@
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
-import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles, isWithinHours } from './utils.js';
+import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles, isWithinHours, getRevenueRange } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { 
     getIndustryIcon, 
@@ -110,7 +110,7 @@ $(document).ready(function () {
     // Filter Toggle
 
     // Filter Change Events
-    $(document).on('change', '.industry-checkbox, .method-checkbox, .visibility-checkbox, #include-negotiable', () => {
+    $(document).on('change', '.industry-checkbox, .method-checkbox, .visibility-checkbox, #include-negotiable, .revenue-checkbox', () => {
         currentPage = 1;
         applyFilters();
     });
@@ -121,8 +121,8 @@ $(document).ready(function () {
 
     // Reset Filters
     $('#reset-filters').on('click', function () {
-        $('.industry-checkbox, .method-checkbox, .visibility-checkbox').prop('checked', false);
-        $('#include-negotiable').prop('checked', true);
+        $('.industry-checkbox, .method-checkbox, .visibility-checkbox, .revenue-checkbox').prop('checked', false);
+        $('#include-negotiable').prop('checked', false);
         $('#filter-min-price, #filter-max-price').val('');
         applyFilters();
     });
@@ -357,6 +357,9 @@ function renderSellers() {
 
         const isFav = favoriteSellerMap.has(seller.id);
         const starColor = isFav ? FAVORITE_ON_COLOR : FAVORITE_OFF_COLOR;
+        
+        const revenueRangeHtml = getRevenueRange(seller.financial_info);
+
         const rowHtml = `
             <tr onclick="showSellerDetail('${seller.id}')" style="cursor: pointer; ${isRestricted ? 'background-color: #fbfcfd;' : ''}">
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
@@ -381,6 +384,11 @@ function renderSellers() {
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <span style="font-weight: 700; color: ${priceColor}; font-size: 14px;">${priceDisplay}</span>
+                </td>
+                <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important; text-align: center;">
+                    <div style="font-size: 13px; font-weight: 700; color: ${isRestricted ? '#94a3b8' : '#000000'}; line-height: 1.4;">
+                        ${revenueRangeHtml}
+                    </div>
                 </td>
                 <td style="padding: 20px 24px !important; border-right: 1px solid #f8fafc; vertical-align: middle !important;">
                     <span class="status-tag-td" style="font-weight: 600; font-size: 12px; padding: 4px 10px; border-radius: 6px; ${statusStyle}">${escapeHtml(status)}</span>
@@ -649,6 +657,7 @@ function applyFilters() {
     const minPrice = parseFloat($('#filter-min-price').val()) || 0;
     const maxPrice = parseFloat($('#filter-max-price').val()) || Infinity;
     const includeNegotiable = $('#include-negotiable').is(':checked');
+    const selectedRevenues = $('.revenue-checkbox:checked').map(function () { return this.value; }).get();
 
     filteredSellers = allSellers.filter(seller => {
         // [1] 공개된 것만 노출 - 비공개(is_draft: true)는 무조건 필터링
@@ -687,6 +696,9 @@ function applyFilters() {
         });
         if (!matchesVisibility) return false;
 
+        // [6] 매출 규모 필터
+        const matchesRevenue = selectedRevenues.length === 0 || selectedRevenues.includes(getRevenueRange(seller.financial_info));
+        if (!matchesRevenue) return false;
 
         // [7] 가격 필터 (범위 + 협의포함)
         const price = parseFloat(seller.matching_price);
@@ -765,7 +777,7 @@ function exportToCSV() {
     if (filteredSellers.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
     
     const signedNdas = getSignedNdas();
-    const headers = ['매도자명', '산업', '진행 상황', '가격(억)', '요약', '담당자', '등록일'];
+    const headers = ['매도자명', '산업', '진행 상황', '가격(억)', '매출규모(억)', '요약', '담당자', '등록일'];
     
     const rows = filteredSellers.map(s => {
         const isOwner = String(s.user_id) === String(currentuser_id);
@@ -797,12 +809,14 @@ function exportToCSV() {
 
         const shouldMaskPrice = !isAuthorized;
         const price = shouldMaskPrice ? '-' : (s.matching_price || s.sale_price || '');
+        const revRange = getRevenueRange(s.financial_info);
         
         return [
             company_name, 
             s.industry || '', 
             status, 
             price, 
+            revRange,
             summary, 
             author, 
             date

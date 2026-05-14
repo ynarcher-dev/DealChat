@@ -2454,7 +2454,8 @@ body.theme-mode-buyers {
 .visibility-checkbox:checked + .industry-checkbox-label,
 .stage-checkbox:checked + .industry-checkbox-label,
 .method-checkbox:checked + .industry-checkbox-label,
-.negotiable-checkbox:checked + .industry-checkbox-label {
+.negotiable-checkbox:checked + .industry-checkbox-label,
+.revenue-checkbox:checked + .industry-checkbox-label {
     background-color: var(--page-theme-color);
     border-color: var(--page-theme-color);
     color: #ffffff;
