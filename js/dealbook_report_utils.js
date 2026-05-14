@@ -28,46 +28,109 @@ export function reformatFinancialTableTransposed(containerId = 'financial-table-
         return num.toLocaleString('ko-KR');
     }
 
-    // 년도 수집 (빈 값 제외)
+    // sellers 모드 여부 (라벨 컬럼 폭 결정)
+    const isSellers = $container.data('render-mode') === 'sellers';
+    const labelWidth = isSellers ? 140 : 120;
+
+    // 년도 수집 (빈 값 제외, 헤더 input 기준)
     const years = [];
     $container.find('.fin-year-header').each(function() {
         const y = $(this).val().trim();
         if (y) years.push(y);
     });
 
-    // 항목 수집 — 값이 하나라도 있는 항목만
-    const items = [];
-    $container.find('.fin-item-row').each(function() {
-        const $row = $(this);
-        const label = $row.find('.fin-item-label').val().trim();
-        if (!label) return;
-        const values = years.map((_, idx) => formatNumber($row.find(`.fin-cell[data-year-index="${idx}"]`).val()));
-        if (values.some(v => v !== '—')) items.push({ label, values });
+    // 연도 인덱스 매핑 (헤더 input 순서 기준)
+    const yearHeaderVals = [];
+    $container.find('.fin-year-header').each(function() {
+        yearHeaderVals.push($(this).val().trim());
+    });
+    // years 각 항목이 몇 번째 인덱스인지 (빈 연도 열 건너뜀)
+    const yearIndices = years.map(y => yearHeaderVals.indexOf(y));
+
+    // fin-table 직계 자식을 DOM 순서대로 순회
+    // — fin-header-row: 스킵 (이미 years 수집함)
+    // — fin-section-row: 섹션 구분선
+    // — fin-item-row: 편집 항목 (input 값)
+    // — fin-calc-row: 자동 계산 항목 (div 텍스트)
+    // — button/기타: 스킵
+    const segments = []; // { type: 'section'|'row'|'calcrow', label, values? }
+
+    $container.find('.fin-table').children().each(function() {
+        const $el = $(this);
+
+        if ($el.hasClass('fin-section-row')) {
+            segments.push({ type: 'section', label: $el.text().trim() });
+            return;
+        }
+
+        if ($el.hasClass('fin-item-row')) {
+            const label = $el.find('.fin-item-label').val().trim();
+            if (!label) return;
+            const values = yearIndices.map(idx =>
+                formatNumber($el.find(`.fin-cell[data-year-index="${idx}"]`).val())
+            );
+            // 값이 하나라도 있는 행만 포함
+            if (values.some(v => v !== '—')) {
+                segments.push({ type: 'row', label, values });
+            }
+            return;
+        }
+
+        if ($el.hasClass('fin-calc-row')) {
+            const label = $el.find('.fin-label-cell').text().trim();
+            if (!label) return;
+            const values = yearIndices.map(idx => {
+                const txt = $el.find(`.fin-calc-cell[data-year-index="${idx}"]`).text().trim();
+                return txt || '—';
+            });
+            // 모두 '—'이면 스킵 (입력값 없어 계산 불가한 행)
+            if (values.some(v => v !== '—')) {
+                segments.push({ type: 'calcrow', label, values });
+            }
+        }
     });
 
     // 데이터가 없으면 빈 안내
-    if (years.length === 0 || items.length === 0) {
+    const hasData = segments.some(s => s.type === 'row' || s.type === 'calcrow');
+    if (years.length === 0 || !hasData) {
         $container.html(`<div style="padding:12px 0; font-size:13px; color:#94a3b8;">재무 정보가 입력되지 않았습니다.</div>`);
         return;
     }
 
-    // 헤더 행: 구분(고정폭) | 년도1 | 년도2 | ...
+    // 헤더 행
     const headerCells = [
-        `<div class="report-table-cell" style="flex:0 0 120px; min-width:120px; font-weight:700; justify-content:flex-start; text-align:left;">구분</div>`,
+        `<div class="report-table-cell" style="flex:0 0 ${labelWidth}px; min-width:${labelWidth}px; font-weight:700; justify-content:flex-start; text-align:left;">구분</div>`,
         ...years.map(y => `<div class="report-table-cell" style="flex:1; justify-content:center; text-align:center;">${y}</div>`)
     ].join('');
 
-    // 데이터 행들
-    const rowsHtml = items.map(item => {
+    // 세그먼트 → HTML
+    const rowsHtml = segments.map(seg => {
+        if (seg.type === 'section') {
+            // 섹션 구분선
+            return `<div style="
+                display:flex; align-items:center;
+                padding: 12px 0 4px 0;
+                font-size:10px; font-weight:700; color:#94a3b8;
+                text-transform:uppercase; letter-spacing:0.06em;
+                border-bottom:1px solid #f1f5f9; margin-bottom:2px;">
+                ${seg.label}
+            </div>`;
+        }
+
+        const isCalc = seg.type === 'calcrow';
+        const labelStyle = isCalc
+            ? `flex:0 0 ${labelWidth}px; min-width:${labelWidth}px; justify-content:flex-start; text-align:left; font-weight:600; font-style:italic; color:#475569;`
+            : `flex:0 0 ${labelWidth}px; min-width:${labelWidth}px; justify-content:flex-start; text-align:left; font-weight:500;`;
+        const rowStyle = isCalc ? ' background:#f8fafc; border-radius:4px;' : '';
+
         const cells = [
-            `<div class="report-table-cell" style="flex:0 0 120px; min-width:120px; justify-content:flex-start; text-align:left; font-weight:500;">${item.label}</div>`,
-            ...item.values.map(v => `<div class="report-table-cell" style="flex:1; justify-content:flex-end; text-align:right;">${v}</div>`)
+            `<div class="report-table-cell" style="${labelStyle}">${seg.label}</div>`,
+            ...seg.values.map(v => `<div class="report-table-cell" style="flex:1; justify-content:flex-end; text-align:right;${isCalc ? ' color:#475569; font-weight:600;' : ''}">${v}</div>`)
         ].join('');
-        return `<div class="report-table-row">${cells}</div>`;
+        return `<div class="report-table-row" style="${rowStyle}">${cells}</div>`;
     }).join('');
 
-    // 구분 고정 120px + 년도별 최소 80px → overflow-x: auto 발동 조건
-    const minWidth = 120 + years.length * 80;
+    const minWidth = labelWidth + years.length * 80;
 
     $container.html(`
         <div class="report-table-wrapper" style="margin-top:4px; min-width:${minWidth}px;">

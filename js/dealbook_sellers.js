@@ -239,7 +239,7 @@ $(document).ready(function () {
         }
 
         const finSource = company.financialDataArr || company.financial_info || company.financial_data;
-        renderFinancialTable(migrateFinancialInfo(finSource), 'financial-table-container');
+        renderFinancialTable(migrateFinancialInfo(finSource, 'sellers'), 'financial-table-container', 'sellers');
         toggleCompanyFields(true);
         
         // 신규 매도자 생성 시 복수의 티저(글)를 작성할 수 있도록 
@@ -418,7 +418,7 @@ $(document).ready(function () {
             
             // 모든 필드 비활성화
             toggleCompanyFields(false);
-            renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
+            renderFinancialTable(migrateFinancialInfo(null, 'sellers'), 'financial-table-container', 'sellers');
             loadAvailableFiles();
         }
     });
@@ -485,7 +485,7 @@ $(document).ready(function () {
         if (isNew) {
             setChip('대기');
             // 신규 시에도 기본 재무 정보 표 렌더링 (금융 유틸리티 사용)
-            renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
+            renderFinancialTable(migrateFinancialInfo(null, 'sellers'), 'financial-table-container', 'sellers');
             
             toggleCompanyFields(false); // Initial State: Disable all fields
             disableSellerNameEditor(); // 기업명 필드도 비활성화
@@ -613,7 +613,7 @@ $(document).ready(function () {
             }
 
             const finData = seller.financial_info || company.financial_info || null;
-            renderFinancialTable(migrateFinancialInfo(finData), 'financial-table-container');
+            renderFinancialTable(migrateFinancialInfo(finData, 'sellers'), 'financial-table-container', 'sellers');
 
             const authorId = seller.user_id;
             const { data: authorData } = authorId ? await _supabase.from('users').select('*').eq('id', authorId).maybeSingle() : { data: null };
@@ -1121,11 +1121,31 @@ $(document).ready(function () {
   · **최대 4개 항목**. 정보가 부족하면 그 이하 허용
   · 각 줄은 80자 이내, 기능·용도 중심. 마케팅 카피 금지
   · 재무 수치 포함 금지
-- financial_info: [{ "year": "연도", "revenue": "매출액(숫자만)", "profit": "영업손익 값(숫자만, 양수)", "profit_label": "영업 라인 라벨 원문", "net_profit": "당기순손익 값(숫자만, 양수)", "net_profit_label": "당기순 라인 라벨 원문", "total_assets": "총자산(숫자만)", "total_liabilities": "총부채(숫자만)", "total_equity": "총자본(숫자만)" }]
+- financial_info: 연도별 배열. 각 항목은 아래 키를 포함합니다 (없는 항목은 빈 문자열 ""):
+  {
+    "year": "연도(4자리)",
+    "revenue": "매출액(숫자만)",
+    "cogs": "매출원가(숫자만) — 손익계산서에 '매출원가', '영업비용' 등으로 표기된 항목",
+    "profit": "영업손익 값(숫자만, 양수)",
+    "profit_label": "영업 라인 라벨 원문 그대로",
+    "net_profit": "당기순손익 값(숫자만, 양수)",
+    "net_profit_label": "당기순 라인 라벨 원문 그대로",
+    "total_assets": "총자산(숫자만)",
+    "total_liabilities": "총부채(숫자만)",
+    "total_equity": "총자본(숫자만)",
+    "cash": "현금및현금성자산(숫자만) — 재무상태표 유동자산 첫 항목",
+    "short_term_debt": "단기차입금(숫자만) — 유동부채 내 단기차입금·유동성장기부채 포함",
+    "long_term_debt": "장기차입금(숫자만) — 비유동부채 내 장기차입금·사채 포함",
+    "ocf": "영업활동현금흐름(숫자만) — 현금흐름표 영업활동 합계, 음수 가능",
+    "capex": "자본적지출(숫자만, 양수) — 현금흐름표 투자활동 중 유형자산 취득액"
+  }
   · profit / net_profit 값은 재무제표에 적힌 그대로의 양수로 추출하세요 (괄호·△·마이너스 표기는 모두 무시하고 절댓값). 부호 변환은 클라이언트에서 처리합니다.
   · profit_label: 영업 라인 라벨 원문 그대로 (예: "영업이익", "영업손익", "영업손실", "영업이익(손실)")
   · net_profit_label: 손익계산서 최종 줄 라벨 원문 그대로 (예: "당기순이익", "당기순손익", "당기순손실", "당기순이익(손실)")
   · 혼동 주의: "법인세비용차감전순이익/차감전손익", "계속영업이익", "중단영업이익" 등은 당기순이익이 아닙니다. 그 아래에 "당기순이익/당기순손익/당기순손실" 줄이 있으면 그것을 사용하세요. 정상 손익계산서에는 거의 항상 당기순이익 줄이 존재하니 적극적으로 찾아 추출하세요.
+  · ocf는 음수일 수 있습니다 (영업활동현금흐름이 마이너스인 경우 그대로 음수로 추출).
+  · cogs가 손익계산서에 별도 라인으로 없는 경우(예: 순수 서비스업) 빈 문자열로 두세요.
+  · cash, short_term_debt, long_term_debt, ocf, capex가 문서에 없으면 빈 문자열로 두세요.
 - manager_memo: 담당자 의견 — **M&A 관점에서 동사가 보유한 강점**을 투자심사역 시각으로 분석
   · 형식: 항목마다 두 줄 — 첫 줄에 "숫자) 헤드라인", 둘째 줄에 "- 평가 본문". 관점별로 헤드라인을 따로 둠. **항목 사이는 빈 줄 1줄로 구분**
     예시(줄바꿈 포함된 단일 문자열):
@@ -1239,7 +1259,7 @@ $(document).ready(function () {
                 if (json.keyProducts) $('#seller-key-products').val(json.keyProducts);
                 if (json.manager_memo) $('#seller-manager-memo').val(json.manager_memo);
                 if (json.financial_info && Array.isArray(json.financial_info) && json.financial_info.length > 0) {
-                    renderFinancialTable(migrateFinancialInfo(json.financial_info), 'financial-table-container');
+                    renderFinancialTable(migrateFinancialInfo(json.financial_info, 'sellers'), 'financial-table-container', 'sellers');
                 }
                 autoResizeAllTextareas();
                 finishPending(aiPendingId, { status: 'success', toast: 'AI 자동 입력이 완료되었습니다.' });
