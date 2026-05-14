@@ -475,7 +475,11 @@ $(document).ready(function () {
 
             hideLoader();
             alert(shareType === 'private' ? '비공개로 저장되었습니다.' : '저장되었습니다.');
-            location.href = returnUrl;
+            if (isNew) {
+                location.href = returnUrl;
+            } else {
+                location.reload();
+            }
         } catch (err) {
             console.error('[saveBuyerData] Full error object:', err);
             hideLoader();

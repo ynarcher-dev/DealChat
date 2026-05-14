@@ -1,7 +1,7 @@
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
-import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles } from './utils.js';
+import { debounce, escapeHtml, applyKeywordsMasking, maskWithCircles, isWithinHours } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { 
     getIndustryIcon, 
@@ -28,7 +28,7 @@ window.supabaseClient = _supabase;
 const SUPABASE_ENDPOINT = window.config.supabase.uploadHandlerUrl;
 
 let currentPage = 1;
-const itemsPerPage = 8;
+const itemsPerPage = 15;
 let allSellers = [];
 let filteredSellers = [];
 let userMap = {};
@@ -341,7 +341,10 @@ function renderSellers() {
                             <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${getIndustryIcon(seller.industry)}</span>
                         </div>
                         <div style="flex: 1; min-width: 0;">
-                            <span class="fw-bold text-truncate" style="display: block; font-size: 14px; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
+                            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                                <span class="fw-bold text-truncate" style="font-size: 14px; min-width: 0; ${isRestricted ? 'color: #94a3b8;' : 'color: #1e293b;'}">${escapeHtml(displayName)}</span>
+                                ${(!isRestricted && isWithinHours(seller.created_at, 72)) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
+                            </div>
                             ${(!isAuthorized && !isRestricted) ? `
                             <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; margin-top: 4px;">
                                 <span class="material-symbols-outlined" style="font-size: 11px;">lock</span>NDA 필요

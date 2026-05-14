@@ -244,3 +244,18 @@ ${managerMemo || ''}
 ${ragContext || ''}
 `.trim();
 }
+
+/**
+ * 주어진 타임스탬프가 현재 시각 기준 지정한 시간(시간 단위) 이내인지 판단합니다.
+ * 리스트의 "NEW" 뱃지 표시 여부 판단 등에 사용합니다.
+ *
+ * @param {string|number|Date} timestamp - ISO 문자열, epoch ms, Date 객체 모두 허용
+ * @param {number} [hours=72] - 윈도우 길이(시간). 기본 72시간
+ * @returns {boolean}
+ */
+export function isWithinHours(timestamp, hours = 72) {
+    if (!timestamp) return false;
+    const t = new Date(timestamp).getTime();
+    if (isNaN(t)) return false;
+    return (Date.now() - t) < hours * 3600 * 1000;
+}

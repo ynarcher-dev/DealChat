@@ -1703,6 +1703,23 @@ body.is-loading .app-container {
     margin-top: 4px;
 }
 
+/* 72시간 이내 새 글 표시 뱃지 (total_* 리스트용) */
+.new-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #ffffff;
+    vertical-align: middle;
+}
+
 .type-tag-td {
     font-weight: 700;
     font-size: 12px;

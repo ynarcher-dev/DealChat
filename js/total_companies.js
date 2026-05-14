@@ -1,7 +1,7 @@
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { APIcall } from './APIcallFunction.js';
 import { initExternalSharing } from './sharing_utils.js';
-import { debounce, escapeHtml } from './utils.js';
+import { debounce, escapeHtml, isWithinHours } from './utils.js';
 import { renderPagination } from './pagination_utils.js';
 import { toFinancialArray } from './financial_utils.js';
 import { 
@@ -368,8 +368,9 @@ function renderCompanies() {
                     <div style="width: 36px; height: 36px; background: #1A73E8; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                         <span class="material-symbols-outlined" style="color: #ffffff; font-size: 20px;">${getIndustryIcon(c.industry)}</span>
                     </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <span class="fw-bold text-truncate" style="display: block; font-size: 14px;">${escapeHtml(c.company_name)}</span>
+                    <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;">
+                        <span class="fw-bold text-truncate" style="font-size: 14px; min-width: 0;">${escapeHtml(c.company_name)}</span>
+                        ${isWithinHours(c.created_at, 72) ? '<span class="new-badge" title="72시간 이내 새 글">N</span>' : ''}
                     </div>
                 </div>
             </td>

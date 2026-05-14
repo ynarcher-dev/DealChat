@@ -542,9 +542,13 @@ $(document).ready(function () {
             }
 
             if (result.error) throw result.error;
-            
+
             alert(isDraft ? '비공개로 저장되었습니다.' : '저장되었습니다.');
-            location.href = returnUrl;
+            if (isNew) {
+                location.href = returnUrl;
+            } else {
+                location.reload();
+            }
         } catch (err) {
             console.error('Save error:', err);
             alert('저장 중 오류가 발생했습니다.');

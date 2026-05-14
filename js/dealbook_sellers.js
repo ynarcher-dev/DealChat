@@ -569,7 +569,11 @@ $(document).ready(function () {
             }
             if (res.error) throw res.error;
             alert(isDraft ? '비공개 저장 완료' : '저장 완료');
-            location.href = returnUrl;
+            if (isNew) {
+                location.href = returnUrl;
+            } else {
+                location.reload();
+            }
         } catch (err) { alert('저장 실패: ' + err.message); }
         finally { $btn.prop('disabled', false).html(origHtml); }
     }
