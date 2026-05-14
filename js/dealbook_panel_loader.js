@@ -18,7 +18,7 @@
 
     /* ─── 중앙 AI 채팅 패널 ─── */
     const chatPanel = `
-        <main class="main-content" style="height: 100vh; overflow: hidden; border-right: 1px solid var(--border-color); border-left: 1px solid var(--border-color);">
+        <main class="main-content" style="height: 100vh; overflow: hidden;">
             <header class="panel-header" style="height: 65px; padding: 0 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; position: relative;">
                 <h2 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
                     <span class="material-symbols-outlined" style="font-size: 20px; color: var(--page-theme-color);">smart_toy</span>
@@ -105,6 +105,23 @@
 
     /* ─── 우측 데이터 소스 패널 (double: sellers) ─── */
     const doubleSrc = `
+        <div class="data-section" id="company-search-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">MY Companies에서 불러오기</h3>
+                <button id="btn-direct-input" class="btn-new-source"
+                    style="width: auto; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">edit_note</span>
+                    <span>직접 입력</span>
+                </button>
+            </div>
+            <div style="position: relative;">
+                <input type="text" id="company-search-input" class="db-field-input"
+                    placeholder="연동할 기업명을 검색하세요..."
+                    style="border-radius: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div id="company-search-suggestions"
+                    style="display: none; position: absolute; top: 52px; left: 0; right: 0; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); z-index: 10000; overflow-y: auto; max-height: 300px; padding: 8px 0; border: 1px solid rgba(0,0,0,0.05);"></div>
+            </div>
+        </div>
         <div class="data-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
                 <h3 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">학습데이터(기업 연동)</h3>
@@ -133,10 +150,16 @@
             </p>
         </div>`;
 
+    const backUrl = `/my_${pageType}`;
+
     const rightPanel = `
         <aside class="right-panel" id="guide-panel">
             <div class="panel-header"
-                style="height: 65px; padding: 0 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center;">
+                style="height: 65px; padding: 0 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; position: relative;">
+                <button class="btn-icon-only" onclick="location.href=resolveUrl('${backUrl}')" title="목록으로"
+                    style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
+                </button>
                 <h2 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
                     <span class="material-symbols-outlined" style="font-size: 20px; color: #10b981;">folder_managed</span>
                     데이터 소스

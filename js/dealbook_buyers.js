@@ -7,6 +7,7 @@ import { escapeForDisplay } from './utils.js';
 import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons } from './dealbook_report_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
+import { showToast, showPanelOverlay } from './toast_utils.js';
 
 
 
@@ -290,7 +291,10 @@ $(document).ready(function () {
             })
             .join('\n\n---\n\n');
         
-        if (!contextText) return alert('분석할 수 있는 학습 파일 내용이 없습니다. 텍스트가 포함된 분석 완료된 파일을 먼저 업로드해주세요.');
+        if (!contextText) {
+            showToast('분석할 수 있는 학습 파일이 없습니다. 분석 완료된 파일을 먼저 업로드해주세요.', { icon: 'info', iconColor: '#6366f1', duration: 3000 });
+            return;
+        }
         const $btn = $(this);
         const originalHtml = $btn.html();
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 분석 중...');
@@ -336,17 +340,19 @@ $(document).ready(function () {
             if (json.interest_summary) $('#buyer-interest-summary').val(json.interest_summary);
             if (json.private_memo) $('#private-memo').val(json.private_memo);
             autoResizeAllTextareas();
-            alert('AI 분석이 완료되었습니다.');
+            showToast('AI 자동 입력이 완료되었습니다.', { icon: 'check_circle', iconColor: '#22c55e' });
         } catch (e) {
             console.error(e);
+            let toastMsg;
             if (e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED') || e.message.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
-                alert('⚠️ AI 요청 한도를 초과했습니다.\n해당 모델의 예약 기능이 제한되었습니다. 다른 모델을 선택해 주세요.');
+                toastMsg = 'AI 요청 한도를 초과했습니다. 다른 모델을 선택해 주세요.';
             } else if (e.message.includes('503') || e.message.includes('UNAVAILABLE') || e.message.includes('high demand')) {
-                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+                toastMsg = 'AI 서비스 접속자가 많아 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
             } else {
-                alert('AI 분석 중 오류가 발생했습니다: ' + (e.message || '알 수 없는 형식'));
+                toastMsg = 'AI 분석 중 오류가 발생했습니다: ' + (e.message || '알 수 없는 형식');
             }
+            showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         } finally {
             $btn.prop('disabled', false).html(originalHtml);
         }
@@ -499,51 +505,88 @@ $(document).ready(function () {
         $('#file-upload').click();
     });
 
-    $('#file-upload').on('change', async e => {
-        const files = e.target.files;
-        if (!files.length) return;
-        for (const file of files) {
-            if (!(await filetypecheck(file))) continue;
-            const tempId = `temp-${Date.now()}`;
-            // 분석 중... (Loading) 항목 추가
-            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
-            
-            const res = await fileUpload(file, currentuser_id, isNew ? null : buyerId, null, isNew ? null : buyerId);
-            
-            // [Fix] res.success 대신 실제 파일 객체(storage_path) 유무로 판단
-            const uploadedFile = Array.isArray(res) ? res[0] : res;
-            if (uploadedFile && uploadedFile.storage_path) {
-                // [New] 텍스트 필드명 통합 체크
-                const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
-                const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
-                const badgeClass = isSearchable ? 'badge-ai-reflected' : 'badge-ai-failed';
-                const badgeText = isSearchable ? 'AI 반영됨' : 'AI 불가';
-                const badgeColor = isSearchable ? '#22c55e' : '#ef4444';
-                const badgeBg = isSearchable ? '#f0fdf4' : '#fee2e2';
-                const badgeBorder = isSearchable ? '#bbf7d0' : '#fca5a5';
+    async function processBuyerFiles(files) {
+        if (!files || !files.length) return;
 
-                $tempItem.find('.ai-status-badge')
-                    .removeClass('badge-ai-loading')
-                    .addClass(badgeClass)
-                    .text(badgeText)
-                    .css({'color': badgeColor, 'background': badgeBg, 'border-color': badgeBorder});
-                
-                const { openSignedFile } = await import('./file_render_utils.js');
-                $tempItem.find('a').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
-                $tempItem.attr('data-id', uploadedFile.id);
-                $tempItem.find('.btn-delete-file').attr('data-id', uploadedFile.id);
+        const total = files.length;
+        let successCount = 0;
+        let failCount = 0;
+        let processed = 0;
 
-                // [New] 신규 모드와 수정 모드에 맞춰 파일 리스트 업데이트
-                if (isNew) {
-                    pendingFiles.push(uploadedFile);
-                } else {
-                    availableFiles.push(uploadedFile);
+        const $fileCard = $('#training-drop-zone');
+        const overlay = showPanelOverlay($fileCard[0], {
+            label: total > 1 ? `파일 분석 중... (0/${total})` : '파일 분석 중...'
+        });
+
+        try {
+            for (const file of files) {
+                processed++;
+                if (total > 1) overlay.update(`파일 분석 중... (${processed}/${total})`);
+
+                if (!(await filetypecheck(file))) {
+                    // 거부 토스트는 filetypecheck 내부에서 표시
+                    failCount++;
+                    continue;
                 }
+                const tempId = `temp-${Date.now()}`;
+                const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
+
+                try {
+                    const res = await fileUpload(file, currentuser_id, isNew ? null : buyerId, null, isNew ? null : buyerId);
+                    const uploadedFile = Array.isArray(res) ? res[0] : res;
+
+                    if (uploadedFile && uploadedFile.storage_path) {
+                        const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
+                        const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
+                        const badgeClass = isSearchable ? 'badge-ai-reflected' : 'badge-ai-failed';
+                        const badgeText = isSearchable ? 'AI 반영됨' : 'AI 불가';
+                        const badgeColor = isSearchable ? '#22c55e' : '#ef4444';
+                        const badgeBg = isSearchable ? '#f0fdf4' : '#fee2e2';
+                        const badgeBorder = isSearchable ? '#bbf7d0' : '#fca5a5';
+
+                        $tempItem.find('.ai-status-badge')
+                            .removeClass('badge-ai-loading')
+                            .addClass(badgeClass)
+                            .text(badgeText)
+                            .css({'color': badgeColor, 'background': badgeBg, 'border-color': badgeBorder});
+
+                        const { openSignedFile } = await import('./file_render_utils.js');
+                        $tempItem.find('a').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
+                        $tempItem.attr('data-id', uploadedFile.id);
+                        $tempItem.find('.btn-delete-file').attr('data-id', uploadedFile.id);
+
+                        if (isNew) pendingFiles.push(uploadedFile);
+                        else availableFiles.push(uploadedFile);
+
+                        successCount++;
+                    } else {
+                        $tempItem.find('.badge-ai-loading').removeClass('badge-ai-loading').addClass('badge-ai-failed').text('실패')
+                                 .css({'color': '#ef4444', 'background': '#fee2e2', 'border-color': '#fca5a5'});
+                        failCount++;
+                        showToast(`${file.name} 업로드에 실패했습니다.`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
+                    }
+                } catch (err) {
+                    console.error('Upload Error:', err);
+                    $tempItem.remove();
+                    failCount++;
+                    const reason = (err && err.message) ? err.message.split('\n')[0] : '알 수 없는 오류';
+                    showToast(`${file.name}: ${reason}`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
+                }
+            }
+        } finally {
+            if (successCount > 0) {
+                const msg = failCount > 0
+                    ? `${successCount}개 업로드 완료 · ${failCount}개 실패`
+                    : `${successCount}개 파일 업로드 완료`;
+                overlay.hide({ status: 'success', toast: msg });
             } else {
-                $tempItem.find('.badge-ai-loading').removeClass('badge-ai-loading').addClass('badge-ai-failed').text('실패')
-                         .css({'color': '#ef4444', 'background': '#fee2e2', 'border-color': '#fca5a5'});
+                overlay.hide();
             }
         }
+    }
+
+    $('#file-upload').on('change', async e => {
+        await processBuyerFiles(e.target.files);
         $(e.target).val('');
     });
 
@@ -558,45 +601,7 @@ $(document).ready(function () {
     }).on('drop', async function(e) {
         e.preventDefault();
         $(this).removeClass('drag-over');
-        const files = e.originalEvent.dataTransfer.files;
-        for (const file of files) {
-            if (!(await filetypecheck(file))) continue;
-            const tempId = `temp-${Date.now()}`;
-            const $tempItem = addFileToSourceList(file.name, tempId, '', true, true, 'loading', null, '#22c55e');
-            
-            const res = await fileUpload(file, currentuser_id, isNew ? null : buyerId, null, isNew ? null : buyerId);
-            
-            // [Fix] 드롭 시에도 res.success 대신 실제 파일 객체 유무로 판단
-            const uploadedFile = Array.isArray(res) ? res[0] : res;
-            if (uploadedFile && uploadedFile.storage_path) {
-                const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
-                const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
-                const badgeClass = isSearchable ? 'badge-ai-reflected' : 'badge-ai-failed';
-                const badgeText = isSearchable ? 'AI 반영됨' : 'AI 불가';
-                const badgeColor = isSearchable ? '#22c55e' : '#ef4444';
-                const badgeBg = isSearchable ? '#f0fdf4' : '#fee2e2';
-                const badgeBorder = isSearchable ? '#bbf7d0' : '#fca5a5';
-
-                $tempItem.find('.ai-status-badge')
-                    .removeClass('badge-ai-loading')
-                    .addClass(badgeClass)
-                    .text(badgeText)
-                    .css({'color': badgeColor, 'background': badgeBg, 'border-color': badgeBorder});
-                
-                const { openSignedFile: openSigned2 } = await import('./file_render_utils.js');
-                $tempItem.find('a').attr('href', '#').off('click').on('click', openSigned2(uploadedFile.storage_path));
-                $tempItem.attr('data-id', uploadedFile.id);
-
-                if (isNew) {
-                    pendingFiles.push(uploadedFile);
-                } else {
-                    availableFiles.push(uploadedFile);
-                }
-            } else {
-                $tempItem.find('.badge-ai-loading').removeClass('badge-ai-loading').addClass('badge-ai-failed').text('실패')
-                         .css({'color': '#ef4444', 'background': '#fee2e2', 'border-color': '#fca5a5'});
-            }
-        }
+        await processBuyerFiles(e.originalEvent.dataTransfer.files);
     });
 
     function switchMode(mode) {

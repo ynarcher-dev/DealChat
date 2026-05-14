@@ -47,10 +47,6 @@
         <aside class="sidebar">
             <!-- 헤더 -->
             <div class="panel-header db-panel-header">
-                <button class="btn-icon-only" onclick="location.href=resolveUrl('/my_sellers')" title="이전으로"
-                    style="color: var(--text-secondary); position: absolute; left: 15px; margin-left: 0;">
-                    <span class="material-symbols-outlined" style="font-size: 24px;">arrow_back</span>
-                </button>
                 <h2 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;
                            display: flex; align-items: center; gap: 8px;">
                     <span class="material-symbols-outlined" style="font-size: 20px; color: var(--page-theme-color);">storefront</span>
@@ -90,12 +86,9 @@
                             </label>
                         </div>
                         <div class="db-field-wrapper">
-                            <span class="notebook-title" id="seller-name-editor" contenteditable="true"
-                                style="font-size: 14px; font-weight: 700; color: #1e293b; width: 100%; outline: none;"
+                            <span class="notebook-title" id="seller-name-editor" contenteditable="false"
+                                style="font-size: 14px; font-weight: 700; color: #94a3b8; width: 100%; outline: none; cursor: not-allowed;"
                                 placeholder="매도자명"></span>
-                            <!-- 기업명 제안 드롭다운 -->
-                            <div id="company-suggestions"
-                                style="display: none; position: absolute; top: 48px; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); z-index: 10000; overflow-y: auto; max-height: 250px;"></div>
                         </div>
                     </div>
                     <!-- 산업 -->

@@ -10,6 +10,7 @@ import { autoResizeTextarea } from './textarea_utils.js';
 import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
 import { getSignedFileUrl } from './file_render_utils.js';
 import { assignBlindLabels } from './my_list_utils.js';
+import { showToast, showPanelOverlay } from './toast_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -98,6 +99,7 @@ $(document).ready(function () {
     let currentSourceType = 'training';
     let myCompanies = [];
     let selectedCompanyId = null; // 선택된 기업의 UUID 추적
+    let isDirectInputMode = false; // 직접 입력 모드 추적
 
     // ==========================================
     // AI 모델 선택기
@@ -193,7 +195,15 @@ $(document).ready(function () {
     async function fillCompanyFields(company) {
         if (!company) return;
         const companyName = company.companyName || '';
-        $('#seller-name-editor').text(companyName).trigger('input');
+        // 기업명 반영 (검색 모드에서는 비활성화 유지)
+        $('#seller-name-editor').text(companyName);
+        // 검색 모드에서 선택된 경우: 기업명 필드는 비활성화 유지
+        if (!isDirectInputMode) {
+            disableSellerNameEditor();
+        }
+        document.title = `${companyName || '매도인'} - 매도인 정보`;
+        $('#sidebar-header-title').text(companyName || '매도인 정보');
+        
         $('#seller-industry').val(company.industry || '기타').trigger('change');
         $('#seller-ceo').val(company.ceoName || '');
         $('#seller-email').val(company.companyEmail || '');
@@ -225,8 +235,27 @@ $(document).ready(function () {
         if (typeof setChip === 'function') setChip('대기');
         $('#btn-delete-seller').hide();
         autoResizeAllTextareas();
-        $('#company-suggestions').hide();
+        
+        // 검색박스에 선택된 기업명 반영 및 readonly 처리
+        $('#company-search-input').val(companyName).prop('readonly', true).css({ 'background': '#f5f3ff', 'color': '#7c3aed', 'font-weight': '600', 'border-color': '#ddd6fe' });
+        
         loadAvailableFiles(); // 데이터 소스 패널(학습 데이터) 새로고침 추가
+    }
+
+    // 기업명 필드 비활성화 헬퍼
+    function disableSellerNameEditor() {
+        const $editor = $('#seller-name-editor');
+        $editor.attr('contenteditable', 'false');
+        $editor.css({ 'color': '#94a3b8', 'cursor': 'not-allowed' });
+        $editor.closest('.db-field-wrapper').css({ 'background-color': '#f8fafc' });
+    }
+
+    // 기업명 필드 활성화 헬퍼
+    function enableSellerNameEditor() {
+        const $editor = $('#seller-name-editor');
+        $editor.attr('contenteditable', 'true');
+        $editor.css({ 'color': '#1e293b', 'cursor': 'auto' });
+        $editor.closest('.db-field-wrapper').css({ 'background-color': '#ffffff' });
     }
 
     function toggleCompanyFields(isEnabled) {
@@ -256,6 +285,14 @@ $(document).ready(function () {
             el.removeClass('field-active field-disabled').addClass(isEnabled ? 'field-active' : 'field-disabled');
         });
 
+        // 기업명 필드: 직접 입력 모드일 때만 활성화
+        if (isEnabled && isDirectInputMode) {
+            enableSellerNameEditor();
+        } else if (!isEnabled) {
+            disableSellerNameEditor();
+        }
+        // 검색 선택 모드에서는 기업명 비활성화 유지 (별도 처리 불필요)
+
         // 체크박스 및 토글 처리
         $('#negotiable-check').prop('disabled', !isEnabled);
         $('#method-negotiable-check').prop('disabled', !isEnabled);
@@ -273,41 +310,98 @@ $(document).ready(function () {
         $('.btn-status-chip').css({ 'pointer-events': isEnabled ? 'auto' : 'none', 'opacity': isEnabled ? '1' : '0.7' });
     }
 
-    // 기업명 입력 이벤트 (자동 완성)
+    // 기업명 입력 이벤트 (직접 입력 모드에서의 제목 업데이트만)
     $('#seller-name-editor').on('input focus keyup focusin', function() {
         const name = $(this).text().trim() || '매도인';
-        const query = name.toLowerCase();
         document.title = `${name} - 매도인 정보`;
         $('#sidebar-header-title').text(name || '매도인 정보');
+    });
 
-        const $suggestions = $('#company-suggestions');
-        if (!name || name === '매도인') { $suggestions.hide(); return; }
+    // [신규] 우측 패널 기업명 검색 이벤트
+    $(document).on('input focus', '#company-search-input', function() {
+        const query = $(this).val().trim().toLowerCase();
+        const $suggestions = $('#company-search-suggestions');
         
-        const filtered = myCompanies.filter(c => (c.name || "").toLowerCase().includes(query) || (c.companyName || "").toLowerCase().includes(query));
+        if (!query) { $suggestions.hide(); return; }
+        
+        const filtered = myCompanies.filter(c => 
+            (c.name || "").toLowerCase().includes(query) || 
+            (c.companyName || "").toLowerCase().includes(query)
+        );
         
         $suggestions.empty().show();
 
         if (filtered.length > 0) {
             filtered.slice(0, 10).forEach(c => {
-                const $item = $(`<div style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; transition: background 0.2s;">
-                                    <div style="font-weight: 700; color: #1e293b;">${c.name || c.companyName || ""}</div>
-                                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${c.industry || '기타'}</div>
+                const $item = $(`<div style="padding: 14px 20px; cursor: pointer; border-bottom: 1px solid #f8fafc; transition: all 0.2s ease;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 14px;">${c.name || c.companyName || ""}</div>
+                                        <div style="font-size: 11px; background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 6px;">${c.industry || '기타'}</div>
+                                    </div>
+                                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        ${c.companyAddress || '주소 정보 없음'}
+                                    </div>
                                  </div>`);
-                $item.on('mouseenter', function() { $(this).css('background', '#f1f5f9'); }).on('mouseleave', function() { $(this).css('background', 'white'); });
-                $item.on('mousedown', (e) => { e.preventDefault(); selectedCompanyId = c.id; fillCompanyFields(c); });
+                $item.on('mouseenter', function() { $(this).css({ 'background': '#f5f3ff', 'padding-left': '24px' }); })
+                     .on('mouseleave', function() { $(this).css({ 'background': 'transparent', 'padding-left': '20px' }); });
+                $item.on('mousedown', (e) => { 
+                    e.preventDefault(); 
+                    isDirectInputMode = false;
+                    selectedCompanyId = c.id; 
+                    fillCompanyFields(c); 
+                    $suggestions.hide();
+                });
                 $suggestions.append($item);
             });
+        } else {
+            $suggestions.append(`<div style="padding: 12px 16px; font-size: 13px; color: #94a3b8; text-align: center;">검색 결과가 없습니다</div>`);
         }
+    });
 
-        const $directItem = $(`<div style="padding: 10px 16px; cursor: pointer; border-top: 2px solid #f1f5f9; font-size: 13px; color: #8b5cf6; font-weight: 600; background: #f8fafc;">
-                                <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">edit_note</span> 직접 입력 (편집 활성화)
-                             </div>`);
-        $directItem.on('mousedown', (e) => { 
-            e.preventDefault(); 
-            toggleCompanyFields(true);
-            $suggestions.hide(); 
-        });
-        $suggestions.append($directItem);
+    // 검색창 외부 클릭 시 드롭다운 닫기
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#company-search-input, #company-search-suggestions').length) {
+            $('#company-search-suggestions').hide();
+        }
+    });
+
+    // [신규] 직접 입력 버튼
+    $(document).on('click', '#btn-direct-input', function() {
+        isDirectInputMode = true;
+        selectedCompanyId = null;
+        
+        // 기업명 필드 활성화
+        enableSellerNameEditor();
+        $('#seller-name-editor').text('').focus();
+        
+        // 모든 필드 활성화
+        toggleCompanyFields(true);
+        
+        // 검색 입력 초기화
+        $('#company-search-input').val('').prop('readonly', false).css({ 'background': '#ffffff', 'color': '#1e293b', 'font-weight': '400', 'border-color': '' });
+        $('#company-search-suggestions').hide();
+        
+        showToast('직접 입력 모드가 활성화되었습니다.', { icon: 'edit_note', iconColor: '#7c3aed', duration: 2000 });
+    });
+
+    // [신규] 검색박스 지우기 (검색박스가 readonly인 상태에서 클릭 시 초기화)
+    $(document).on('click', '#company-search-input', function() {
+        if ($(this).prop('readonly')) {
+            selectedCompanyId = null;
+            $(this).val('').prop('readonly', false).css({ 'background': '#ffffff', 'color': '#1e293b', 'font-weight': '400', 'border-color': '' }).focus();
+            
+            // 기업명 필드 비활성화 (검색 모드로 돌아감)
+            isDirectInputMode = false;
+            disableSellerNameEditor();
+            $('#seller-name-editor').text('');
+            document.title = '매도인 - 매도인 정보';
+            $('#sidebar-header-title').text('매도인 정보');
+            
+            // 모든 필드 비활성화
+            toggleCompanyFields(false);
+            renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
+            loadAvailableFiles();
+        }
     });
 
     $('#seller-industry').on('change', function() {
@@ -375,6 +469,7 @@ $(document).ready(function () {
             renderFinancialTable(migrateFinancialInfo(null), 'financial-table-container');
             
             toggleCompanyFields(false); // Initial State: Disable all fields
+            disableSellerNameEditor(); // 기업명 필드도 비활성화
             $('#btn-delete-seller').hide();
             hideLoader();
             $('body').removeClass('is-loading');
@@ -513,7 +608,22 @@ $(document).ready(function () {
             if (shouldEnterReportMode({ viewMode, fromSource, allowedSources: ['totalseller', 'total_sellers', 'shared'], isNew, isOwner })) {
                 applySellerReadOnlyMode();
                 applyBlindMasking();
-            } else if (seller.companies) toggleCompanyFields(true);
+            } else if (seller.companies) {
+                // 기존 데이터: 기업 연동이 된 경우 → 검색 모드 (기업명 비활성화)
+                isDirectInputMode = false;
+                selectedCompanyId = seller.company_id;
+                toggleCompanyFields(true);
+                disableSellerNameEditor();
+                
+                // 검색박스에 연동된 기업명 반영
+                const linkedName = sellerName;
+                $('#company-search-input').val(linkedName).prop('readonly', true).css({ 'background': '#f5f3ff', 'color': '#7c3aed', 'font-weight': '600', 'border-color': '#ddd6fe' });
+            } else {
+                // 기존 데이터: 기업 연동이 안 된 경우 → 직접 입력 모드
+                isDirectInputMode = true;
+                toggleCompanyFields(true);
+                enableSellerNameEditor();
+            }
 
             loadAvailableFiles();
             if (seller.history && Array.isArray(seller.history)) {
@@ -693,48 +803,75 @@ $(document).ready(function () {
     async function handleFileUploads(files) {
         if (!files.length) return;
         const $listA = $('#source-list-additional');
-        
-        for (const file of files) {
-            if (!(await filetypecheck(file))) continue;
-            
-            // 1. 임시 로딩 항목 추가
-            const loadingBadge = getFileBadgeHtml(null, 'loading');
-            const $tempItem = $(`<li class="temp-loading-item" style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
-                ${loadingBadge}
-                <span style="flex:1; font-size:13px; color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
-            </li>`);
-            
-            // "파일 없음" 문구 제거 (이미 renderFileList에서 제거했으므로 추가 안전장치)
-            if ($listA.find('li:contains("파일 없음")').length) $listA.empty();
-            $listA.append($tempItem);
 
-            try {
-                // File_Functions.js의 fileUpload는 내부적으로 DB Insert까지 수행함
-                const uploadResult = await fileUpload(file, user_id, isNew ? null : sellerId, null, isNew ? null : sellerId);
+        const total = files.length;
+        let successCount = 0;
+        let failCount = 0;
+        let processed = 0;
 
-                
-                const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
-                
-                if (uploadedFile && uploadedFile.id) {
-                    // [중요] 엔티티 타입과 ID를 seller로 명시적으로 업데이트
-                    await _supabase.from('files')
-                        .update({ 
-                            entity_type: 'seller', 
-                            entity_id: isNew ? null : sellerId 
-                        })
-                        .eq('id', uploadedFile.id);
-                    
-                    if (isNew) {
-                        pendingFiles.push(uploadedFile);
-                    }
+        const $fileCard = $listA.closest('.file-list-card');
+        const overlay = showPanelOverlay($fileCard[0], {
+            label: total > 1 ? `파일 분석 중... (0/${total})` : '파일 분석 중...'
+        });
+
+        try {
+            for (const file of files) {
+                processed++;
+                if (total > 1) overlay.update(`파일 분석 중... (${processed}/${total})`);
+
+                if (!(await filetypecheck(file))) {
+                    // 거부 토스트는 filetypecheck 내부에서 표시
+                    failCount++;
+                    continue;
                 }
-            } catch (err) { 
-                console.error('Upload Error:', err);
-                alert(`${file.name} 업로드 실패: ${err.message}`); 
-                $tempItem.remove();
+
+                const loadingBadge = getFileBadgeHtml(null, 'loading');
+                const $tempItem = $(`<li class="temp-loading-item" style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+                    ${loadingBadge}
+                    <span style="flex:1; font-size:13px; color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
+                </li>`);
+
+                if ($listA.find('li:contains("파일 없음")').length) $listA.empty();
+                $listA.append($tempItem);
+
+                try {
+                    const uploadResult = await fileUpload(file, user_id, isNew ? null : sellerId, null, isNew ? null : sellerId);
+                    const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
+
+                    if (uploadedFile && uploadedFile.id) {
+                        await _supabase.from('files')
+                            .update({
+                                entity_type: 'seller',
+                                entity_id: isNew ? null : sellerId
+                            })
+                            .eq('id', uploadedFile.id);
+
+                        if (isNew) pendingFiles.push(uploadedFile);
+                        successCount++;
+                    } else {
+                        failCount++;
+                        $tempItem.remove();
+                        showToast(`${file.name} 업로드에 실패했습니다.`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
+                    }
+                } catch (err) {
+                    console.error('Upload Error:', err);
+                    $tempItem.remove();
+                    failCount++;
+                    const reason = (err && err.message) ? err.message.split('\n')[0] : '알 수 없는 오류';
+                    showToast(`${file.name}: ${reason}`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
+                }
             }
+        } finally {
+            if (successCount > 0) {
+                const msg = failCount > 0
+                    ? `${successCount}개 업로드 완료 · ${failCount}개 실패`
+                    : `${successCount}개 파일 업로드 완료`;
+                overlay.hide({ status: 'success', toast: msg });
+            } else {
+                overlay.hide();
+            }
+            loadAvailableFiles();
         }
-        loadAvailableFiles();
     }
 
     $('#file-upload').on('change', function() {
@@ -876,10 +1013,13 @@ $(document).ready(function () {
     // AI 자동 입력 추출
     $('#ai-auto-fill-btn').on('click', async function() {
         const totalFiles = availableFiles.length + companyLinkedFiles.length;
-        if (totalFiles === 0) { alert('분석할 파일이 없습니다. 파일을 먼저 추가하거나 기업을 선택하세요.'); return; }
-        
+        if (totalFiles === 0) {
+            showToast('분석할 파일이 없습니다. 파일을 먼저 추가하거나 기업을 선택하세요.', { icon: 'info', iconColor: '#6366f1', duration: 3000 });
+            return;
+        }
+
         const $btn = $(this), orig = $btn.html();
-        
+
         $btn.prop('disabled', true)
             .addClass('analyzing')
             .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
@@ -914,7 +1054,10 @@ $(document).ready(function () {
             });
 
             const ctx = ragContexts.join("\n\n---\n\n");
-            if (!ctx) { alert('파일에서 분석할 수 있는 텍스트를 찾을 수 없습니다.'); return; }
+            if (!ctx) {
+                showToast('파일에서 분석할 수 있는 텍스트를 찾을 수 없습니다.', { icon: 'info', iconColor: '#6366f1', duration: 2500 });
+                return;
+            }
 
             const prompt = `
 업로드된 기업 관련 문서 내용을 바탕으로 다음 정보를 추출하여 정확한 JSON 형식으로 답변해주세요.
@@ -1031,7 +1174,12 @@ $(document).ready(function () {
 
                 if (json.companyName) {
                     const companyName = json.companyName;
-                    $('#seller-name-editor').text(companyName).trigger('input');
+                    // 검색 모드에서 이미 기업이 선택된 경우에는 기업명을 덮어쓰지 않음
+                    if (isDirectInputMode || !selectedCompanyId) {
+                        $('#seller-name-editor').text(companyName);
+                        document.title = `${companyName} - 매도인 정보`;
+                        $('#sidebar-header-title').text(companyName || '매도인 정보');
+                    }
                     // [추가] 기업명을 키워드 블라인드에 자동 추가
                     if (companyName && !blindKeywords.includes(companyName)) {
                         blindKeywords.push(companyName);
@@ -1055,20 +1203,21 @@ $(document).ready(function () {
                     renderFinancialTable(migrateFinancialInfo(json.financial_info), 'financial-table-container');
                 }
                 autoResizeAllTextareas();
-                $('#company-suggestions').hide();
-                alert('AI가 파일 내용을 분석하여 정보를 자동으로 입력했습니다.');
+                finishPending(aiPendingId, { status: 'success', toast: 'AI 자동 입력이 완료되었습니다.' });
             }
-        } catch (e) { 
-            console.error('AI Auto-fill Error:', e); 
+        } catch (e) {
+            console.error('AI Auto-fill Error:', e);
             const errMsg = e.message || '';
+            let toastMsg;
             if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
-                alert('⚠️ AI 요청 한도를 초과했습니다.\n다른 모델을 선택해 주세요.');
+                toastMsg = 'AI 요청 한도를 초과했습니다. 다른 모델을 선택해 주세요.';
             } else if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
-                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+                toastMsg = 'AI 서비스 접속자가 많아 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
             } else {
-                alert('정보 추출 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식'));
+                toastMsg = '정보 추출 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식');
             }
+            finishPending(aiPendingId, { status: 'error', toast: toastMsg });
         }
         finally { $btn.prop('disabled', false).removeClass('analyzing').html(orig); }
     });

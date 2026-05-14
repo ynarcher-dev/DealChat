@@ -16,7 +16,9 @@ body {
     background: #ffffff;
 }
 
+/* 시각적 패널 순서: [데이터 소스] | [입력폼] | [AI 채팅] */
 .sidebar {
+    order: 2;
     flex: 2;
     min-width: 400px;
     display: flex;
@@ -26,6 +28,7 @@ body {
 }
 
 .main-content {
+    order: 3;
     flex: 1;
     min-width: 0;
     display: flex;
@@ -33,12 +36,13 @@ body {
 }
 
 .right-panel {
+    order: 1;
     flex: 1;
     min-width: 320px;
     display: flex;
     flex-direction: column;
     background: #ffffff;
-    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
 }
 
 /* 공통 패널 마운트 포인트 - flex 레이아웃에 투명하게 동작 */

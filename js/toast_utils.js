@@ -1,11 +1,13 @@
 /**
- * toast_utils.js — 공용 토스트 알림 유틸
+ * toast_utils.js — 공용 토스트 알림 + 패널 오버레이 유틸
  *
- * 페이지에 토스트 엘리먼트가 없으면 자동으로 주입한 뒤
- * 짧은 메시지를 잠시 표시하고 사라집니다.
+ * - showToast(): 짧은 알림 메시지를 비차단 방식으로 노출
+ * - showPanelOverlay(target, options): 특정 패널 위에 블러+스피너 오버레이를 띄움
+ *   여러 파일 업로드처럼 "이 영역은 지금 처리 중" 임을 컨텍스트로 보여줄 때 사용
  */
 
 const TOAST_ID = 'global-toast';
+const OVERLAY_STYLE_ID = 'dealchat-panel-overlay-style';
 
 function ensureToastElement() {
     let el = document.getElementById(TOAST_ID);
@@ -78,7 +80,6 @@ export function showToast(message, options = {}) {
     if (fadeTimer) clearTimeout(fadeTimer);
 
     el.style.display = 'flex';
-    // 다음 프레임에 트랜지션 트리거
     requestAnimationFrame(() => {
         el.style.opacity = '1';
         el.style.transform = 'translateX(-50%) translateY(0)';
@@ -91,4 +92,117 @@ export function showToast(message, options = {}) {
             el.style.display = 'none';
         }, 220);
     }, duration);
+}
+
+// ============================================================================
+// 패널 오버레이 — 특정 영역 위에 블러+스피너를 띄워 "이 영역 처리 중" 표시
+// ============================================================================
+
+function ensureOverlayStyle() {
+    if (document.getElementById(OVERLAY_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = OVERLAY_STYLE_ID;
+    style.textContent = `
+@keyframes dealchat-panel-overlay-spin { to { transform: rotate(360deg); } }
+.dc-panel-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(2.5px);
+    -webkit-backdrop-filter: blur(2.5px);
+    border-radius: inherit;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+}
+.dc-panel-overlay.is-visible { opacity: 1; }
+.dc-panel-overlay-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255, 255, 255, 0.55);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: dealchat-panel-overlay-spin 0.75s linear infinite;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+.dc-panel-overlay-label {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+}
+`;
+    document.head.appendChild(style);
+}
+
+/**
+ * 대상 엘리먼트 위에 블러 + 스피너 오버레이를 띄웁니다.
+ * 반환된 핸들의 update/hide 로 라벨 변경·해제할 수 있습니다.
+ *
+ * @param {Element|JQuery} target - 오버레이를 입힐 패널 (보통 .data-section)
+ * @param {object} [options]
+ * @param {string} [options.label='처리 중...'] - 스피너 아래 표시할 라벨
+ * @returns {{ update(label: string): void, hide(opts?: {toast?: string, status?: 'success'|'error'|'info'}): void }}
+ */
+export function showPanelOverlay(target, options = {}) {
+    const el = (target && target.jquery) ? target[0] : target;
+    if (!el) return { update() {}, hide() {} };
+
+    ensureOverlayStyle();
+
+    // 자식 absolute를 받을 수 있도록 position 보정
+    const computed = window.getComputedStyle(el);
+    const prevPosition = el.style.position;
+    const needsRelative = computed.position === 'static';
+    if (needsRelative) el.style.position = 'relative';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'dc-panel-overlay';
+
+    const spinner = document.createElement('div');
+    spinner.className = 'dc-panel-overlay-spinner';
+
+    const label = document.createElement('div');
+    label.className = 'dc-panel-overlay-label';
+    label.textContent = options.label || '처리 중...';
+
+    overlay.appendChild(spinner);
+    overlay.appendChild(label);
+    el.appendChild(overlay);
+
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+    let removed = false;
+    return {
+        update(newLabel) {
+            if (!removed && typeof newLabel === 'string') label.textContent = newLabel;
+        },
+        hide(opts = {}) {
+            if (removed) return;
+            removed = true;
+            overlay.classList.remove('is-visible');
+            setTimeout(() => {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                if (needsRelative) el.style.position = prevPosition;
+            }, 200);
+
+            if (opts.toast) {
+                const status = opts.status || 'success';
+                if (status === 'error') {
+                    showToast(opts.toast, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
+                } else if (status === 'info') {
+                    showToast(opts.toast, { icon: 'info', iconColor: '#6366f1', duration: 2500 });
+                } else {
+                    showToast(opts.toast, { icon: 'check_circle', iconColor: '#22c55e' });
+                }
+            }
+        }
+    };
 }

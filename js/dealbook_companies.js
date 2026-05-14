@@ -9,6 +9,7 @@ import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportS
 import { autoResizeTextarea } from './textarea_utils.js';
 import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
+import { showToast, showPanelOverlay } from './toast_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -569,13 +570,13 @@ $(document).ready(function () {
             .join('\n\n---\n\n');
 
         if (!contextText) {
-            alert('분석할 수 있는 파일 내용이 없습니다. 먼저 텍스트가 포함된 분석 완료된 파일을 업로드해주세요.');
+            showToast('분석할 수 있는 파일 내용이 없습니다. 먼저 분석 완료된 파일을 업로드해주세요.', { icon: 'info', iconColor: '#6366f1', duration: 3000 });
             return;
         }
 
         const $btn = $(this);
         const originalHtml = $btn.html();
-        
+
         // [수정] 분석 중 테마 활성화 모드 (CSS 클래스 기반)
         $btn.prop('disabled', true)
             .addClass('analyzing')
@@ -808,19 +809,21 @@ $(document).ready(function () {
             $('.format-number').trigger('input');
             autoResizeAllTextareas();
             
-            alert('AI가 파일 내용을 분석하여 정보를 자동으로 입력했습니다.');
+            showToast('AI 자동 입력이 완료되었습니다.', { icon: 'check_circle', iconColor: '#22c55e' });
 
         } catch (err) {
             console.error('AI Auto-fill Error:', err);
             const errMsg = err.message || '';
+            let toastMsg;
             if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
                 markModelAsExceeded(getCurrentModelId());
-                alert('⚠️ AI 요청 한도를 초과했습니다.\n해당 모델의 상담이 제한되었습니다. 다른 모델을 선택해 주세요.');
+                toastMsg = 'AI 요청 한도를 초과했습니다. 다른 모델을 선택해 주세요.';
             } else if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
-                alert('⚠️ AI 서비스 접속자가 많아 현재 요청을 처리할 수 없습니다.\n잠시 후 다시 시도하시거나 다른 모델을 선택해 주세요.');
+                toastMsg = 'AI 서비스 접속자가 많아 처리할 수 없습니다. 잠시 후 다시 시도해주세요.';
             } else {
-                alert('분석 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식'));
+                toastMsg = '분석 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식');
             }
+            showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         } finally {
             $btn.prop('disabled', false)
                 .removeClass('analyzing')
@@ -1000,51 +1003,80 @@ $(document).ready(function () {
 
     async function handleFileUpload(files) {
         if (!files || !files.length) return;
-        
-        for (const file of files) {
-            if (!(await filetypecheck(file))) continue;
-            
-            // 1. 임시 로딩 항목 추가
-            const $tempItem = addFileToSourceList(file.name, 'pending-' + Date.now(), null, true, false, null, 'loading');
-            
-            try {
-                // isNew 시 companyId='new' 문자열이 아닌 null을 명시적으로 전달
-                const uploadResult = await fileUpload(file, user_id, isNew ? null : companyId);
-                
-                const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
-                
-                if (uploadedFile && uploadedFile.storage_path) {
-                    const _pt = uploadedFile.parsedtext || uploadedFile.parsedText;
-                    const isSearchable = _pt && !_pt.startsWith('[텍스트 미추출');
-                    const finalStatus = isSearchable ? 'reflected' : 'failed';
-                    
-                    const badgeClass = finalStatus === 'reflected' ? 'badge-ai-reflected' : 'badge-ai-failed';
-                    const badgeText = finalStatus === 'reflected' ? 'AI 반영됨' : 'AI 미반영';
-                    const badgeTitle = finalStatus === 'reflected' ? 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.' : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.';
-                    
-                    const { openSignedFile } = await import('./file_render_utils.js');
-                    $tempItem.find('.file-link').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
-                    $tempItem.find('.ai-status-badge').removeClass('badge-ai-loading').addClass(badgeClass).text(badgeText).attr('title', badgeTitle);
-                    $tempItem.find('.delete-file').attr('data-id', uploadedFile.id);
 
-                    if (isNew) {
-                        pendingFiles.push({ id: uploadedFile.id });
-                    } else {
-                        if (uploadedFile.id) {
+        const total = files.length;
+        let successCount = 0;
+        let failCount = 0;
+        let processed = 0;
+
+        const $fileCard = $('#training-drop-zone');
+        const overlay = showPanelOverlay($fileCard[0], {
+            label: total > 1 ? `파일 분석 중... (0/${total})` : '파일 분석 중...'
+        });
+
+        try {
+            for (const file of files) {
+                processed++;
+                if (total > 1) overlay.update(`파일 분석 중... (${processed}/${total})`);
+
+                if (!(await filetypecheck(file))) {
+                    // filetypecheck 내부에서 거부 토스트가 이미 표시됨
+                    failCount++;
+                    continue;
+                }
+
+                const $tempItem = addFileToSourceList(file.name, 'pending-' + Date.now(), null, true, false, null, 'loading');
+
+                try {
+                    const uploadResult = await fileUpload(file, user_id, isNew ? null : companyId);
+                    const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
+
+                    if (uploadedFile && uploadedFile.storage_path) {
+                        const _pt = uploadedFile.parsedtext || uploadedFile.parsedText;
+                        const isSearchable = _pt && !_pt.startsWith('[텍스트 미추출');
+                        const finalStatus = isSearchable ? 'reflected' : 'failed';
+
+                        const badgeClass = finalStatus === 'reflected' ? 'badge-ai-reflected' : 'badge-ai-failed';
+                        const badgeText = finalStatus === 'reflected' ? 'AI 반영됨' : 'AI 미반영';
+                        const badgeTitle = finalStatus === 'reflected' ? 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.' : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.';
+
+                        const { openSignedFile } = await import('./file_render_utils.js');
+                        $tempItem.find('.file-link').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
+                        $tempItem.find('.ai-status-badge').removeClass('badge-ai-loading').addClass(badgeClass).text(badgeText).attr('title', badgeTitle);
+                        $tempItem.find('.delete-file').attr('data-id', uploadedFile.id);
+
+                        if (isNew) {
+                            pendingFiles.push({ id: uploadedFile.id });
+                        } else if (uploadedFile.id) {
                             await _supabase.from('files')
                                 .update({ entity_id: companyId, entity_type: 'company' })
                                 .eq('id', uploadedFile.id);
                         }
+                        availableFiles.push(uploadedFile);
+                        successCount++;
+                    } else {
+                        console.error('Upload failed: invalid response', uploadResult);
+                        $tempItem.remove();
+                        failCount++;
+                        showToast(`${file.name} 업로드에 실패했습니다.`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
                     }
-                    availableFiles.push(uploadedFile);
-                } else {
-                    console.error('Upload failed: invalid response', uploadResult);
+                } catch (err) {
+                    console.error('Upload Error:', err);
                     $tempItem.remove();
-                    alert(`${file.name} 업로드에 실패했습니다.`);
+                    failCount++;
+                    const reason = (err && err.message) ? err.message.split('\n')[0] : '알 수 없는 오류';
+                    showToast(`${file.name}: ${reason}`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
                 }
-            } catch (err) { 
-                console.error('Upload Error:', err);
-                $tempItem.remove();
+            }
+        } finally {
+            // 묶음 완료 토스트 (개별 실패 토스트와 중복되지 않도록 성공이 1건 이상일 때만)
+            if (successCount > 0) {
+                const msg = failCount > 0
+                    ? `${successCount}개 업로드 완료 · ${failCount}개 실패`
+                    : `${successCount}개 파일 업로드 완료`;
+                overlay.hide({ status: 'success', toast: msg });
+            } else {
+                overlay.hide();
             }
         }
     }
