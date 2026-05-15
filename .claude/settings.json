@@ -28,7 +28,9 @@
       "PowerShell(npx --yes supabase@latest db push --dry-run --linked 2>&1)",
       "PowerShell($ErrorActionPreference = \"Continue\")",
       "PowerShell(npx --yes supabase@latest functions deploy upload-handler --project-ref afitwguexwihnepyutqw 2>&1)",
-      "PowerShell(& \"./scripts/deploy.ps1\" 2>&1)"
+      "PowerShell(& \"./scripts/deploy.ps1\" 2>&1)",
+      "Bash(cmd /c \"dir C:\\\\DealChat-deps\")",
+      "Read(//c//**)"
     ]
   }
 }

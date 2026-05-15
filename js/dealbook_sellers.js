@@ -7,7 +7,7 @@ import { escapeForDisplay, tryRepairJson, applyKeywordsMasking, maskWithCircles 
 import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatFinancialTableTransposed } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
-import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
+import { migrateFinancialInfo, renderFinancialTable, collectFinancialData, mergeFinancialData } from './financial_utils.js';
 import { getSignedFileUrl } from './file_render_utils.js';
 import { assignBlindLabels } from './my_list_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
@@ -1259,7 +1259,9 @@ $(document).ready(function () {
                 if (json.keyProducts) $('#seller-key-products').val(json.keyProducts);
                 if (json.manager_memo) $('#seller-manager-memo').val(json.manager_memo);
                 if (json.financial_info && Array.isArray(json.financial_info) && json.financial_info.length > 0) {
-                    renderFinancialTable(migrateFinancialInfo(json.financial_info, 'sellers'), 'financial-table-container', 'sellers');
+                    const existingWire = collectFinancialData('financial-table-container');
+                    const merged = mergeFinancialData(existingWire, json.financial_info, 'sellers');
+                    renderFinancialTable(merged, 'financial-table-container', 'sellers');
                 }
                 autoResizeAllTextareas();
                 finishPending(aiPendingId, { status: 'success', toast: 'AI 자동 입력이 완료되었습니다.' });

@@ -7,7 +7,7 @@ import { escapeForDisplay, tryRepairJson, resolveIndustry, resolveMgmtStatus, bu
 import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons, reformatReportTable, reformatFinancialTableTransposed } from './dealbook_report_utils.js';
 import { autoResizeTextarea } from './textarea_utils.js';
-import { migrateFinancialInfo, renderFinancialTable, collectFinancialData } from './financial_utils.js';
+import { migrateFinancialInfo, renderFinancialTable, collectFinancialData, mergeFinancialData } from './financial_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
 
@@ -794,7 +794,9 @@ $(document).ready(function () {
 
             // 재무 정보 (전치 테이블 갱신)
             if (jsonData.financial_info && Array.isArray(jsonData.financial_info) && jsonData.financial_info.length > 0) {
-                renderFinancialTable(migrateFinancialInfo(jsonData.financial_info), 'financial-table-container');
+                const existingWire = collectFinancialData('financial-table-container');
+                const merged = mergeFinancialData(existingWire, jsonData.financial_info, 'companies');
+                renderFinancialTable(merged, 'financial-table-container', 'companies');
             }
 
             // 투자 정보

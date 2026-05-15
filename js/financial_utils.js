@@ -16,10 +16,12 @@
 const MAX_YEARS = 5;
 
 // ── companies 모드 기본 항목 ────────────────────────────────────────────
+//   profit/net_profit 라벨은 "영업손익"/"당기순손익" 통합 라벨로 고정 (부호 컨벤션 단일화).
+//   값의 부호는 항상 표준 컨벤션: 양수 = 이익, 음수 = 손실.
 const DEFAULT_ITEMS = [
     { key: 'revenue',           label: '매출액' },
-    { key: 'profit',            label: '영업이익' },
-    { key: 'net_profit',        label: '당기순이익' },
+    { key: 'profit',            label: '영업손익' },
+    { key: 'net_profit',        label: '당기순손익' },
     { key: 'total_assets',      label: '총 자산' },
     { key: 'total_liabilities', label: '총 부채' },
     { key: 'total_equity',      label: '총 자본' },
@@ -35,8 +37,8 @@ const SELLER_DEFAULT_ITEMS = [
     { key: 'revenue',      label: '매출액' },
     { key: 'cogs',         label: '매출원가' },
     { key: 'gross_profit', label: '매출총이익',  calculated: true },
-    { key: 'profit',       label: '영업이익' },
-    { key: 'net_profit',   label: '당기순이익' },
+    { key: 'profit',       label: '영업손익' },
+    { key: 'net_profit',   label: '당기순손익' },
     { key: 'op_margin',    label: '영업이익률',  calculated: true, isPercent: true },
     { key: 'net_margin',   label: '순이익률',    calculated: true, isPercent: true },
     // 재무상태표
@@ -98,21 +100,28 @@ function _isEmpty(val) {
 }
 
 // ── LABEL_AWARE_KEYS: AI 추출 시 라벨·부호 처리 ────────────────────────
+//   기획: 라벨은 통합 라벨("영업손익"/"당기순손익") 하나로 강제. 부호는 표준 컨벤션
+//   (+이익/-손실). AI가 보내는 원문 라벨(profit_label / net_profit_label)은 부호
+//   결정에만 사용하고, 행 라벨로는 항상 unified 라벨을 쓴다.
 const LABEL_AWARE_KEYS = {
     profit: {
         unified: '영업손익',
-        defaultLabel: '영업이익',
         invalidPatterns: [/법인세/, /차감전/, /계속영업/, /중단영업/, /당기순/, /순이익/, /순손실/, /순손익/],
     },
     net_profit: {
         unified: '당기순손익',
-        defaultLabel: '당기순이익',
         invalidPatterns: [/법인세/, /차감전/, /계속영업/, /중단영업/, /^영업/],
     },
 };
 
+// "손실"이 있고 "이익"이 없는 단일 손실 라벨만 true.
+//   - "영업손실" / "당기순손실"          → true
+//   - "영업이익" / "당기순이익"          → false
+//   - "영업손익" / "당기순손익"          → false (통합 표제, 부호는 값에 담김)
+//   - "영업이익(손실)" / "당기순이익(손실)" → false (중립 표제, 부호는 원문 값에 담김)
 function isLossLabel(label) {
-    return /손실/.test(String(label || ''));
+    const s = String(label || '');
+    return /손실/.test(s) && !/이익/.test(s);
 }
 
 function isInvalidLabelFor(key, label) {
@@ -121,21 +130,6 @@ function isInvalidLabelFor(key, label) {
     const l = String(label || '').trim();
     if (!l) return false;
     return meta.invalidPatterns.some(p => p.test(l));
-}
-
-function decideRowLabel(key, perYearLabels) {
-    const meta = LABEL_AWARE_KEYS[key];
-    if (!meta) return null;
-    const labels = perYearLabels.filter(l => l && String(l).trim());
-    if (labels.length === 0) return meta.defaultLabel;
-    const unique = [...new Set(labels)];
-    if (unique.length === 1) return unique[0];
-    const hasLoss = labels.some(isLossLabel);
-    const hasProfit = labels.some(l => !isLossLabel(l));
-    if (hasLoss && hasProfit) return meta.unified;
-    const freq = {};
-    labels.forEach(l => { freq[l] = (freq[l] || 0) + 1; });
-    return Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0];
 }
 
 function toAbsoluteValue(rawVal) {
@@ -156,6 +150,79 @@ function applySignByLabel(rawVal, label) {
 // ─────────────────────────────────────────────────────────────────────────
 // 공개 API
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * 기존 wire 데이터에 AI 결과(레거시 배열)를 머지하여 새 wire 데이터를 반환.
+ * 규칙: AI 값이 비어있지 않으면 AI 우선, 비어있으면 기존 값 유지.
+ *
+ * @param {object} existingWire  collectFinancialData() 결과 (현재 폼 상태)
+ * @param {Array}  aiLegacyArr   AI가 반환한 financial_info 배열
+ * @param {string} mode          'companies' | 'sellers'
+ * @returns {object}             머지된 wire 포맷
+ */
+export function mergeFinancialData(existingWire, aiLegacyArr, mode = 'sellers') {
+    if (!aiLegacyArr || !Array.isArray(aiLegacyArr) || aiLegacyArr.length === 0) {
+        return existingWire;
+    }
+
+    // 1. AI 배열을 migrateFinancialInfo(aiLegacyArr, mode)로 internal 변환
+    const aiInternal = migrateFinancialInfo(aiLegacyArr, mode);
+
+    // 2. internal을 wire 포맷으로 변환 (vals 배열 → values 객체)
+    const aiWire = {
+        years: aiInternal.years,
+        items: aiInternal.items.map(it => {
+            const values = {};
+            it.vals.forEach((v, idx) => {
+                const year = aiInternal.years[idx];
+                if (year) values[year] = v;
+            });
+            return { key: it.key, label: it.label, values };
+        })
+    };
+
+    // 3. 연도 합집합 계산 후 내림차순 정렬 (MAX_YEARS=5 초과 방지)
+    const allYears = [...new Set([...(existingWire.years || []), ...(aiWire.years || [])])]
+        .filter(Boolean)
+        .sort((a, b) => (parseInt(b) || 0) - (parseInt(a) || 0))
+        .slice(0, MAX_YEARS);
+
+    // 4. 각 (year, key) 셀별로: AI값이 ""이 아니고 null/undefined가 아니면 AI 우선, 아니면 기존값 사용
+    const mergedItems = [];
+    const existingItemMap = {};
+    (existingWire.items || []).forEach(it => { existingItemMap[it.key] = it; });
+
+    const aiItemMap = {};
+    (aiWire.items || []).forEach(it => { aiItemMap[it.key] = it; });
+
+    // 모든 키 수집 (순서는 기존 -> AI 순)
+    const allKeys = [...new Set([
+        ...(existingWire.items || []).map(it => it.key),
+        ...(aiWire.items || []).map(it => it.key)
+    ])];
+
+    allKeys.forEach(key => {
+        const eItem = existingItemMap[key];
+        const aItem = aiItemMap[key];
+        const label = (aItem && aItem.label) || (eItem && eItem.label) || "";
+
+        const values = {};
+        allYears.forEach(year => {
+            const eVal = (eItem && eItem.values && eItem.values[year] != null) ? eItem.values[year].toString() : "";
+            const aVal = (aItem && aItem.values && aItem.values[year] != null) ? aItem.values[year].toString() : "";
+
+            // AI 우선 (비어있지 않으면), 아니면 기존값
+            if (aVal !== "" && aVal != null) {
+                values[year] = aVal;
+            } else {
+                values[year] = eVal;
+            }
+        });
+        mergedItems.push({ key, label, values });
+    });
+
+    return { years: allYears, items: mergedItems };
+}
 
 /**
  * 외부에서 들어온 데이터(wire/레거시/null)를 내부 표현으로 변환
@@ -179,7 +246,8 @@ export function migrateFinancialInfo(data, mode = 'companies') {
             .slice(0, MAX_YEARS);
 
         const items = baseItems.map(def => {
-            const isLabelAware = !!LABEL_AWARE_KEYS[def.key];
+            const meta = LABEL_AWARE_KEYS[def.key];
+            const isLabelAware = !!meta;
             const labelKey = `${def.key}_label`;
 
             const perYearLabels = [];
@@ -199,22 +267,16 @@ export function migrateFinancialInfo(data, mode = 'companies') {
                 return rawVal == null ? '' : String(rawVal);
             });
 
-            const rowLabel = isLabelAware
-                ? (decideRowLabel(def.key, perYearLabels) || def.label)
-                : def.label;
-
-            const meta = LABEL_AWARE_KEYS[def.key];
+            // 라벨 인식 항목은 행 라벨을 항상 통합 라벨로 강제, 부호는 표준 컨벤션.
+            // 라벨 정보가 전혀 없는 레거시 데이터는 값 그대로 보존 (기존 DB).
+            const rowLabel = isLabelAware ? meta.unified : def.label;
             const hasAnyLabel = perYearLabels.some(l => l && l.trim());
-            const isUnifiedRow = !!(meta && rowLabel === meta.unified);
 
             const vals = rawVals.map((rawVal, idx) => {
                 if (!rawVal) return '';
                 if (!isLabelAware || !hasAnyLabel) return rawVal;
-                if (isUnifiedRow) {
-                    const yLabel = perYearLabels[idx] || rowLabel;
-                    return applySignByLabel(rawVal, yLabel);
-                }
-                return toAbsoluteValue(rawVal);
+                // AI는 양수로 보내고 라벨로 부호를 알려준다 → 라벨에 따라 부호 부여
+                return applySignByLabel(rawVal, perYearLabels[idx] || rowLabel);
             });
 
             return { key: def.key, label: rowLabel, vals };
@@ -380,15 +442,25 @@ function wireToInternal(wire, baseItems) {
             return nb - na;
         });
 
-    // wire에 있는 항목 우선, 없으면 baseItems의 빈 항목으로 보완
+    // wire에 있는 항목 우선, 없으면 baseItems의 빈 항목으로 보완.
+    // 라벨 인식 항목(profit/net_profit)은 통합 라벨로 강제하고, 과거에 저장된
+    // 단일 손실 라벨("영업손실"/"당기순손실") + 양수 값은 음수로 변환해 표준 부호로 정규화한다.
     const wireItemMap = {};
     (wire.items || []).forEach(it => { wireItemMap[it.key] = it; });
 
     const items = baseItems.map(def => {
+        const meta = LABEL_AWARE_KEYS[def.key];
         const it = wireItemMap[def.key];
         if (it) {
             const values = it.values || {};
-            const vals = years.map(y => values[y] != null ? values[y] : '');
+            let vals = years.map(y => values[y] != null ? values[y] : '');
+            if (meta) {
+                if (isLossLabel(it.label)) {
+                    // 레거시: "영업손실" 라벨 + 양수 저장 → 음수로 마이그레이션
+                    vals = vals.map(v => v === '' ? '' : applySignByLabel(v, it.label));
+                }
+                return { key: it.key, label: meta.unified, vals };
+            }
             return { key: it.key, label: it.label || def.label, vals };
         }
         return { key: def.key, label: def.label, vals: years.map(() => '') };
@@ -478,6 +550,12 @@ function buildCalculatedRow(itemDef, years) {
  */
 function buildItemRow(item, years, isSellers = false) {
     const labelWidth = isSellers ? 140 : 120;
+    // 라벨 인식 항목은 라벨을 잠그고 (+이익/-손실) 안내를 표시한다.
+    const isLabelLocked = !!LABEL_AWARE_KEYS[item.key];
+    const cellPlaceholder = isLabelLocked ? '+이익 / -손실' : (isSellers ? '—' : '0');
+    const labelTitle = isLabelLocked
+        ? '부호 컨벤션: 양수=이익, 음수=손실 (라벨 고정)'
+        : '';
 
     const $row = $(`<div class="fin-item-row" data-key="${escapeHtml(item.key)}"
         style="display:flex; align-items:center; gap:6px; padding:2px 0; cursor:default;"></div>`);
@@ -485,19 +563,25 @@ function buildItemRow(item, years, isSellers = false) {
     const $labelCell = $(`<div class="fin-label-cell"
         style="flex:0 0 ${labelWidth}px; min-width:${labelWidth}px; display:flex; align-items:center; gap:2px;"></div>`);
 
-    if (!isSellers) {
+    if (!isSellers && !isLabelLocked) {
         $labelCell.append(`<span class="drag-handle" title="드래그하여 순서 변경"
             style="color:#cbd5e1; cursor:grab; flex-shrink:0; display:flex; align-items:center; user-select:none; padding:2px;">
             <span class="material-symbols-outlined" style="font-size:16px;">drag_indicator</span>
         </span>`);
     } else {
-        // sellers: 드래그 핸들 대신 왼쪽 여백 맞춤용 패딩
+        // sellers 또는 라벨 잠금 항목: 드래그 핸들 대신 왼쪽 여백 맞춤용 패딩
         $labelCell.css('padding-left', '12px');
     }
 
+    const lockedStyle = isLabelLocked
+        ? 'background:#f8fafc; color:#475569; cursor:default;'
+        : 'background:transparent;';
+    const lockedAttrs = isLabelLocked ? 'readonly tabindex="-1"' : '';
+
     $labelCell.append(`<input type="text" class="fin-item-label" value="${escapeHtml(item.label)}" placeholder="항목명"
+        ${lockedAttrs} title="${escapeHtml(labelTitle)}"
         style="flex:1; min-width:0; padding:4px 6px; border:1px solid transparent; border-radius:4px;
-        font-size:13px; color:#334155; font-weight:500; background:transparent; outline:none;
+        font-size:13px; color:#334155; font-weight:500; ${lockedStyle} outline:none;
         transition:border-color 0.2s, background 0.2s;">`);
 
     $row.append($labelCell);
@@ -508,7 +592,7 @@ function buildItemRow(item, years, isSellers = false) {
             style="flex:1; min-width:0; padding:7px 6px; border:1px solid #e2e8f0; border-radius:6px;
             font-size:13px; text-align:right; background:#ffffff; outline:none; box-sizing:border-box;
             transition:border-color 0.2s;"
-            placeholder="${isSellers ? '—' : '0'}">`);
+            placeholder="${cellPlaceholder}">`);
     });
 
     if (!isSellers) {
@@ -642,9 +726,12 @@ function bindFinancialTableEvents($container) {
     });
 
     // ── 라벨 focus/blur ────────────────────────────────────────────────
+    // readonly(통합 라벨 고정) 입력은 편집 불가하므로 포커스 시각 효과 생략
     $container.on('focus', '.fin-item-label', function() {
+        if (this.readOnly) return;
         $(this).css({ 'border-color': 'var(--page-theme-color)', 'background': '#fff' });
     }).on('blur', '.fin-item-label', function() {
+        if (this.readOnly) return;
         $(this).css({ 'border-color': 'transparent', 'background': 'transparent' });
     });
 
