@@ -132,19 +132,18 @@ function isInvalidLabelFor(key, label) {
     return meta.invalidPatterns.some(p => p.test(l));
 }
 
-function toAbsoluteValue(rawVal) {
+// 값에 명시적 음수 표기(-, △, 괄호)가 있으면 그것을 신뢰하고, 없을 때만 라벨로 부호 결정.
+// — 신규: AI가 부호 포함해 보내는 케이스(영업손익/영업이익(손실) 등 중립 라벨) 지원
+// — 레거시: AI가 절댓값만 보내던 시절의 데이터는 라벨로 부호 복원
+function applySignByLabel(rawVal, label) {
     const s = String(rawVal == null ? '' : rawVal).replace(/,/g, '').trim();
     if (s === '' || s === '-') return '';
+    const isExplicitlyNegative = /^-/.test(s) || /^△/.test(s) || /^\(.*\)$/.test(s);
     const cleaned = s.replace(/[()△]/g, '').replace(/^-/, '');
     const num = parseFloat(cleaned);
     if (isNaN(num)) return s;
-    return String(Math.abs(num));
-}
-
-function applySignByLabel(rawVal, label) {
-    const abs = toAbsoluteValue(rawVal);
-    if (abs === '') return '';
-    return isLossLabel(label) ? String(-Math.abs(parseFloat(abs))) : abs;
+    if (isExplicitlyNegative) return String(-Math.abs(num));
+    return isLossLabel(label) ? String(-Math.abs(num)) : String(num);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

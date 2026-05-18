@@ -1,3 +1,6 @@
+import { reExtractTextFromFile } from './File_Functions.js';
+import { showToast } from './toast_utils.js';
+
 /**
  * Signed URL을 생성하여 파일을 안전하게 다운로드합니다.
  * 1시간 유효한 서명된 URL을 반환합니다.
@@ -79,22 +82,32 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
     if (status === 'loading') {
         badgeHtml = `<span class="ai-status-badge badge-ai-loading" style="font-size: 10px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #e2e8f0;">분석 중...</span>`;
     } else if (status === 'reflected') {
-        const bgColor = themeColor + '1a'; 
-        const borderColor = themeColor + '4d'; 
+        const bgColor = themeColor + '1a';
+        const borderColor = themeColor + '4d';
         badgeHtml = `<span class="ai-status-badge badge-ai-reflected" style="font-size: 10px; font-weight: 600; color: ${themeColor}; background: ${bgColor}; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid ${borderColor};">AI 반영됨</span>`;
     } else {
         badgeHtml = `<span class="ai-status-badge badge-ai-failed" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fecaca;">AI 불가</span>`;
     }
 
+    const retryBtnHtml = (status === 'failed') ? `<button class="btn-reextract" data-id="${id}" title="AI 재인식 시도" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.6; transition: opacity 0.2s, transform 0.3s;"><span class="material-symbols-outlined" style="font-size: 16px;">refresh</span></button>` : '';
+
     const item = $(`
         <li class="list-group-item d-flex align-items-center justify-content-between bg-transparent" data-id="${id}" style="padding: 10px 16px !important; margin: 0 !important; border-bottom: 1px solid #f1f5f9 !important; border-top: none !important; border-left: none !important; border-right: none !important;">
-            <div class="d-flex align-items-center overflow-hidden" style="flex: 1; min-width: 0; gap: 8px;">
+            <div class="d-flex align-items-center overflow-hidden" style="flex: 1; min-width: 0; gap: 6px;">
                 ${badgeHtml}
                 <a href="${fileUrl}" target="_blank" class="text-decoration-none small text-truncate file-link" style="font-size: 13px; color: #334155 !important; flex: 1; min-width: 0; font-weight: 500;">${name}</a>
             </div>
-            <button class="delete-file ms-2" data-id="${id}" style="background: none; border: none; cursor: pointer; color: #ef4444; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;"><span class="material-symbols-outlined" style="font-size: 16px;">close</span></button>
+            <div class="d-flex align-items-center" style="flex-shrink: 0; gap: 2px;">
+                ${retryBtnHtml}
+                <button class="delete-file" data-id="${id}" style="background: none; border: none; cursor: pointer; color: #ef4444; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s;"><span class="material-symbols-outlined" style="font-size: 16px;">close</span></button>
+            </div>
         </li>
     `);
+
+    item.find('.btn-reextract').hover(
+        function() { $(this).css('opacity', '1'); },
+        function() { $(this).css('opacity', '0.6'); }
+    );
     
     // Ensure the target container exists before appending
     if ($(target).length) {
@@ -114,4 +127,90 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
     );
 
     return item;
+}
+
+const MIME_BY_EXT = {
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    txt: 'text/plain'
+};
+
+/**
+ * AI 불가로 표시된 파일의 텍스트를 Storage에서 재추출하여 DB와 UI를 갱신합니다.
+ *
+ * @param {jQuery} $item - 파일 행 <li> jQuery 객체 (배지/버튼 갱신용)
+ * @param {object} fileMeta - 파일 메타 (id, file_name, storage_path|location, storage_type)
+ * @param {object} supabaseClient - 페이지의 supabase 클라이언트 (DB 업데이트용)
+ * @param {string} [themeColor='#8b5cf6'] - 성공 시 표시할 배지 테마 색상
+ * @returns {Promise<{success: boolean, text: string|null}>}
+ */
+export async function reExtractAndUpdateFile($item, fileMeta, supabaseClient, themeColor = '#8b5cf6') {
+    const $badge = $item.find('.ai-status-badge').first();
+    const $btnRetry = $item.find('.btn-reextract').first();
+    const $icon = $btnRetry.find('.material-symbols-outlined');
+
+    $btnRetry.prop('disabled', true).css('cursor', 'wait');
+    $icon.css({ animation: 'spin 1s linear infinite' });
+    $badge.removeClass('badge-ai-failed badge-ai-reflected')
+        .addClass('badge-ai-loading')
+        .text('분석 중...')
+        .css({ color: '#64748b', background: '#f1f5f9', 'border-color': '#e2e8f0' });
+
+    try {
+        const location = fileMeta.storage_path || fileMeta.location;
+        if (!location) throw new Error('파일 경로 정보가 없습니다.');
+
+        const url = await getSignedFileUrl(location, fileMeta.storage_type);
+        if (!url) throw new Error('파일 URL을 생성할 수 없습니다.');
+
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`파일 다운로드 실패 (HTTP ${resp.status})`);
+        const blob = await resp.blob();
+
+        let contentType = blob.type;
+        if (!contentType || contentType === 'application/octet-stream') {
+            const ext = (fileMeta.file_name || '').split('.').pop().toLowerCase();
+            contentType = MIME_BY_EXT[ext] || '';
+        }
+        const fileObj = new File([blob], fileMeta.file_name, { type: contentType });
+
+        const newText = await reExtractTextFromFile(fileObj);
+        const isSearchable = newText && !newText.startsWith('[텍스트 미추출');
+
+        if (isSearchable) {
+            const previewText = newText.length > 1000 ? newText.substring(0, 1000) + '...' : newText;
+            const { error } = await supabaseClient.from('files').update({
+                parsedtext: newText,
+                summary: previewText
+            }).eq('id', fileMeta.id);
+            if (error) throw error;
+
+            const bgColor = themeColor + '1a';
+            const borderColor = themeColor + '4d';
+            $badge.removeClass('badge-ai-loading').addClass('badge-ai-reflected')
+                .text('AI 반영됨')
+                .css({ color: themeColor, background: bgColor, 'border-color': borderColor });
+            $btnRetry.remove();
+            showToast(`"${fileMeta.file_name}" AI 인식에 성공했습니다.`, { icon: 'check_circle', iconColor: '#22c55e', duration: 3000 });
+            return { success: true, text: newText };
+        }
+
+        $badge.removeClass('badge-ai-loading').addClass('badge-ai-failed')
+            .text('AI 불가')
+            .css({ color: '#ef4444', background: '#fee2e2', 'border-color': '#fecaca' });
+        $btnRetry.prop('disabled', false).css('cursor', 'pointer');
+        $icon.css({ animation: '' });
+        showToast(`"${fileMeta.file_name}" 텍스트를 추출하지 못했습니다.`, { icon: 'warning', iconColor: '#f59e0b', duration: 3000 });
+        return { success: false, text: null };
+    } catch (err) {
+        console.error('Re-extraction error:', err);
+        $badge.removeClass('badge-ai-loading').addClass('badge-ai-failed')
+            .text('AI 불가')
+            .css({ color: '#ef4444', background: '#fee2e2', 'border-color': '#fecaca' });
+        $btnRetry.prop('disabled', false).css('cursor', 'pointer');
+        $icon.css({ animation: '' });
+        showToast(`재인식 실패: ${err.message || err}`, { icon: 'error', iconColor: '#ef4444', duration: 3500 });
+        return { success: false, text: null };
+    }
 }

@@ -11,6 +11,7 @@ import { migrateFinancialInfo, renderFinancialTable, collectFinancialData, merge
 import { getSignedFileUrl } from './file_render_utils.js';
 import { assignBlindLabels } from './my_list_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
+import { applyAiSkeleton, finishAiSkeleton, clearAiSkeleton } from './ai_skeleton_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -795,16 +796,30 @@ $(document).ready(function () {
             if(companyLinkedFiles.length) {
                 companyLinkedFiles.forEach(f => {
                     const badge = getFileBadgeHtml(f);
-                    const $item = $(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+                    const parsedText = f.parsedtext || f.parsed_text || f.parsedText;
+                    const isFailed = !parsedText || parsedText.startsWith('[텍스트 미추출');
+                    const retryBtnHtml = isFailed
+                        ? `<button class="btn-reextract" data-id="${f.id}" data-source="linked" title="AI 재인식 시도" style="background:none; border:none; cursor:pointer; color:#64748b; padding:2px; display:flex; align-items:center; opacity:0.6; transition:opacity 0.2s;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+                            </button>`
+                        : '';
+                    const $item = $(`<li data-id="${f.id}" style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
                         ${badge}
                         <a href="#" class="file-download-link" style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;">${f.file_name}</a>
+                        ${retryBtnHtml}
                     </li>`);
-                    
+
                     $item.find('.file-download-link').on('click', async (e) => {
                         e.preventDefault();
                         const url = await getSignedFileUrl(f.location || f.storage_path, f.storage_type);
                         if (url) window.open(url, '_blank');
                     });
+
+                    $item.find('.btn-reextract').hover(
+                        function() { $(this).css('opacity', '1'); },
+                        function() { $(this).css('opacity', '0.6'); }
+                    );
+
                     $listT.append($item);
                 });
             }
@@ -814,8 +829,16 @@ $(document).ready(function () {
             if(availableFiles.length) {
                 availableFiles.forEach(f => {
                     const badge = getFileBadgeHtml(f);
-                    const $item = $(`<li style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+                    const parsedText = f.parsedtext || f.parsed_text || f.parsedText;
+                    const isFailed = !parsedText || parsedText.startsWith('[텍스트 미추출');
+                    const retryBtnHtml = isFailed
+                        ? `<button class="btn-reextract" data-id="${f.id}" title="AI 재인식 시도" style="background:none; border:none; cursor:pointer; color:#64748b; padding:2px; display:flex; align-items:center; opacity:0.6; transition:opacity 0.2s;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+                            </button>`
+                        : '';
+                    const $item = $(`<li data-id="${f.id}" style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
                         ${badge}
+                        ${retryBtnHtml}
                         <a href="#" class="file-download-link" style="flex:1; font-size:13px; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;">${f.file_name}</a>
                         <button class="btn-remove-file" data-id="${f.id}" data-is-pending="${isNew}" style="background:none; border:none; cursor:pointer; color:#ef4444; padding:2px; display:flex; align-items:center; opacity:0.7; transition:opacity 0.2s;">
                             <span class="material-symbols-outlined" style="font-size:16px;">close</span>
@@ -827,7 +850,12 @@ $(document).ready(function () {
                         const url = await getSignedFileUrl(f.location || f.storage_path, f.storage_type);
                         if (url) window.open(url, '_blank');
                     });
-                    
+
+                    $item.find('.btn-reextract').hover(
+                        function() { $(this).css('opacity', '1'); },
+                        function() { $(this).css('opacity', '0.6'); }
+                    );
+
                     $listA.append($item);
                 });
                 // 삭제 버튼 호버 효과
@@ -835,6 +863,21 @@ $(document).ready(function () {
             }
         }
     }
+
+    $(document).on('click', '.btn-reextract', async function() {
+        const id = $(this).data('id');
+        const fileMeta = availableFiles.find(f => String(f.id) === String(id))
+            || pendingFiles.find(f => String(f.id) === String(id))
+            || companyLinkedFiles.find(f => String(f.id) === String(id));
+        if (!fileMeta) return;
+        const $item = $(this).closest('li');
+        const { reExtractAndUpdateFile } = await import('./file_render_utils.js');
+        const result = await reExtractAndUpdateFile($item, fileMeta, _supabase, '#8b5cf6');
+        if (result.success) {
+            fileMeta.parsedtext = result.text;
+            fileMeta.parsedText = result.text;
+        }
+    });
 
     $('#add-source-additional').on('click', () => { currentSourceType = 'additional'; $('#file-upload').click(); });
     
@@ -1063,6 +1106,20 @@ $(document).ready(function () {
             .addClass('analyzing')
             .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
 
+        // [스켈레톤] AI가 채울 타깃 필드/컨테이너에 시머 적용
+        // 기업명(#seller-name-editor)은 연동된 매물 정보 기준이라 AI 자동 입력 대상에서 제외
+        const skeletonTargets = {
+            fields: [
+                '#seller-industry', '#seller-industry-etc',
+                '#seller-ceo', '#seller-email', '#seller-establishment', '#seller-address',
+                '#seller-summary', '#seller-key-products',
+                '#seller-fin-analysis', '#seller-manager-memo'
+            ],
+            containers: ['#financial-table-container']
+        };
+        applyAiSkeleton(skeletonTargets);
+
+        let aiSucceeded = false;
         try {
             let ragContexts = [];
             
@@ -1126,26 +1183,50 @@ $(document).ready(function () {
     "year": "연도(4자리)",
     "revenue": "매출액(숫자만)",
     "cogs": "매출원가(숫자만) — 손익계산서에 '매출원가', '영업비용' 등으로 표기된 항목",
-    "profit": "영업손익 값(숫자만, 양수)",
+    "profit": "영업손익 값(숫자만, 손실이면 마이너스 부호 포함)",
     "profit_label": "영업 라인 라벨 원문 그대로",
-    "net_profit": "당기순손익 값(숫자만, 양수)",
+    "net_profit": "당기순손익 값(숫자만, 손실이면 마이너스 부호 포함)",
     "net_profit_label": "당기순 라인 라벨 원문 그대로",
     "total_assets": "총자산(숫자만)",
     "total_liabilities": "총부채(숫자만)",
     "total_equity": "총자본(숫자만)",
     "cash": "현금및현금성자산(숫자만) — 재무상태표 유동자산 첫 항목",
-    "short_term_debt": "단기차입금(숫자만) — 유동부채 내 단기차입금·유동성장기부채 포함",
-    "long_term_debt": "장기차입금(숫자만) — 비유동부채 내 장기차입금·사채 포함",
+    "short_term_debt": "단기차입금 합계(숫자만) — 재무상태표 유동부채 항목 중 아래 화이트리스트와 **정확히 일치**하는 항목만 합산: 단기차입금, 단기금융부채, 단기차입부채, 유동성장기부채, 유동성사채, 유동성사채및장기차입금, 단기사채, 금융리스부채(유동), 리스부채(유동). 명칭이 정확히 매칭되지 않거나 차입성 여부 판단이 애매한 항목은 절대 포함하지 말 것(추측·임의 합산 금지). 매입채무·미지급금·미지급비용·예수금·선수금·충당부채·이연수익·당기법인세부채 등 비차입성 항목은 항상 제외.",
+    "long_term_debt": "장기차입금 합계(숫자만) — 재무상태표 비유동부채 항목 중 아래 화이트리스트와 **정확히 일치**하는 항목만 합산: 장기차입금, 장기금융부채, 장기차입부채, 사채, 장기성금융부채, 사채및장기차입금, 금융리스부채(비유동), 리스부채(비유동). 명칭이 정확히 매칭되지 않거나 차입성 여부 판단이 애매한 항목은 절대 포함하지 말 것(추측·임의 합산 금지). 장기매입채무·장기미지급금·퇴직급여충당부채·이연법인세부채 등 비차입성 항목은 항상 제외. 유동성장기부채는 short_term_debt 쪽에만 포함하고 여기서는 제외.",
     "ocf": "영업활동현금흐름(숫자만) — 현금흐름표 영업활동 합계, 음수 가능",
     "capex": "자본적지출(숫자만, 양수) — 현금흐름표 투자활동 중 유형자산 취득액"
   }
-  · profit / net_profit 값은 재무제표에 적힌 그대로의 양수로 추출하세요 (괄호·△·마이너스 표기는 모두 무시하고 절댓값). 부호 변환은 클라이언트에서 처리합니다.
+  · profit / net_profit 값은 손실(음수)이면 반드시 마이너스 부호('-')를 붙여 반환하세요. 재무제표에 "(123)" 또는 "△123"으로 적혀 있으면 "-123"으로 반환합니다. profit_label에는 원문 라벨을 그대로 적어주세요 (클라이언트 보조 검증용).
   · profit_label: 영업 라인 라벨 원문 그대로 (예: "영업이익", "영업손익", "영업손실", "영업이익(손실)")
   · net_profit_label: 손익계산서 최종 줄 라벨 원문 그대로 (예: "당기순이익", "당기순손익", "당기순손실", "당기순이익(손실)")
   · 혼동 주의: "법인세비용차감전순이익/차감전손익", "계속영업이익", "중단영업이익" 등은 당기순이익이 아닙니다. 그 아래에 "당기순이익/당기순손익/당기순손실" 줄이 있으면 그것을 사용하세요. 정상 손익계산서에는 거의 항상 당기순이익 줄이 존재하니 적극적으로 찾아 추출하세요.
   · ocf는 음수일 수 있습니다 (영업활동현금흐름이 마이너스인 경우 그대로 음수로 추출).
   · cogs가 손익계산서에 별도 라인으로 없는 경우(예: 순수 서비스업) 빈 문자열로 두세요.
-  · cash, short_term_debt, long_term_debt, ocf, capex가 문서에 없으면 빈 문자열로 두세요.
+  · cash, short_term_debt, long_term_debt, ocf, capex가 문서에 없으면 빈 문자열로 두세요. 단 short_term_debt / long_term_debt는 위 정의의 동의어 항목이 하나라도 있으면 그 합계를 반환하고, 정말 어떤 차입성 부채 항목도 없을 때만 빈 문자열로 두세요.
+- financial_analysis: 재무제표 분석 (의미·흐름 중심)
+  · 형식: 항목마다 두 줄 — 첫 줄에 "숫자) 헤드라인", 둘째 줄에 "- 분석 본문". **항목 사이는 빈 줄 1줄로 구분**
+    예시(줄바꿈 포함된 단일 문자열):
+      1) 외형의 고속 성장
+      - 매출이 최근 2년간 가파른 확대 흐름을 보이며 시장 침투가 본격화된 국면으로 해석되나, 직전 연도 대비 성장률이 둔화되어 성장 속도의 정점 통과 가능성도 함께 관찰됩니다.
+
+      2) 공격적 투자에 따른 자산·자본 동반 확장
+      - 총자산이 약 2.4배 수준으로 증가하는 가운데 무형자산·투자자산이 큰 비중으로 늘어, 사업 확장기에 진입한 회사가 외부 자본을 끌어와 인프라·R&D에 선제 투입하는 전형적 패턴으로 보입니다.
+
+      3) 성장 비용 부담에 따른 수익성 악화
+      - 흑자에서 대규모 순손실로 전환된 흐름은 매출 확대에도 불구하고 고정비·감가상각·금융비용 부담이 빠르게 커지고 있음을 시사하며, 손익분기점 도달 시점이 수익성 정상화의 핵심 변수로 보입니다.
+
+      4) 자본 확충 중심의 재무구조 개편
+      - 부채는 소폭 감소한 반면 자본이 큰 폭으로 증가해, 차입보다 지분성 자금 조달에 의존해 성장을 뒷받침하는 구조이며, 향후 추가 라운드 없이도 운전자본을 감당할 수 있는지가 재무 건전성의 관건입니다.
+  · **각 항목(헤드라인+본문) 사이에는 반드시 빈 줄 1줄을 삽입.** 즉 단일 문자열 내에서 항목 구분자는 "\n\n"
+  · **헤드라인은 현상을 해석한 짧은 표현**으로 작성 (예: "외형의 고속 성장", "공격적 투자에 따른 자산·자본 동반 확장", "성장 비용 부담에 따른 수익성 악화"). 단순 항목명("매출액 증가") 금지
+  · **본문은 추세의 방향·동인·시사점 서술이 중심.** 수치는 항목당 **최대 1개**만 인용하며, 그것도 변화의 크기를 직관적으로 보여주기 위한 앵커로만 사용 (예: "약 2.4배", "12배 수준"). 절대값·연도별 나열 금지
+  · 본문이 "A는 X원, B는 Y원, C는 Z원"처럼 수치 나열로 흘러서는 안 됨. "이 흐름이 무엇을 의미하는가"가 본문의 90% 이상을 차지해야 함
+  · **financial_info 표뿐 아니라 업로드된 재무제표(재무상태표/손익계산서/현금흐름표 등)의 주요 항목도 함께 읽어 분석에 활용**
+    - 표에 없지만 의미 있는 항목(예: 투자자산, 무형자산/개발비, 영업활동현금흐름, 자본잉여금 등)도 포함 가능
+    - 단, 본문에 인용하는 수치는 업로드 문서 또는 financial_info에 **명시된 값만** 사용 (추측·계산 금지)
+  · **최대 4개 항목**, 중요한 흐름 위주로 선별. 모든 계정을 다루지 말 것
+  · 1개 연도 데이터만 있으면 "단년 데이터로 추세 판단 불가"를 단일 항목으로만 반환
+  · **기업명은 직접 언급 금지 — 주어 생략 또는 "동사"로 치환하여 서술**
 - manager_memo: 담당자 의견 — **M&A 관점에서 동사가 보유한 강점**을 투자심사역 시각으로 분석
   · 형식: 항목마다 두 줄 — 첫 줄에 "숫자) 헤드라인", 둘째 줄에 "- 평가 본문". 관점별로 헤드라인을 따로 둠. **항목 사이는 빈 줄 1줄로 구분**
     예시(줄바꿈 포함된 단일 문자열):
@@ -1178,7 +1259,7 @@ $(document).ready(function () {
   · 학습 데이터(산업 트렌드, M&A 시장 통념, 일반적 투자심사 기준)를 적극 활용하여 깊이 있게 작성
   · 단정적 표현 지양, "~로 평가됨", "~판단됨", "~경향이 있음", "~로 분석됨" 같은 **투자심사 보고서 톤**의 완화된 표현 사용
 
-[출력 형식 — keyProducts / manager_memo 공통 ※매우 중요]
+[출력 형식 — keyProducts / financial_analysis / manager_memo 공통 ※매우 중요]
 - 각 항목은 **줄바꿈 문자(\n)로 구분된 단일 JSON 문자열**로 반환
 - **절대 배열([...])로 반환하지 마세요.** 예: ["1) 항목", "2) 항목"] (X) → "1) 항목\n2) 항목" (O)
 - 정보가 부족하면 최대 개수 미만 허용
@@ -1212,7 +1293,7 @@ $(document).ready(function () {
 
             if (json) {
                 // [방어 코드] 일부 모델이 텍스트 필드를 배열로 반환하는 경우 \n으로 join
-                ['summary', 'keyProducts', 'manager_memo'].forEach(f => {
+                ['summary', 'keyProducts', 'financial_analysis', 'manager_memo'].forEach(f => {
                     if (Array.isArray(json[f])) json[f] = json[f].join('\n');
                 });
 
@@ -1257,6 +1338,7 @@ $(document).ready(function () {
                 if (json.address) $('#seller-address').val(json.address);
                 if (json.summary) $('#seller-summary').val(json.summary);
                 if (json.keyProducts) $('#seller-key-products').val(json.keyProducts);
+                if (json.financial_analysis) $('#seller-fin-analysis').val(json.financial_analysis);
                 if (json.manager_memo) $('#seller-manager-memo').val(json.manager_memo);
                 if (json.financial_info && Array.isArray(json.financial_info) && json.financial_info.length > 0) {
                     const existingWire = collectFinancialData('financial-table-container');
@@ -1264,7 +1346,8 @@ $(document).ready(function () {
                     renderFinancialTable(merged, 'financial-table-container', 'sellers');
                 }
                 autoResizeAllTextareas();
-                finishPending(aiPendingId, { status: 'success', toast: 'AI 자동 입력이 완료되었습니다.' });
+                aiSucceeded = true;
+                showToast('AI 자동 입력이 완료되었습니다.', { icon: 'check_circle', iconColor: '#22c55e' });
             }
         } catch (e) {
             console.error('AI Auto-fill Error:', e);
@@ -1278,9 +1361,13 @@ $(document).ready(function () {
             } else {
                 toastMsg = '정보 추출 중 오류가 발생했습니다: ' + (errMsg || '알 수 없는 형식');
             }
-            finishPending(aiPendingId, { status: 'error', toast: toastMsg });
+            showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         }
-        finally { $btn.prop('disabled', false).removeClass('analyzing').html(orig); }
+        finally {
+            if (aiSucceeded) finishAiSkeleton(skeletonTargets);
+            else clearAiSkeleton(skeletonTargets);
+            $btn.prop('disabled', false).removeClass('analyzing').html(orig);
+        }
     });
 
 

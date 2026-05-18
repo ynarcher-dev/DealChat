@@ -10,6 +10,7 @@ import { autoResizeTextarea } from './textarea_utils.js';
 import { migrateFinancialInfo, renderFinancialTable, collectFinancialData, mergeFinancialData } from './financial_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
+import { beginAiAutofillUx } from './ai_skeleton_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -575,13 +576,19 @@ $(document).ready(function () {
         }
 
         const $btn = $(this);
-        const originalHtml = $btn.html();
 
-        // [수정] 분석 중 테마 활성화 모드 (CSS 클래스 기반)
-        $btn.prop('disabled', true)
-            .addClass('analyzing')
-            .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
+        // [스켈레톤 + 경과시간] AI가 채울 타깃에 시머 적용 + 버튼 카운터
+        const ux = beginAiAutofillUx({
+            $btn,
+            fields: [
+                '#notebook-title-editor', '#industry', '#industry-other',
+                '#ceo-name', '#company-email', '#establishment-date', '#company-address',
+                '#summary', '#key-products', '#financial-analysis', '#manager-memo'
+            ],
+            containers: ['#financial-table-container', '#investment-rows']
+        });
 
+        let aiSucceeded = false;
         try {
             // [1] 일반 회사 정보 프롬프트 (financial_info 제외)
             const generalPrompt = `
@@ -679,9 +686,9 @@ $(document).ready(function () {
 [필드 정의]
 - year: 연도 (예: "2023"). 회계연도/사업연도 표기를 우선 사용.
 - revenue: 매출액 / 영업수익
-- profit: 영업손익 줄의 값 (재무제표에 적힌 그대로의 양수). 라벨이 "영업이익"/"영업손익"/"영업손실"인 줄.
+- profit: 영업손익 줄의 값 (손실이면 마이너스 부호 포함). 라벨이 "영업이익"/"영업손익"/"영업손실"인 줄.
 - profit_label: profit을 추출한 줄의 라벨 원문 그대로. (예: "영업이익", "영업손익", "영업손실", "영업이익(손실)")
-- net_profit: 당기순손익 줄의 값 (재무제표에 적힌 그대로의 양수). 라벨이 "당기순이익"/"당기순손익"/"당기순손실"인 줄 — 손익계산서의 **최종 줄**(법인세 차감 후).
+- net_profit: 당기순손익 줄의 값 (손실이면 마이너스 부호 포함). 라벨이 "당기순이익"/"당기순손익"/"당기순손실"인 줄 — 손익계산서의 **최종 줄**(법인세 차감 후).
 - net_profit_label: net_profit을 추출한 줄의 라벨 원문 그대로. (예: "당기순이익", "당기순손익", "당기순손실", "당기순이익(손실)")
 
 [혼동하기 쉬운 항목 — net_profit으로 잡지 말 것]
@@ -700,7 +707,7 @@ $(document).ready(function () {
    - "(단위: 백만원)"이고 표 값이 "1,200"이면 → "1200000000"
    - "(단위: 천원)"이고 표 값이 "1,200"이면 → "1200000"
    - 단위 표시가 없으면 표 값 자체를 숫자로 변환 (예: "1,234,567" → "1234567")
-4. **profit / net_profit는 부호 변환 금지.** 재무제표에 "영업손실 (123)" 또는 "영업손실 △123"으로 적혀 있어도 값은 양수 "123"으로 반환하고, profit_label에 "영업손실"을 그대로 적으세요. 부호 처리는 클라이언트에서 라벨을 보고 결정합니다.
+4. **profit / net_profit는 손실(음수)이면 반드시 마이너스 부호로 반환.** 재무제표에 "영업손실 (123)" 또는 "영업손실 △123"으로 적혀 있으면 "-123"으로 반환하세요. 라벨이 "영업손익" / "영업이익(손실)" 같은 중립 표제일 때도 실제 값이 손실이면 마이너스 부호를 붙여야 합니다. profit_label에는 원문 라벨을 그대로 적어주세요 (클라이언트 보조 검증용).
 5. **profit_label / net_profit_label은 재무제표 라벨을 글자 그대로 복사.** 변형·번역·요약 금지. (예: 문서가 "영업이익(손실)"이면 그대로 "영업이익(손실)").
 6. 그 외 항목(revenue, total_assets, total_liabilities, total_equity)에서 음수(괄호·△·마이너스)가 있으면 마이너스 부호로 반환하세요. (예: "(123)" → "-123")
 7. 알 수 없거나 비어있는 셀은 빈 문자열("")로. profit_label / net_profit_label도 라벨을 못 읽으면 ""로.
@@ -810,7 +817,8 @@ $(document).ready(function () {
             // 숫자 포맷팅 강제 트리거
             $('.format-number').trigger('input');
             autoResizeAllTextareas();
-            
+
+            aiSucceeded = true;
             showToast('AI 자동 입력이 완료되었습니다.', { icon: 'check_circle', iconColor: '#22c55e' });
 
         } catch (err) {
@@ -827,9 +835,7 @@ $(document).ready(function () {
             }
             showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         } finally {
-            $btn.prop('disabled', false)
-                .removeClass('analyzing')
-                .html(originalHtml);
+            ux.end(aiSucceeded);
         }
     });
 
@@ -998,6 +1004,19 @@ $(document).ready(function () {
             await _supabase.from('files').delete().eq('id', id);
             $(this).closest('li').remove();
         } catch (e) { alert('파일 삭제 실패'); }
+    });
+
+    $(document).on('click', '.btn-reextract', async function() {
+        const id = $(this).data('id');
+        const fileMeta = availableFiles.find(f => String(f.id) === String(id));
+        if (!fileMeta) return;
+        const $item = $(this).closest('li');
+        const { reExtractAndUpdateFile } = await import('./file_render_utils.js');
+        const result = await reExtractAndUpdateFile($item, fileMeta, _supabase, '#1A73E8');
+        if (result.success) {
+            fileMeta.parsedtext = result.text;
+            fileMeta.parsedText = result.text;
+        }
     });
 
     $('#add-source-training').on('click', () => { currentSourceType = 'training'; $('#file-upload').click(); });

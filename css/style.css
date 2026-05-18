@@ -823,6 +823,70 @@ body.is-loading .app-container {
     transform: translateY(0);
 }
 
+/* ───────────────────────────────────────────────────────────
+   AI 자동 입력 — 스켈레톤 / 완료 하이라이트
+   - .ai-skeleton: input / textarea / select / contenteditable에 적용
+   - .ai-container-skeleton: 컨테이너(재무표, 투자정보 행 등)에 적용
+   - .ai-highlight: 채워진 직후 짧게 펄스
+   ─────────────────────────────────────────────────────────── */
+@keyframes ai-skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes ai-fill-highlight {
+    0%   { background-color: rgba(34, 197, 94, 0.22); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.32); }
+    60%  { background-color: rgba(34, 197, 94, 0.10); box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.18); }
+    100% { background-color: transparent;             box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.ai-skeleton {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    caret-color: transparent !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    border-color: transparent !important;
+    background-image: linear-gradient(90deg, #eef2f7 25%, #dde3ec 50%, #eef2f7 75%) !important;
+    background-size: 200% 100% !important;
+    background-repeat: no-repeat !important;
+    background-color: #eef2f7 !important;
+    animation: ai-skeleton-shimmer 1.4s ease-in-out infinite !important;
+    border-radius: 8px !important;
+    min-height: 20px;
+    transition: none !important;
+}
+.ai-skeleton::placeholder { color: transparent !important; }
+.ai-skeleton::-webkit-input-placeholder { color: transparent !important; }
+/* contenteditable span 등 빈 요소도 높이 유지 */
+.ai-skeleton:empty::before { content: '\00a0'; display: inline-block; }
+
+.ai-container-skeleton {
+    position: relative !important;
+    pointer-events: none !important;
+}
+.ai-container-skeleton > * {
+    opacity: 0.25 !important;
+    transition: opacity 0.2s ease;
+}
+.ai-container-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.10) 50%, transparent 100%);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: ai-skeleton-shimmer 1.4s ease-in-out infinite;
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.ai-highlight {
+    animation: ai-fill-highlight 1.6s ease-out 1;
+    border-radius: 8px;
+}
+
 /* AI 筌뤴뫀???醫뤾문疫??????*/
 .model-selector-container {
     display: inline-block; /* ??덊돩??筌띿쉳苡?鈺곌퀣??*/

@@ -8,6 +8,7 @@ import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons } from './dealbook_report_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
+import { applyAiSkeleton, finishAiSkeleton, clearAiSkeleton } from './ai_skeleton_utils.js';
 
 
 
@@ -298,6 +299,18 @@ $(document).ready(function () {
         const $btn = $(this);
         const originalHtml = $btn.html();
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 분석 중...');
+
+        // [스켈레톤] AI가 채울 타깃 필드에 시머 적용
+        const skeletonTargets = {
+            fields: [
+                '#buyer-name-editor', '#buyer-industry', '#buyer-industry-etc',
+                '#buyer-manager', '#buyer-email', '#buyer-investment',
+                '#buyer-summary', '#buyer-interest-summary', '#private-memo'
+            ]
+        };
+        applyAiSkeleton(skeletonTargets);
+
+        let aiSucceeded = false;
         try {
             const prompt = `업로드된 문서를 바탕으로 다음 매수자 정보를 정확한 JSON 형식으로 추출해줘.
 - company_name: 기업명 (단, '주식회사', '(주)' 등은 제외하고 추출)
@@ -340,6 +353,7 @@ $(document).ready(function () {
             if (json.interest_summary) $('#buyer-interest-summary').val(json.interest_summary);
             if (json.private_memo) $('#private-memo').val(json.private_memo);
             autoResizeAllTextareas();
+            aiSucceeded = true;
             showToast('AI 자동 입력이 완료되었습니다.', { icon: 'check_circle', iconColor: '#22c55e' });
         } catch (e) {
             console.error(e);
@@ -354,6 +368,8 @@ $(document).ready(function () {
             }
             showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         } finally {
+            if (aiSucceeded) finishAiSkeleton(skeletonTargets);
+            else clearAiSkeleton(skeletonTargets);
             $btn.prop('disabled', false).html(originalHtml);
         }
     });
@@ -424,6 +440,20 @@ $(document).ready(function () {
     }
 
     $(document).on('click', '.btn-status-chip', function() { setBuyerStatusChip($(this).data('value')); });
+
+    $(document).on('click', '.btn-reextract', async function() {
+        const id = $(this).data('id');
+        const fileMeta = availableFiles.find(f => String(f.id) === String(id))
+            || pendingFiles.find(f => String(f.id) === String(id));
+        if (!fileMeta) return;
+        const $item = $(this).closest('li');
+        const { reExtractAndUpdateFile } = await import('./file_render_utils.js');
+        const result = await reExtractAndUpdateFile($item, fileMeta, _supabase, '#22c55e');
+        if (result.success) {
+            fileMeta.parsedtext = result.text;
+            fileMeta.parsedText = result.text;
+        }
+    });
 
     function autoResizeAllTextareas() {
         $('textarea').each(function() { 
