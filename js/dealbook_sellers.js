@@ -1,6 +1,6 @@
 import { addAiResponse, searchVectorDB } from './AI_Functions.js';
 import { APIcall } from './APIcallFunction.js';
-import { filetypecheck, fileUpload, downloadTextFile } from './File_Functions.js';
+import { filetypecheck, fileUpload, downloadTextFile, isAiPendingRetry } from './File_Functions.js';
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, resolveAvatarUrl, DEFAULT_MANAGER, showLoader } from './auth_utils.js';
 import * as sharingUtils from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson, applyKeywordsMasking, maskWithCircles } from './utils.js';
@@ -927,6 +927,17 @@ $(document).ready(function () {
                                 entity_id: isNew ? null : sellerId
                             })
                             .eq('id', uploadedFile.id);
+
+                        // 업로드 직후 AI 미반영 사유를 사용자에게 즉시 안내 (일시 장애 vs 이미지 문서)
+                        const pText = uploadedFile.parsedtext || uploadedFile.parsed_text || uploadedFile.parsedText;
+                        const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
+                        if (!isSearchable) {
+                            if (isAiPendingRetry(pText)) {
+                                showToast(`"${file.name}": AI 텍스트 추출 서버 일시 혼잡. 잠시 후 파일 옆 새로고침 아이콘으로 재시도해주세요.`, { icon: 'schedule', iconColor: '#f59e0b', duration: 5000 });
+                            } else {
+                                showToast(`"${file.name}": 이미지 위주 문서로 보입니다. 파일은 저장됐지만 AI 검색에 활용되지 않습니다.`, { icon: 'info', iconColor: '#64748b', duration: 4500 });
+                            }
+                        }
 
                         if (isNew) pendingFiles.push(uploadedFile);
                         successCount++;

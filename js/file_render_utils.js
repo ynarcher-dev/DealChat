@@ -1,4 +1,4 @@
-import { reExtractTextFromFile } from './File_Functions.js';
+import { reExtractTextFromFile, isAiPendingRetry } from './File_Functions.js';
 import { showToast } from './toast_utils.js';
 
 /**
@@ -68,7 +68,8 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
     
     // AI 검색 반영 여부 판단
     const isSearchable = parsedTextValue && typeof parsedTextValue === 'string' && !parsedTextValue.startsWith('[텍스트 미추출');
-    
+    const isPendingRetry = isAiPendingRetry(parsedTextValue);
+
     // status가 특별히 지정되지 않은 경우, 데이터 속성에 따라 자동 결정
     if (!status) {
         if (parsedTextValue === 'reflected' || parsedTextValue === 'failed' || parsedTextValue === 'loading') {
@@ -78,15 +79,21 @@ export function addFileToSourceList(name, id, location, isTraining, isFinance, p
         }
     }
 
+    // 배지 hover 시 표시되는 상세 사유 — 일시 장애와 이미지 문서를 구분해 안내
+    const failedTitle = isPendingRetry
+        ? 'AI 텍스트 추출 서버가 일시적으로 혼잡합니다. 잠시 후 새로고침 아이콘으로 재시도해주세요.'
+        : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.';
+    const reflectedTitle = 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.';
+
     let badgeHtml = '';
     if (status === 'loading') {
         badgeHtml = `<span class="ai-status-badge badge-ai-loading" style="font-size: 10px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #e2e8f0;">분석 중...</span>`;
     } else if (status === 'reflected') {
         const bgColor = themeColor + '1a';
         const borderColor = themeColor + '4d';
-        badgeHtml = `<span class="ai-status-badge badge-ai-reflected" style="font-size: 10px; font-weight: 600; color: ${themeColor}; background: ${bgColor}; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid ${borderColor};">AI 반영됨</span>`;
+        badgeHtml = `<span class="ai-status-badge badge-ai-reflected" title="${reflectedTitle}" style="font-size: 10px; font-weight: 600; color: ${themeColor}; background: ${bgColor}; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid ${borderColor};">AI 반영됨</span>`;
     } else {
-        badgeHtml = `<span class="ai-status-badge badge-ai-failed" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fecaca;">AI 불가</span>`;
+        badgeHtml = `<span class="ai-status-badge badge-ai-failed" title="${failedTitle}" style="font-size: 10px; font-weight: 600; color: #ef4444; background: #fee2e2; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; border: 1px solid #fecaca;">AI 불가</span>`;
     }
 
     const retryBtnHtml = (status === 'failed') ? `<button class="btn-reextract" data-id="${id}" title="AI 재인식 시도" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0.6; transition: opacity 0.2s, transform 0.3s;"><span class="material-symbols-outlined" style="font-size: 16px;">refresh</span></button>` : '';
@@ -177,6 +184,7 @@ export async function reExtractAndUpdateFile($item, fileMeta, supabaseClient, th
 
         const newText = await reExtractTextFromFile(fileObj);
         const isSearchable = newText && !newText.startsWith('[텍스트 미추출');
+        const isPendingRetry = isAiPendingRetry(newText);
 
         if (isSearchable) {
             const previewText = newText.length > 1000 ? newText.substring(0, 1000) + '...' : newText;
@@ -198,10 +206,17 @@ export async function reExtractAndUpdateFile($item, fileMeta, supabaseClient, th
 
         $badge.removeClass('badge-ai-loading').addClass('badge-ai-failed')
             .text('AI 불가')
+            .attr('title', isPendingRetry
+                ? 'AI 텍스트 추출 서버가 일시적으로 혼잡합니다. 잠시 후 새로고침 아이콘으로 재시도해주세요.'
+                : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.')
             .css({ color: '#ef4444', background: '#fee2e2', 'border-color': '#fecaca' });
         $btnRetry.prop('disabled', false).css('cursor', 'pointer');
         $icon.css({ animation: '' });
-        showToast(`"${fileMeta.file_name}" 텍스트를 추출하지 못했습니다.`, { icon: 'warning', iconColor: '#f59e0b', duration: 3000 });
+        if (isPendingRetry) {
+            showToast(`"${fileMeta.file_name}": AI 텍스트 추출 서버 일시 혼잡. 잠시 후 새로고침 아이콘으로 다시 시도해주세요.`, { icon: 'schedule', iconColor: '#f59e0b', duration: 4500 });
+        } else {
+            showToast(`"${fileMeta.file_name}": 이미지 위주 문서로 보입니다. AI 검색에는 활용되지 않습니다.`, { icon: 'info', iconColor: '#64748b', duration: 4000 });
+        }
         return { success: false, text: null };
     } catch (err) {
         console.error('Re-extraction error:', err);

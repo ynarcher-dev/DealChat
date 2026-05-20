@@ -1,6 +1,6 @@
 import { addAiResponse, searchVectorDB } from './AI_Functions.js';
 import { APIcall } from './APIcallFunction.js';
-import { filetypecheck, fileUpload, downloadTextFile } from './File_Functions.js';
+import { filetypecheck, fileUpload, downloadTextFile, isAiPendingRetry } from './File_Functions.js';
 import { checkAuth, updateHeaderProfile, initUserMenu, hideLoader, showLoader, resolveAvatarUrl, DEFAULT_MANAGER } from './auth_utils.js';
 import { checkNdaStatus, initNdaGate } from './sharing_utils.js';
 import { escapeForDisplay, tryRepairJson, resolveIndustry, resolveMgmtStatus, buildFinancialString, buildInvestmentString, buildChatContext } from './utils.js';
@@ -1054,12 +1054,26 @@ $(document).ready(function () {
 
                     if (uploadedFile && uploadedFile.storage_path) {
                         const _pt = uploadedFile.parsedtext || uploadedFile.parsedText;
+                        const isPendingRetry = isAiPendingRetry(_pt);
                         const isSearchable = _pt && !_pt.startsWith('[텍스트 미추출');
                         const finalStatus = isSearchable ? 'reflected' : 'failed';
 
                         const badgeClass = finalStatus === 'reflected' ? 'badge-ai-reflected' : 'badge-ai-failed';
                         const badgeText = finalStatus === 'reflected' ? 'AI 반영됨' : 'AI 미반영';
-                        const badgeTitle = finalStatus === 'reflected' ? 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.' : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.';
+                        const badgeTitle = finalStatus === 'reflected'
+                            ? 'AI 에이전트가 이 문서의 내용을 읽고 답변에 활용할 수 있습니다.'
+                            : (isPendingRetry
+                                ? 'AI 텍스트 추출 서버가 일시적으로 혼잡합니다. 잠시 후 새로고침 아이콘으로 재시도해주세요.'
+                                : '이미지 위주의 문서이거나 텍스트가 부족하여 AI 검색이 제한됩니다.');
+
+                        if (!isSearchable) {
+                            // 사용자가 "재시도하면 되는 일시 장애"인지 "이 문서로는 안 되는 경우"인지 즉시 알 수 있게 토스트 분기
+                            if (isPendingRetry) {
+                                showToast(`"${file.name}": AI 텍스트 추출 서버 일시 혼잡. 잠시 후 파일 옆 새로고침 아이콘으로 재시도해주세요.`, { icon: 'schedule', iconColor: '#f59e0b', duration: 5000 });
+                            } else {
+                                showToast(`"${file.name}": 이미지 위주 문서로 보입니다. 파일은 저장됐지만 AI 검색에 활용되지 않습니다.`, { icon: 'info', iconColor: '#64748b', duration: 4500 });
+                            }
+                        }
 
                         const { openSignedFile } = await import('./file_render_utils.js');
                         $tempItem.find('.file-link').attr('href', '#').off('click').on('click', openSignedFile(uploadedFile.storage_path));
