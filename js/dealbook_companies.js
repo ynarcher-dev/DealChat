@@ -1072,6 +1072,9 @@ $(document).ready(function () {
                             await _supabase.from('files')
                                 .update({ entity_id: companyId, entity_type: 'company' })
                                 .eq('id', uploadedFile.id);
+                            // 로컬 객체에도 동기화 (AI 자동입력 필터 f.entity_id === companyId가 잡도록)
+                            uploadedFile.entity_id = companyId;
+                            uploadedFile.entity_type = 'company';
                         }
                         availableFiles.push(uploadedFile);
                         successCount++;

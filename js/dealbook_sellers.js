@@ -11,7 +11,7 @@ import { migrateFinancialInfo, renderFinancialTable, collectFinancialData, merge
 import { getSignedFileUrl } from './file_render_utils.js';
 import { assignBlindLabels } from './my_list_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
-import { applyAiSkeleton, finishAiSkeleton, clearAiSkeleton } from './ai_skeleton_utils.js';
+import { beginAiAutofillUx } from './ai_skeleton_utils.js';
 
 
 // 프로필 모달 스크립트 로드
@@ -1100,15 +1100,12 @@ $(document).ready(function () {
             return;
         }
 
-        const $btn = $(this), orig = $btn.html();
+        const $btn = $(this);
 
-        $btn.prop('disabled', true)
-            .addClass('analyzing')
-            .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right: 8px; color: #ffffff;"></span><span style="font-size: 14px; font-weight: 600; color: #ffffff;">분석 중...</span>');
-
-        // [스켈레톤] AI가 채울 타깃 필드/컨테이너에 시머 적용
+        // [스켈레톤 + 경과시간] AI가 채울 타깃에 시머 적용 + 버튼 카운터
         // 기업명(#seller-name-editor)은 연동된 매물 정보 기준이라 AI 자동 입력 대상에서 제외
-        const skeletonTargets = {
+        const ux = beginAiAutofillUx({
+            $btn,
             fields: [
                 '#seller-industry', '#seller-industry-etc',
                 '#seller-ceo', '#seller-email', '#seller-establishment', '#seller-address',
@@ -1116,8 +1113,7 @@ $(document).ready(function () {
                 '#seller-fin-analysis', '#seller-manager-memo'
             ],
             containers: ['#financial-table-container']
-        };
-        applyAiSkeleton(skeletonTargets);
+        });
 
         let aiSucceeded = false;
         try {
@@ -1364,9 +1360,7 @@ $(document).ready(function () {
             showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         }
         finally {
-            if (aiSucceeded) finishAiSkeleton(skeletonTargets);
-            else clearAiSkeleton(skeletonTargets);
-            $btn.prop('disabled', false).removeClass('analyzing').html(orig);
+            ux.end(aiSucceeded);
         }
     });
 

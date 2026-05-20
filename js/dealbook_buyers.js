@@ -8,7 +8,7 @@ import { initModelSelector } from './model_selector.js';
 import { applyReportMode, removeReportMode, shouldEnterReportMode, injectReportSectionIcons } from './dealbook_report_utils.js';
 import { addFileToSourceList } from './file_render_utils.js';
 import { showToast, showPanelOverlay } from './toast_utils.js';
-import { applyAiSkeleton, finishAiSkeleton, clearAiSkeleton } from './ai_skeleton_utils.js';
+import { beginAiAutofillUx } from './ai_skeleton_utils.js';
 
 
 
@@ -270,11 +270,12 @@ $(document).ready(function () {
             displayFiles = [...displayFiles, ...pendingFiles];
         }
 
-            // [New] parsed_text 또는 parsedText 둘 다 체크 (storage_type 전달)
+        displayFiles.forEach(file => {
             const pText = file.parsedtext || file.parsed_text || file.parsedText;
             const isSearchable = pText && !pText.startsWith('[텍스트 미추출');
             const status = isSearchable ? 'reflected' : 'failed';
             addFileToSourceList(file.file_name, file.id, file.storage_path, true, false, status, null, '#22c55e', file.storage_type);
+        });
     }
 
     $('#ai-auto-fill-btn').on('click', async function() {
@@ -297,18 +298,16 @@ $(document).ready(function () {
             return;
         }
         const $btn = $(this);
-        const originalHtml = $btn.html();
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> 분석 중...');
 
-        // [스켈레톤] AI가 채울 타깃 필드에 시머 적용
-        const skeletonTargets = {
+        // [스켈레톤 + 경과시간] AI가 채울 타깃에 시머 적용 + 버튼 카운터
+        const ux = beginAiAutofillUx({
+            $btn,
             fields: [
                 '#buyer-name-editor', '#buyer-industry', '#buyer-industry-etc',
                 '#buyer-manager', '#buyer-email', '#buyer-investment',
                 '#buyer-summary', '#buyer-interest-summary', '#private-memo'
             ]
-        };
-        applyAiSkeleton(skeletonTargets);
+        });
 
         let aiSucceeded = false;
         try {
@@ -368,9 +367,7 @@ $(document).ready(function () {
             }
             showToast(toastMsg, { icon: 'error', iconColor: '#ef4444', duration: 4500 });
         } finally {
-            if (aiSucceeded) finishAiSkeleton(skeletonTargets);
-            else clearAiSkeleton(skeletonTargets);
-            $btn.prop('disabled', false).html(originalHtml);
+            ux.end(aiSucceeded);
         }
     });
 
@@ -585,8 +582,17 @@ $(document).ready(function () {
                         $tempItem.attr('data-id', uploadedFile.id);
                         $tempItem.find('.btn-delete-file').attr('data-id', uploadedFile.id);
 
-                        if (isNew) pendingFiles.push(uploadedFile);
-                        else availableFiles.push(uploadedFile);
+                        if (isNew) {
+                            pendingFiles.push(uploadedFile);
+                        } else {
+                            // 수정 모드: DB에 entity 연결 + 로컬 객체 동기화 (AI 자동입력 필터에 잡히도록)
+                            await _supabase.from('files')
+                                .update({ entity_id: buyerId, entity_type: 'buyer' })
+                                .eq('id', uploadedFile.id);
+                            uploadedFile.entity_id = buyerId;
+                            uploadedFile.entity_type = 'buyer';
+                            availableFiles.push(uploadedFile);
+                        }
 
                         successCount++;
                     } else {
